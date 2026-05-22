@@ -32,35 +32,29 @@ export default function Phase3({ data }: Phase3Props) {
     setLoading(true)
     setError('')
 
-    const payload = new URLSearchParams({
-      'form-name': 'amplifi-plan',
-      firstName: firstName.trim(),
-      email: email.trim(),
-      password,
-      childName: data.childName,
-      dobDay: data.dobDay,
-      dobMonth: data.dobMonth,
-      dobYear: data.dobYear,
-      gender: data.gender,
-      familyContrib: data.familyContrib,
-      housingStatus: data.housingStatus,
-      childBenefit: data.childBenefit,
-      giftSpend: data.giftSpend,
-      cashback: data.cashback,
-      monthly: String(data.monthly),
-      projectedValue: String(Math.round(startToday)),
-    })
-
     try {
-      const res = await fetch('/', {
+      const res = await fetch('https://formspree.io/f/mredkbww', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: payload.toString(),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          email: email.trim(),
+          childName: data.childName,
+          childDob: `${data.dobYear}-${data.dobMonth}-${data.dobDay}`,
+          childGender: data.gender,
+          familyContributorIntent: data.familyContrib,
+          housingStatus: data.housingStatus,
+          childBenefitStatus: data.childBenefit,
+          annualGiftSpend: data.giftSpend,
+          cashbackParticipation: data.cashback,
+          monthlyAmount: data.monthly,
+          projectedValue: Math.round(startToday),
+        }),
       })
       if (!res.ok) throw new Error()
       setSubmitted(true)
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError('Something went wrong — please try again.')
     } finally {
       setLoading(false)
     }
