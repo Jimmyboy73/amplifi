@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { PlanData } from './plan/types'
 import { initialPlanData } from './plan/types'
 import Phase1 from './plan/Phase1'
@@ -15,6 +15,16 @@ export default function Plan() {
   const handleComplete = (questionIndex: number) => {
     setCompletedQuestions((prev) => Math.max(prev, questionIndex + 1))
   }
+
+  // After Q5 completes, scroll to the save panel after the insight has time to animate in
+  useEffect(() => {
+    if (completedQuestions === 5) {
+      const timer = setTimeout(() => {
+        document.getElementById('phase3-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 2500)
+      return () => clearTimeout(timer)
+    }
+  }, [completedQuestions])
 
   // Effective age: exact from DOB once Q1 done, else chip × 12
   const effectiveAgeMonths =
@@ -39,7 +49,11 @@ export default function Plan() {
         onComplete={handleComplete}
       />
 
-      {completedQuestions >= 5 && <Phase3 data={data} />}
+      {completedQuestions >= 5 && (
+        <div id="phase3-section">
+          <Phase3 data={data} />
+        </div>
+      )}
     </div>
   )
 }

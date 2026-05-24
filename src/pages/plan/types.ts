@@ -8,7 +8,6 @@ export interface PlanData {
   gender: string
   childAgeMonths: number
   familyContrib: string
-  housingStatus: string
   childBenefit: string
   giftSpend: string
   cashback: string
@@ -24,7 +23,6 @@ export const initialPlanData: PlanData = {
   gender: '',
   childAgeMonths: 0,
   familyContrib: '',
-  housingStatus: '',
   childBenefit: '',
   giftSpend: '',
   cashback: '',

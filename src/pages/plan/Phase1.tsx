@@ -1,4 +1,4 @@
-import { calcProjections, formatGBP } from '../../lib/projections'
+import { fv, monthsTo21, formatGBP } from '../../lib/projections'
 
 interface Phase1Props {
   ageChip: number
@@ -19,16 +19,32 @@ export default function Phase1({
   onAgeChange,
   onMonthlyChange,
 }: Phase1Props) {
-  const { startToday, waitOneYear, costOfWaiting } = calcProjections(monthly, effectiveAgeMonths)
-  const costPerMonth = costOfWaiting / 12
-  const sliderPct = ((monthly - 10) / 490) * 100
   const displayAge = Math.floor(effectiveAgeMonths / 12)
+  const n = monthsTo21(effectiveAgeMonths)
+  const startToday = fv(monthly, n)
+
+  // Second box: "Wait 5 years" for ages 0–15, "Wait 1 year" for 16–17
+  const waitMonths = displayAge <= 15 ? 60 : 12
+  const waitLabel = displayAge <= 15 ? 'Wait 5 years' : 'Wait 1 year'
+  const waitValue = fv(monthly, Math.max(0, n - waitMonths))
+
+  // Monthly cost line always uses 1-month delay
+  const costPerMonth = startToday - fv(monthly, Math.max(0, n - 1))
+
+  const sliderPct = ((monthly - 10) / (250 - 10)) * 100
+
+  const scrollToQuestions = () => {
+    document.getElementById('plan-questions')?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   return (
     <section className="relative min-h-screen bg-midnight flex flex-col overflow-hidden">
-      {/* Founding member badge — top right */}
-      <div className="absolute top-4 right-4 sm:top-5 sm:right-5 z-10 max-w-[180px] sm:max-w-none">
-        <div className="bg-sky/10 border border-sky/30 text-sky text-[10px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-full leading-snug text-center">
+      {/* Founding member badge — top right, large sky pill */}
+      <div className="absolute top-4 right-4 sm:top-5 sm:right-5 z-10">
+        <div
+          className="text-sm sm:text-base font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-full leading-snug text-center shadow-lg"
+          style={{ backgroundColor: '#59C9E9', color: '#101628' }}
+        >
           Launching 2026 — founding member benefits available
         </div>
       </div>
@@ -40,9 +56,21 @@ export default function Phase1({
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">
             Your child's financial future starts the day they're born.
           </h1>
-          <p className="text-sky/80 text-base sm:text-lg leading-relaxed">
+          <p className="text-sky/80 text-base sm:text-lg leading-relaxed mb-6">
             Most parents spend 18 years raising a child. Almost none spend 18 years investing for one.
           </p>
+          {/* CTA — smooth scrolls to question section */}
+          <button
+            type="button"
+            onClick={scrollToQuestions}
+            className="inline-flex items-center gap-2 font-bold text-base sm:text-lg px-6 py-3.5 rounded-2xl transition-all hover:opacity-90 active:scale-[0.98] shadow-lg shadow-sky/20"
+            style={{ backgroundColor: '#59C9E9', color: '#101628' }}
+          >
+            Build your report and see your child's financial future
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
         </div>
 
         {/* Age chips */}
@@ -86,7 +114,7 @@ export default function Phase1({
           <input
             type="range"
             min={10}
-            max={500}
+            max={250}
             step={5}
             value={monthly}
             onChange={(e) => onMonthlyChange(Number(e.target.value))}
@@ -97,7 +125,7 @@ export default function Phase1({
           />
           <div className="flex justify-between text-white/30 text-xs mt-1.5">
             <span>£10</span>
-            <span>£500</span>
+            <span>£250</span>
           </div>
         </div>
 
@@ -114,10 +142,10 @@ export default function Phase1({
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
             <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
-              Wait one year
+              {waitLabel}
             </p>
             <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
-              {formatGBP(waitOneYear)}
+              {formatGBP(waitValue)}
             </p>
             <p className="text-white/35 text-xs mt-1.5">at age 21</p>
           </div>
@@ -139,11 +167,10 @@ export default function Phase1({
         </p>
       </div>
 
-      {/* Scroll prompt */}
-      <div className="pb-8 flex flex-col items-center gap-2 text-white/30">
-        <p className="text-xs">Build {effectiveName ? `${effectiveName}'s` : "your child's"} full plan below</p>
+      {/* Scroll indicator — large bouncing chevron */}
+      <div className="pb-8 flex flex-col items-center gap-1">
         <svg
-          className="w-5 h-5 animate-bounce"
+          className="w-10 h-10 text-white/50 animate-bounce"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
