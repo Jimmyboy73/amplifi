@@ -1,21 +1,21 @@
 import { useState } from 'react'
-import { formatGBP, calcProjections } from '../../lib/projections'
+import { useNavigate } from 'react-router-dom'
+import { calcProjections, formatGBP } from '../../lib/projections'
+import { supabase } from '../../lib/supabase'
 import type { PlanData } from './types'
 
 interface Phase3Props {
   data: PlanData
 }
 
-const FOUNDING_COUNT = 47
-
 export default function Phase3({ data }: Phase3Props) {
+  const navigate = useNavigate()
   const [firstName, setFirstName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [submitted, setSubmitted] = useState(false)
 
   const childName = data.childName || 'your child'
   const { startToday } = calcProjections(data.monthly, data.childAgeMonths)
@@ -32,6 +32,7 @@ export default function Phase3({ data }: Phase3Props) {
     setLoading(true)
     setError('')
 
+    // 1. Formspree — primary submission, blocks on failure
     try {
       const res = await fetch('https://formspree.io/f/mredkbww', {
         method: 'POST',
@@ -52,26 +53,85 @@ export default function Phase3({ data }: Phase3Props) {
         }),
       })
       if (!res.ok) throw new Error()
-      setSubmitted(true)
     } catch {
       setError('Something went wrong — please try again.')
-    } finally {
       setLoading(false)
+      return
     }
-  }
 
-  if (submitted) {
-    return (
-      <section className="animate-fade-slide-up bg-midnight py-20">
-        <div className="max-w-lg mx-auto px-4 sm:px-6 text-center">
-          <div className="text-5xl mb-6">🎉</div>
-          <h2 className="text-3xl font-bold text-white mb-4">
-            {data.childName ? `${data.childName}'s` : 'Your'} plan is saved.
-          </h2>
-          <p className="text-white/70 text-lg">We'll be in touch.</p>
-        </div>
-      </section>
+    // 2. Supabase — non-blocking on failure
+    let userId: string | null = null
+    let planId: string | null = null
+    let foundingMemberNumber: number | null = null
+
+    try {
+      const { count } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+
+      foundingMemberNumber = (count ?? 0) + 1
+
+      const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase()
+      const pad = (s: string) => s.padStart(2, '0')
+      const childDob = `${data.dobYear}-${pad(data.dobMonth)}-${pad(data.dobDay)}`
+
+      const { data: userRow, error: userError } = await supabase
+        .from('users')
+        .insert({
+          email: email.trim(),
+          first_name: firstName.trim(),
+          founding_member_number: foundingMemberNumber,
+          referral_code: referralCode,
+        })
+        .select('id')
+        .single()
+
+      if (!userError && userRow) {
+        userId = userRow.id
+
+        const { data: planRow } = await supabase
+          .from('plans')
+          .insert({
+            user_id: userId,
+            child_name: data.childName,
+            child_dob: childDob,
+            child_gender: data.gender,
+            monthly_amount: data.monthly,
+            family_contributor_intent: data.familyContrib,
+            housing_status: data.housingStatus,
+            child_benefit_status: data.childBenefit,
+            annual_gift_spend_range: data.giftSpend,
+            cashback_participation: data.cashback,
+            projected_value_at_21: Math.round(startToday),
+          })
+          .select('id')
+          .single()
+
+        if (planRow) planId = planRow.id
+      }
+    } catch {
+      // Supabase failure is non-blocking — continue to report
+    }
+
+    // 3. Persist report data for the next page
+    sessionStorage.setItem(
+      'amplifi_report_data',
+      JSON.stringify({
+        childName: data.childName,
+        childAgeMonths: data.childAgeMonths,
+        monthly: data.monthly,
+        familyContrib: data.familyContrib,
+        housingStatus: data.housingStatus,
+        childBenefit: data.childBenefit,
+        giftSpend: data.giftSpend,
+        cashback: data.cashback,
+        foundingMemberNumber,
+        userId,
+        planId,
+      }),
     )
+
+    navigate('/plan/report')
   }
 
   return (
@@ -214,15 +274,6 @@ export default function Phase3({ data }: Phase3Props) {
             No spam. We'll only contact you about Amplifi.
           </p>
         </form>
-
-        {/* Founding member counter */}
-        <div className="mt-8 pt-6 border-t border-white/10 text-center">
-          <p className="text-white/50 text-sm">
-            Join{' '}
-            <span className="text-white font-semibold">{FOUNDING_COUNT} families</span> already
-            saving for their children's futures.
-          </p>
-        </div>
       </div>
     </section>
   )
