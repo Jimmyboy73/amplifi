@@ -24,9 +24,14 @@ export default function Phase1({
   const startToday = fv(monthly, n)
 
   const waitOneYear = fv(monthly, Math.max(0, n - 12))
+  const lossOneYear = startToday - waitOneYear
 
-  const waitYears = 21 - displayAge
-  const waitXValue = fv(monthly, Math.max(0, n - waitYears * 12))
+  // Box 3: wait X years where X = min(5, yearsRemaining), except for age 16/17
+  // use yearsRemaining-1 so the value stays non-zero
+  const yearsRemaining = 21 - displayAge
+  const waitBox3Years =
+    displayAge >= 16 ? yearsRemaining - 1 : Math.min(5, yearsRemaining)
+  const lossBox3 = startToday - fv(monthly, Math.max(0, n - waitBox3Years * 12))
 
   const costPerMonth = startToday - fv(monthly, Math.max(0, n - 1))
 
@@ -55,20 +60,9 @@ export default function Phase1({
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">
             See what your child could have by the age of 21
           </h1>
-          <p className="text-sky/80 text-base sm:text-lg leading-relaxed mb-6">
+          <p className="text-sky/80 text-base sm:text-lg leading-relaxed">
             Your child's financial future should start the day they're born.
           </p>
-          <button
-            type="button"
-            onClick={scrollToQuestions}
-            className="inline-flex items-center gap-2 font-bold text-base sm:text-lg px-6 py-3.5 rounded-2xl transition-all hover:opacity-90 active:scale-[0.98] shadow-lg shadow-sky/20"
-            style={{ backgroundColor: '#59C9E9', color: '#101628' }}
-          >
-            Build your report and see your child's financial future
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
         </div>
 
         {/* Age dropdown + contribution slider — stacked on mobile, side by side on sm+ */}
@@ -147,7 +141,7 @@ export default function Phase1({
             style={{ backgroundColor: '#59C9E9', color: '#101628' }}
           >
             <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ opacity: 0.65 }}>
-              Start today
+              Start investing today
             </p>
             <p className="font-bold text-5xl sm:text-6xl leading-none">
               {formatGBP(startToday)}
@@ -155,37 +149,50 @@ export default function Phase1({
             <p className="text-xs mt-2" style={{ opacity: 0.6 }}>at age 21</p>
           </div>
 
-          {/* Boxes 2 & 3 — side by side */}
+          {/* Boxes 2 & 3 — side by side, loss framing */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
-              <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
+              <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">
                 Wait 1 year
               </p>
+              <p className="text-white/30 text-xs mb-2">You could miss out on</p>
               <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
-                {formatGBP(waitOneYear)}
+                {formatGBP(lossOneYear)}
               </p>
-              <p className="text-white/35 text-xs mt-1.5">at age 21</p>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
-              <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
-                Wait {waitYears} {waitYears === 1 ? 'year' : 'years'}
+              <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">
+                Wait {waitBox3Years} {waitBox3Years === 1 ? 'year' : 'years'}
               </p>
+              <p className="text-white/30 text-xs mb-2">You could miss out on</p>
               <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
-                {formatGBP(waitXValue)}
+                {formatGBP(lossBox3)}
               </p>
-              <p className="text-white/35 text-xs mt-1.5">at age 21</p>
             </div>
           </div>
         </div>
 
         {/* Cost of waiting line */}
-        <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3.5 mb-2">
+        <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3.5 mb-6">
           <p className="text-amber text-sm sm:text-base font-medium text-center">
-            Every month you wait costs{' '}
+            Every month you delay costs{' '}
             {effectiveName || 'your child'}{' '}
             <span className="font-bold">{formatGBP(costPerMonth)}</span> in lost growth.
           </p>
         </div>
+
+        {/* CTA */}
+        <button
+          type="button"
+          onClick={scrollToQuestions}
+          className="w-full inline-flex items-center justify-center gap-2 font-bold text-base sm:text-lg px-6 py-3.5 rounded-2xl transition-all hover:opacity-90 active:scale-[0.98] shadow-lg shadow-sky/20 mb-4"
+          style={{ backgroundColor: '#59C9E9', color: '#101628' }}
+        >
+          Build your report and see your child's financial future
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
         {/* Disclaimer */}
         <p className="text-white/25 text-[10px] leading-relaxed text-center mb-2">
