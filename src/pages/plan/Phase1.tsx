@@ -23,12 +23,11 @@ export default function Phase1({
   const n = monthsTo21(effectiveAgeMonths)
   const startToday = fv(monthly, n)
 
-  // Second box: "Wait 5 years" for ages 0–15, "Wait 1 year" for 16–17
-  const waitMonths = displayAge <= 15 ? 60 : 12
-  const waitLabel = displayAge <= 15 ? 'Wait 5 years' : 'Wait 1 year'
-  const waitValue = fv(monthly, Math.max(0, n - waitMonths))
+  const waitOneYear = fv(monthly, Math.max(0, n - 12))
 
-  // Monthly cost line always uses 1-month delay
+  const waitYears = 21 - displayAge
+  const waitXValue = fv(monthly, Math.max(0, n - waitYears * 12))
+
   const costPerMonth = startToday - fv(monthly, Math.max(0, n - 1))
 
   const sliderPct = ((monthly - 10) / (250 - 10)) * 100
@@ -39,7 +38,7 @@ export default function Phase1({
 
   return (
     <section className="relative min-h-screen bg-midnight flex flex-col overflow-hidden">
-      {/* Founding member badge — top right, large sky pill */}
+      {/* Founding member badge */}
       <div className="absolute top-4 right-4 sm:top-5 sm:right-5 z-10">
         <div
           className="text-sm sm:text-base font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-full leading-snug text-center shadow-lg"
@@ -54,12 +53,11 @@ export default function Phase1({
         {/* Headlines */}
         <div className="mb-8 sm:mb-10">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">
-            Your child's financial future starts the day they're born.
+            See what your child could have by the age of 21
           </h1>
           <p className="text-sky/80 text-base sm:text-lg leading-relaxed mb-6">
-            Most parents spend 18 years raising a child. Almost none spend 18 years investing for one.
+            Your child's financial future should start the day they're born.
           </p>
-          {/* CTA — smooth scrolls to question section */}
           <button
             type="button"
             onClick={scrollToQuestions}
@@ -73,81 +71,110 @@ export default function Phase1({
           </button>
         </div>
 
-        {/* Age chips */}
-        <div className="mb-6">
-          <p className="text-white/50 text-xs font-medium uppercase tracking-widest mb-3">
-            {effectiveName ? `${effectiveName}'s age` : 'How old is your child?'}
-          </p>
-          <div className="grid grid-cols-6 sm:grid-cols-9 gap-2">
-            {Array.from({ length: 18 }, (_, i) => {
-              const isSelected = childAgeMonthsLocked ? i === displayAge : i === ageChip
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={childAgeMonthsLocked}
-                  onClick={() => onAgeChange(i)}
-                  className={`h-11 rounded-xl text-sm font-semibold transition-all ${
-                    isSelected
-                      ? 'bg-sky text-midnight shadow-lg shadow-sky/20'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20 active:scale-95'
-                  } disabled:cursor-default`}
-                >
-                  {i}
-                </button>
-              )
-            })}
-          </div>
-          {childAgeMonthsLocked && (
-            <p className="text-white/30 text-xs mt-2">Age calculated from date of birth</p>
-          )}
-        </div>
-
-        {/* Slider */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-white/50 text-xs font-medium uppercase tracking-widest">
-              Monthly contribution
+        {/* Age dropdown + contribution slider — stacked on mobile, side by side on sm+ */}
+        <div className="flex flex-col sm:flex-row gap-6 mb-8">
+          {/* Age dropdown */}
+          <div className="flex-1">
+            <p className="text-white/50 text-xs font-medium uppercase tracking-widest mb-3">
+              Child's age
             </p>
-            <span className="text-white font-bold text-2xl">{formatGBP(monthly)}</span>
+            <div className="relative">
+              <select
+                value={childAgeMonthsLocked ? displayAge : ageChip}
+                disabled={childAgeMonthsLocked}
+                onChange={(e) => onAgeChange(Number(e.target.value))}
+                className="w-full h-14 rounded-xl px-4 pr-10 text-base font-semibold appearance-none outline-none cursor-pointer disabled:cursor-default disabled:opacity-60"
+                style={{
+                  backgroundColor: '#101628',
+                  color: 'white',
+                  border: '2px solid #59C9E9',
+                }}
+              >
+                {Array.from({ length: 18 }, (_, i) => (
+                  <option key={i} value={i} style={{ backgroundColor: '#101628', color: 'white' }}>
+                    {i} {i === 1 ? 'year old' : 'years old'}
+                  </option>
+                ))}
+              </select>
+              <svg
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5"
+                style={{ color: '#59C9E9' }}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            {childAgeMonthsLocked && (
+              <p className="text-white/30 text-xs mt-2">Age calculated from date of birth</p>
+            )}
           </div>
-          <input
-            type="range"
-            min={10}
-            max={250}
-            step={5}
-            value={monthly}
-            onChange={(e) => onMonthlyChange(Number(e.target.value))}
-            style={{
-              background: `linear-gradient(to right, #59c9e9 0%, #59c9e9 ${sliderPct}%, rgba(255,255,255,0.15) ${sliderPct}%, rgba(255,255,255,0.15) 100%)`,
-            }}
-            className="w-full h-2 rounded-full outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-sky [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-sky [&::-moz-range-thumb]:border-solid [&::-moz-range-thumb]:cursor-pointer"
-          />
-          <div className="flex justify-between text-white/30 text-xs mt-1.5">
-            <span>£10</span>
-            <span>£250</span>
+
+          {/* Monthly contribution slider */}
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-white/50 text-xs font-medium uppercase tracking-widest">
+                Monthly contribution
+              </p>
+              <span className="text-white font-bold text-2xl">{formatGBP(monthly)}</span>
+            </div>
+            <input
+              type="range"
+              min={10}
+              max={250}
+              step={5}
+              value={monthly}
+              onChange={(e) => onMonthlyChange(Number(e.target.value))}
+              style={{
+                background: `linear-gradient(to right, #59c9e9 0%, #59c9e9 ${sliderPct}%, rgba(255,255,255,0.15) ${sliderPct}%, rgba(255,255,255,0.15) 100%)`,
+              }}
+              className="w-full h-2 rounded-full outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-sky [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-sky [&::-moz-range-thumb]:border-solid [&::-moz-range-thumb]:cursor-pointer"
+            />
+            <div className="flex justify-between text-white/30 text-xs mt-1.5">
+              <span>£10</span>
+              <span>£250</span>
+            </div>
           </div>
         </div>
 
         {/* Output boxes */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="bg-sky/10 border border-sky/25 rounded-2xl p-4 sm:p-5">
-            <p className="text-sky/70 text-xs font-semibold uppercase tracking-wider mb-2">
+        <div className="mb-5">
+          {/* Box 1 — full-width hero */}
+          <div
+            className="rounded-2xl p-5 sm:p-7 mb-3"
+            style={{ backgroundColor: '#59C9E9', color: '#101628' }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ opacity: 0.65 }}>
               Start today
             </p>
-            <p className="text-white font-bold text-2xl sm:text-3xl leading-none">
+            <p className="font-bold text-5xl sm:text-6xl leading-none">
               {formatGBP(startToday)}
             </p>
-            <p className="text-white/35 text-xs mt-1.5">at age 21</p>
+            <p className="text-xs mt-2" style={{ opacity: 0.6 }}>at age 21</p>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
-            <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
-              {waitLabel}
-            </p>
-            <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
-              {formatGBP(waitValue)}
-            </p>
-            <p className="text-white/35 text-xs mt-1.5">at age 21</p>
+
+          {/* Boxes 2 & 3 — side by side */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
+              <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
+                Wait 1 year
+              </p>
+              <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
+                {formatGBP(waitOneYear)}
+              </p>
+              <p className="text-white/35 text-xs mt-1.5">at age 21</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
+              <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
+                Wait {waitYears} {waitYears === 1 ? 'year' : 'years'}
+              </p>
+              <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
+                {formatGBP(waitXValue)}
+              </p>
+              <p className="text-white/35 text-xs mt-1.5">at age 21</p>
+            </div>
           </div>
         </div>
 
@@ -167,7 +194,7 @@ export default function Phase1({
         </p>
       </div>
 
-      {/* Scroll indicator — large bouncing chevron */}
+      {/* Scroll indicator */}
       <div className="pb-8 flex flex-col items-center gap-1">
         <svg
           className="w-10 h-10 text-white/50 animate-bounce"
