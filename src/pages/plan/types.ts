@@ -15,7 +15,7 @@ export interface PlanData {
 
 export const initialPlanData: PlanData = {
   ageChip: 0,
-  monthly: 50,
+  monthly: 60,
   childName: '',
   dobDay: '',
   dobMonth: '',
