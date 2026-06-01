@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   fv,
-  monthsTo21,
   formatGBP,
   formatCompoundingTime,
   dobToAgeMonths,
@@ -27,7 +26,7 @@ const GIFT_MONTHLY: Record<string, number> = {
 // ─── Thermometer calculation ──────────────────────────────────────────────────
 
 function calcThermometerTotal(data: PlanData, completedQuestions: number): number {
-  const n = monthsTo21(data.childAgeMonths)
+  const n = Math.max(0, 300 - data.childAgeMonths)
   let total = fv(data.monthly, n)
   if (
     completedQuestions >= 2 &&
@@ -219,7 +218,7 @@ function Q1({
     onComplete()
   }
 
-  const n = monthsTo21(ageMonths ?? data.childAgeMonths)
+  const n = Math.max(0, 300 - (ageMonths ?? data.childAgeMonths))
   const insightName = name.trim() || 'Your child'
 
   return (
@@ -359,7 +358,7 @@ function Q2({
   const [answer, setAnswer] = useState(data.familyContrib)
   const childName = data.childName || 'your child'
 
-  const n = monthsTo21(data.childAgeMonths)
+  const n = Math.max(0, 300 - data.childAgeMonths)
   const parentAlone = fv(data.monthly, n)
   const withGrandparents = fv(data.monthly + 50, n)
   const fullNetwork = fv(data.monthly + 100, n)
@@ -442,7 +441,7 @@ function Q2({
           {/* Delta callout */}
           <p className="text-sm">
             Investing together could mean{' '}
-            <strong>{formatGBP(delta)}</strong> more for {childName} by age 21.
+            <strong>{formatGBP(delta)}</strong> more for {childName} by age 25.
           </p>
         </InsightCard>
       )}
@@ -476,7 +475,7 @@ function Q3({
   const [answer, setAnswer] = useState(data.childBenefit)
   const childName = data.childName || 'your child'
 
-  const n = monthsTo21(data.childAgeMonths)
+  const n = Math.max(0, 300 - data.childAgeMonths)
   const baseVal = fv(data.monthly, n)
   const withBenefit = fv(data.monthly + 56, n)
   const delta = withBenefit - baseVal
@@ -517,7 +516,7 @@ function Q3({
             <p>
               Investing half your Child Benefit (£56/month) alongside your{' '}
               <strong>{formatGBP(data.monthly)}/month</strong> could mean an extra{' '}
-              <strong>{formatGBP(delta)}</strong> for {childName} by age 21.
+              <strong>{formatGBP(delta)}</strong> for {childName} by age 25.
             </p>
           ) : (
             <p>
@@ -561,7 +560,7 @@ function Q4({
 
   const selected = GIFT_OPTIONS.find((o) => o.value === answer)
   const midpoint = selected?.midpoint ?? 350
-  const giftFV = fv(midpoint / 2 / 12, monthsTo21(data.childAgeMonths))
+  const giftFV = fv(midpoint / 2 / 12, Math.max(0, 300 - data.childAgeMonths))
 
   const handleContinue = () => {
     onUpdate({ giftSpend: answer })
@@ -640,7 +639,7 @@ function Q5({
   const [answer, setAnswer] = useState(data.cashback)
   const childName = data.childName || 'your child'
 
-  const n = monthsTo21(data.childAgeMonths)
+  const n = Math.max(0, 300 - data.childAgeMonths)
   const cashbackFV = fv(350 / 12, n)
 
   // Stacked bar layers
@@ -704,7 +703,7 @@ function Q5({
 
           {/* Stacked bar chart — all layers */}
           <p className="text-xs font-bold text-midnight/50 uppercase tracking-widest mb-3">
-            {childName}'s full picture by age 21
+            {childName}'s full picture by age 25
           </p>
           <div className="flex items-stretch gap-4">
             {/* Bar */}
@@ -725,7 +724,7 @@ function Q5({
             <div className="flex flex-col justify-between flex-1" style={{ height: 180 }}>
               <div>
                 <p className="text-midnight font-bold text-xl leading-tight">{formatGBP(totalBar)}</p>
-                <p className="text-slate-400 text-xs mt-0.5">total by age 21</p>
+                <p className="text-slate-400 text-xs mt-0.5">total by age 25</p>
               </div>
               <div className="space-y-1.5">
                 {[...chartLayers].reverse().map((layer) => (
@@ -824,7 +823,7 @@ export default function Phase2({ data, completedQuestions, onUpdate, onComplete 
           {/* Thermometer */}
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-midnight/50 font-medium">
-              {data.childName || 'Your child'}'s potential by age 21
+              {data.childName || 'Your child'}'s potential by age 25
             </p>
             {isThermometerBlurred && (
               <p className="text-[10px] text-sky font-semibold">
@@ -878,38 +877,42 @@ export default function Phase2({ data, completedQuestions, onUpdate, onComplete 
             onUpdate={onUpdate}
             onComplete={() => handleComplete(0)}
           />
-          <Q2
-            sectionRef={refs[1]}
-            isLocked={completedQuestions < 1}
-            isCompleted={completedQuestions > 1}
-            data={data}
-            onUpdate={onUpdate}
-            onComplete={() => handleComplete(1)}
-          />
-          <Q3
-            sectionRef={refs[2]}
-            isLocked={completedQuestions < 2}
-            isCompleted={completedQuestions > 2}
-            data={data}
-            onUpdate={onUpdate}
-            onComplete={() => handleComplete(2)}
-          />
-          <Q4
-            sectionRef={refs[3]}
-            isLocked={completedQuestions < 3}
-            isCompleted={completedQuestions > 3}
-            data={data}
-            onUpdate={onUpdate}
-            onComplete={() => handleComplete(3)}
-          />
-          <Q5
-            sectionRef={refs[4]}
-            isLocked={completedQuestions < 4}
-            isCompleted={completedQuestions > 4}
-            data={data}
-            onUpdate={onUpdate}
-            onComplete={() => handleComplete(4)}
-          />
+          {completedQuestions >= 1 && (
+            <>
+              <Q2
+                sectionRef={refs[1]}
+                isLocked={false}
+                isCompleted={completedQuestions > 1}
+                data={data}
+                onUpdate={onUpdate}
+                onComplete={() => handleComplete(1)}
+              />
+              <Q3
+                sectionRef={refs[2]}
+                isLocked={completedQuestions < 2}
+                isCompleted={completedQuestions > 2}
+                data={data}
+                onUpdate={onUpdate}
+                onComplete={() => handleComplete(2)}
+              />
+              <Q4
+                sectionRef={refs[3]}
+                isLocked={completedQuestions < 3}
+                isCompleted={completedQuestions > 3}
+                data={data}
+                onUpdate={onUpdate}
+                onComplete={() => handleComplete(3)}
+              />
+              <Q5
+                sectionRef={refs[4]}
+                isLocked={completedQuestions < 4}
+                isCompleted={completedQuestions > 4}
+                data={data}
+                onUpdate={onUpdate}
+                onComplete={() => handleComplete(4)}
+              />
+            </>
+          )}
         </div>
       </div>
     </section>

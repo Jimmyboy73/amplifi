@@ -185,7 +185,7 @@ export default function Phase1({
           className="w-full inline-flex items-center justify-center gap-2 font-bold text-base sm:text-lg px-6 py-3.5 rounded-2xl transition-all hover:opacity-90 active:scale-[0.98] shadow-lg shadow-sky/20 mb-4"
           style={{ backgroundColor: '#59C9E9', color: '#101628' }}
         >
-          This is just the beginning. See your family's full picture below.
+          This is just the beginning... see your family's full picture below.
           <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
@@ -199,9 +199,11 @@ export default function Phase1({
       </div>
 
       {/* Scroll indicator */}
-      <div className="pb-8 flex flex-col items-center gap-1">
+      <div className="pb-8 flex flex-col items-center gap-2 animate-bounce">
+        <p className="text-white/70 text-xs font-medium tracking-wide">Scroll to build your picture</p>
         <svg
-          className="w-10 h-10 text-white/50 animate-bounce"
+          className="w-16 h-16"
+          style={{ color: '#59C9E9' }}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
