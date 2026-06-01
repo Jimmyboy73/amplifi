@@ -1,4 +1,4 @@
-import { fv, monthsTo21, formatGBP } from '../../lib/projections'
+import { fv, formatGBP } from '../../lib/projections'
 
 interface Phase1Props {
   ageChip: number
@@ -14,23 +14,19 @@ export default function Phase1({
   ageChip,
   monthly,
   effectiveAgeMonths,
-  effectiveName,
   childAgeMonthsLocked,
   onAgeChange,
   onMonthlyChange,
 }: Phase1Props) {
   const displayAge = Math.floor(effectiveAgeMonths / 12)
-  const n = monthsTo21(effectiveAgeMonths)
+  const n = Math.max(0, 300 - effectiveAgeMonths) // months to age 25
   const startToday = fv(monthly, n)
 
   const waitOneYear = fv(monthly, Math.max(0, n - 12))
   const lossOneYear = startToday - waitOneYear
 
-  // Box 3: wait X years where X = min(5, yearsRemaining), except for age 16/17
-  // use yearsRemaining-1 so the value stays non-zero
-  const yearsRemaining = 21 - displayAge
-  const waitBox3Years =
-    displayAge >= 16 ? yearsRemaining - 1 : Math.min(5, yearsRemaining)
+  // Box 3: X = min(5, 25 - age - 1), floored at 1 so the label stays meaningful
+  const waitBox3Years = Math.max(1, Math.min(5, 25 - displayAge - 1))
   const lossBox3 = startToday - fv(monthly, Math.max(0, n - waitBox3Years * 12))
 
   const costPerMonth = startToday - fv(monthly, Math.max(0, n - 1))
@@ -58,7 +54,7 @@ export default function Phase1({
         {/* Headlines */}
         <div className="mb-8 sm:mb-10">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">
-            See what your child could have by the age of 21
+            See what your child could have by the age of 25
           </h1>
           <p className="text-sky/80 text-base sm:text-lg leading-relaxed">
             Your child's financial future should start the day they're born.
@@ -146,26 +142,38 @@ export default function Phase1({
             <p className="font-bold text-5xl sm:text-6xl leading-none">
               {formatGBP(startToday)}
             </p>
-            <p className="text-xs mt-2" style={{ opacity: 0.6 }}>at age 21</p>
+            <p className="text-xs mt-2" style={{ opacity: 0.6 }}>at age 25</p>
           </div>
 
           {/* Boxes 2 & 3 — side by side, loss framing */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
+            <div
+              className="rounded-2xl p-4 sm:p-5"
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+              }}
+            >
               <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">
                 Wait 1 year
               </p>
-              <p className="text-white/30 text-xs mb-2">You could miss out on</p>
-              <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
+              <p className="text-white/40 text-xs mb-2">You could miss out on</p>
+              <p className="font-bold text-2xl sm:text-3xl leading-none" style={{ color: '#DC2626' }}>
                 {formatGBP(lossOneYear)}
               </p>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5">
+            <div
+              className="rounded-2xl p-4 sm:p-5"
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+              }}
+            >
               <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">
                 Wait {waitBox3Years} {waitBox3Years === 1 ? 'year' : 'years'}
               </p>
-              <p className="text-white/30 text-xs mb-2">You could miss out on</p>
-              <p className="text-white/70 font-bold text-2xl sm:text-3xl leading-none">
+              <p className="text-white/40 text-xs mb-2">You could miss out on</p>
+              <p className="font-bold text-2xl sm:text-3xl leading-none" style={{ color: '#DC2626' }}>
                 {formatGBP(lossBox3)}
               </p>
             </div>
@@ -175,8 +183,7 @@ export default function Phase1({
         {/* Cost of waiting line */}
         <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3.5 mb-6">
           <p className="text-amber text-sm sm:text-base font-medium text-center">
-            Every month you delay costs{' '}
-            {effectiveName || 'your child'}{' '}
+            Every month you delay costs your child{' '}
             <span className="font-bold">{formatGBP(costPerMonth)}</span> in lost growth.
           </p>
         </div>
