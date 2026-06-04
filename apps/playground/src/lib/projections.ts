@@ -2,7 +2,7 @@ const MONTHLY_RATE = 0.08 / 12
 
 export function fv(pmt: number, months: number): number {
   if (months <= 0) return 0
-  return pmt * (Math.pow(1 + MONTHLY_RATE, months) - 1) / MONTHLY_RATE
+  return pmt * (Math.pow(1 + MONTHLY_RATE, months) - 1) / MONTHLY_RATE * (1 + MONTHLY_RATE)
 }
 
 export function monthsTo21(ageMonths: number): number {
