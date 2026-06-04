@@ -4,7 +4,7 @@ import { fv, formatGBP } from '../../lib/projections'
 
 // ── DrumRollPicker ────────────────────────────────────────────────────────────
 const ITEM_H = 48
-const VISIBLE_ITEMS = 5
+const VISIBLE_ITEMS = 3
 
 function clampOffset(o: number) {
   return Math.max(0, Math.min(17 * ITEM_H, o))
@@ -151,7 +151,8 @@ function DrumRollPicker({
   }, [animateTo, rerender])
 
   const offset = offsetRef.current
-  const translateY = 2 * ITEM_H - offset
+  const centreSlot = Math.floor(VISIBLE_ITEMS / 2)
+  const translateY = centreSlot * ITEM_H - offset
 
   return (
     <div
@@ -169,7 +170,7 @@ function DrumRollPicker({
       <div
         className="absolute inset-x-0 pointer-events-none"
         style={{
-          top: 2 * ITEM_H,
+          top: centreSlot * ITEM_H,
           height: ITEM_H,
           background: 'rgba(89,201,233,0.08)',
           borderTop: '1px solid rgba(89,201,233,0.25)',
