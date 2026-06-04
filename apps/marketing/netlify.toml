@@ -1,7 +1,6 @@
 [build]
-  base = "apps/marketing"
   command = "npm run build"
-  publish = "apps/marketing/dist"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
