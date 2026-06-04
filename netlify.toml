@@ -1,13 +1,12 @@
 [build]
   base = "apps/playground"
   command = "npm run build"
-  publish = "apps/playground/dist"
-  functions = "apps/playground/netlify/functions"
-
-[build.environment]
-  NODE_VERSION = "20"
+  publish = "dist"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[build.environment]
+  NODE_VERSION = "20"
