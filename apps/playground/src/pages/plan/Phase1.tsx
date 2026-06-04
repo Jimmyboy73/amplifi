@@ -284,7 +284,7 @@ export default function Phase1({
         </div>
 
         {/* Age picker + contribution slider — stacked on mobile, side by side on sm+ */}
-        <div className="flex flex-col sm:flex-row gap-6 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-stretch gap-6 mb-8">
           {/* Age drum roll picker */}
           <div className="flex-1">
             <p className="text-white/50 text-xs font-medium uppercase tracking-widest mb-3">
@@ -301,7 +301,7 @@ export default function Phase1({
           </div>
 
           {/* Monthly contribution slider */}
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col justify-center">
             <div className="flex items-center justify-between mb-3">
               <p className="text-white/50 text-xs font-medium uppercase tracking-widest">
                 Monthly contribution
