@@ -302,14 +302,11 @@ export default function Phase1({
 
           {/* Monthly contribution slider */}
           <div className="flex-1 flex flex-col justify-start">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-white/50 text-xs font-medium uppercase tracking-widest">
-                Monthly contribution
-              </p>
-              <span className="text-white font-bold text-2xl">{formatGBP(monthly)}</span>
-            </div>
+            <p className="text-white/50 text-xs font-medium uppercase tracking-widest mb-3">
+              Monthly contribution
+            </p>
             <div
-              className="flex flex-col justify-center px-4"
+              className="flex flex-col px-4 py-4"
               style={{
                 height: VISIBLE_ITEMS * ITEM_H,
                 backgroundColor: '#101628',
@@ -317,25 +314,28 @@ export default function Phase1({
                 border: '2px solid #59C9E9',
               }}
             >
-              <input
-                type="range"
-                min={10}
-                max={500}
-                step={5}
-                value={monthly}
-                onChange={(e) => {
-                  if (!quizStartedRef.current) {
-                    quizStartedRef.current = true
-                    posthog.capture('quiz_started', { child_age_months: effectiveAgeMonths })
-                  }
-                  onMonthlyChange(Number(e.target.value))
-                }}
-                style={{
-                  background: `linear-gradient(to right, #59c9e9 0%, #59c9e9 ${sliderPct}%, rgba(255,255,255,0.15) ${sliderPct}%, rgba(255,255,255,0.15) 100%)`,
-                }}
-                className="w-full h-2 rounded-full outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-sky [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-sky [&::-moz-range-thumb]:border-solid [&::-moz-range-thumb]:cursor-pointer"
-              />
-              <div className="flex justify-between text-white/30 text-xs mt-1.5">
+              <span className="text-white font-bold text-2xl leading-none">{formatGBP(monthly)}</span>
+              <div className="flex-1 flex items-center">
+                <input
+                  type="range"
+                  min={10}
+                  max={500}
+                  step={5}
+                  value={monthly}
+                  onChange={(e) => {
+                    if (!quizStartedRef.current) {
+                      quizStartedRef.current = true
+                      posthog.capture('quiz_started', { child_age_months: effectiveAgeMonths })
+                    }
+                    onMonthlyChange(Number(e.target.value))
+                  }}
+                  style={{
+                    background: `linear-gradient(to right, #59c9e9 0%, #59c9e9 ${sliderPct}%, rgba(255,255,255,0.15) ${sliderPct}%, rgba(255,255,255,0.15) 100%)`,
+                  }}
+                  className="w-full h-2 rounded-full outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-sky [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-sky [&::-moz-range-thumb]:border-solid [&::-moz-range-thumb]:cursor-pointer"
+                />
+              </div>
+              <div className="flex justify-between text-white/30 text-xs">
                 <span>£10</span>
                 <span>£500</span>
               </div>
