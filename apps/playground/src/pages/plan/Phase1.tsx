@@ -241,14 +241,14 @@ export default function Phase1({
   onMonthlyChange,
 }: Phase1Props) {
   const displayAge = Math.floor(effectiveAgeMonths / 12)
-  const n = Math.max(0, 252 - effectiveAgeMonths) // months to age 21
+  const n = Math.max(0, 300 - effectiveAgeMonths) // months to age 25
   const startToday = fv(monthly, n)
 
   const waitOneYear = fv(monthly, Math.max(0, n - 12))
   const lossOneYear = startToday - waitOneYear
 
-  // Box 3: X = min(5, 21 - age - 1), floored at 1 so the label stays meaningful
-  const waitBox3Years = Math.max(1, Math.min(5, 21 - displayAge - 1))
+  // Box 3: X = min(5, 25 - age - 1), floored at 1 so the label stays meaningful
+  const waitBox3Years = Math.max(1, Math.min(5, 25 - displayAge - 1))
   const lossBox3 = startToday - fv(monthly, Math.max(0, n - waitBox3Years * 12))
 
   const sliderPct = ((monthly - 10) / (500 - 10)) * 100
@@ -276,7 +276,7 @@ export default function Phase1({
         {/* Headlines */}
         <div className="mb-8 sm:mb-10">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">
-            See what your child could have by the age of 21
+            See what your child could have by the age of 25
           </h1>
           <p className="text-sky/80 text-base sm:text-lg leading-relaxed">
             Your child's financial future should start the day they're born.
@@ -356,7 +356,7 @@ export default function Phase1({
             <p className="font-bold text-5xl sm:text-6xl leading-none">
               {formatGBP(startToday)}
             </p>
-            <p className="text-xs mt-2" style={{ opacity: 0.6 }}>at age 21</p>
+            <p className="text-xs mt-2" style={{ opacity: 0.6 }}>at age 25</p>
           </div>
 
           {/* Boxes 2 & 3 — side by side, loss framing */}
