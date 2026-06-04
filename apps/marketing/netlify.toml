@@ -1,11 +1,12 @@
 [build]
+  base = "apps/marketing"
   command = "npm run build"
-  publish = "dist"
+  publish = "apps/marketing/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-[build.environment]
-  NODE_VERSION = "20"
