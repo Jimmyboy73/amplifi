@@ -153,7 +153,7 @@ export default function HomeScreen() {
         {mockChild.birthdayDays <= 60 && (
           <TouchableOpacity
             style={styles.birthdayBanner}
-            onPress={() => Alert.alert('Coming soon', 'Birthday registry coming soon')}
+            onPress={() => router.push('/birthday/index')}
             activeOpacity={0.85}
           >
             <Text style={styles.birthdayTitle}>
@@ -172,7 +172,7 @@ export default function HomeScreen() {
         >
           {([
             { icon: '🛍️', label: 'Buy gift cards', onPress: () => router.push('/(tabs)/shop') },
-            { icon: '🎂', label: 'Birthday list',  onPress: () => comingSoon('Birthday list') },
+            { icon: '🎂', label: 'Birthday list',  onPress: () => router.push('/birthday/index') },
             { icon: '👨‍👩‍👧', label: 'Invite family', onPress: () => comingSoon('Invite family') },
             { icon: '🏷️', label: 'View offers',   onPress: () => router.push('/(tabs)/offers') },
           ] as const).map((a) => (
