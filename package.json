@@ -2,7 +2,11 @@
   "name": "amplifi-monorepo",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "apps/playground",
+    "apps/marketing",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "ajv": "^8.17.1"
+  }
 }
