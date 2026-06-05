@@ -120,6 +120,9 @@ export default function DetailsScreen() {
       return
     }
 
+    // Allow session to fully establish before writing to public schema
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
     // 2. Insert profile row
     const dob = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
     const { error: profileError } = await supabase.from('profiles').insert({
