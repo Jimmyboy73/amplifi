@@ -79,7 +79,11 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
 
           {/* Secondary link */}
-          <TouchableOpacity activeOpacity={0.7} style={{ alignItems: 'center', paddingVertical: 8 }}>
+          <TouchableOpacity
+            onPress={() => router.push('/(auth)/signin')}
+            activeOpacity={0.7}
+            style={{ alignItems: 'center', paddingVertical: 8 }}
+          >
             <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14, fontWeight: '600' }}>
               I already have an account
             </Text>

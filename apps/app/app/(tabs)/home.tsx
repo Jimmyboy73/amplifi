@@ -7,6 +7,7 @@ import {
   Alert,
 } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useAuth } from '@/lib/auth'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv, formatGBP } from '@/lib/projections'
 import { colors } from '@/constants/brand'
@@ -82,6 +83,7 @@ const ACTIVITY_ICON_BG: Record<ActivityType, string> = {
 
 export default function HomeScreen() {
   const router = useRouter()
+  const { signOut } = useAuth()
 
   const sweepPct = Math.min(mockChild.walletBalance / mockChild.sweepThreshold, 1) * 100
   const monthsRemaining = (18 - mockChild.age) * 12
@@ -99,9 +101,20 @@ export default function HomeScreen() {
           <Text style={styles.logo}>amplifi</Text>
           <View style={styles.topRight}>
             <Text style={styles.bell}>🔔</Text>
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileInitial}>J</Text>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() =>
+                Alert.alert('Your account', '', [
+                  { text: 'Profile', onPress: () => Alert.alert('Coming soon', 'Profile settings coming soon.') },
+                  { text: 'Sign out', style: 'destructive', onPress: () => { void signOut() } },
+                  { text: 'Cancel', style: 'cancel' },
+                ])
+              }
+            >
+              <View style={styles.profileCircle}>
+                <Text style={styles.profileInitial}>J</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 

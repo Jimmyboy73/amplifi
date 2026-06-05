@@ -38,8 +38,9 @@ const OPTIONS = [
 
 export default function IsaStatusScreen() {
   const router = useRouter()
-  const { childName } = useLocalSearchParams<{ childName: string }>()
+  const { childName, childId } = useLocalSearchParams<{ childName: string; childId: string }>()
   const name = typeof childName === 'string' && childName.length > 0 ? childName : 'your child'
+  const cid = typeof childId === 'string' ? childId : ''
 
   const [selected, setSelected] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -47,9 +48,9 @@ export default function IsaStatusScreen() {
   const handleOption = (id: string) => {
     setSelected(id)
     if (id === 'existing') {
-      router.push({ pathname: '/(auth)/isa-link', params: { childName: name } })
+      router.push({ pathname: '/(auth)/isa-link', params: { childName: name, childId: cid } })
     } else if (id === 'new') {
-      router.push({ pathname: '/(auth)/isa-choose', params: { childName: name } })
+      router.push({ pathname: '/(auth)/isa-choose', params: { childName: name, childId: cid } })
     } else {
       setShowModal(true)
     }
@@ -62,12 +63,12 @@ export default function IsaStatusScreen() {
 
   const goToChoose = () => {
     setShowModal(false)
-    router.push({ pathname: '/(auth)/isa-choose', params: { childName: name } })
+    router.push({ pathname: '/(auth)/isa-choose', params: { childName: name, childId: cid } })
   }
 
   const goToLink = () => {
     setShowModal(false)
-    router.push({ pathname: '/(auth)/isa-link', params: { childName: name } })
+    router.push({ pathname: '/(auth)/isa-link', params: { childName: name, childId: cid } })
   }
 
   return (

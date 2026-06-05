@@ -8,10 +8,13 @@ import {
   StyleSheet,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
 import { colors } from '@/constants/brand'
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -32,6 +35,7 @@ function isValidChildDOB(d: string, m: string, y: string): boolean {
 
 export default function ChildScreen() {
   const router = useRouter()
+  const { user } = useAuth()
 
   const dobDayRef = useRef<TextInput>(null)
   const dobMonthRef = useRef<TextInput>(null)
@@ -43,6 +47,8 @@ export default function ChildScreen() {
   const [dobYear, setDobYear] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
   const [dobTouched, setDobTouched] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [insertError, setInsertError] = useState('')
 
   const trimmedName = childName.trim()
   const dobLabel = trimmedName
@@ -73,12 +79,43 @@ export default function ChildScreen() {
     }
   }
 
-  const handleContinue = () => {
-    if (!isFormValid) return
+  const handleContinue = async () => {
+    if (!isFormValid || submitting || !user) return
+    setSubmitting(true)
+    setInsertError('')
+
+    const dob = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
+
+    // 1. Insert child record
+    const { data: childData, error: childError } = await supabase
+      .from('children')
+      .insert({
+        parent_id: user.id,
+        first_name: trimmedName,
+        date_of_birth: dob,
+        photo_url: photo,
+      })
+      .select('id')
+      .single()
+
+    if (childError || !childData) {
+      setInsertError(childError?.message ?? 'Failed to save child profile. Please try again.')
+      setSubmitting(false)
+      return
+    }
+
+    // 2. Create wallet for child
+    await supabase.from('wallets').upsert(
+      { child_id: childData.id },
+      { onConflict: 'child_id' },
+    )
+
+    setSubmitting(false)
     router.push({
       pathname: '/(auth)/isa-status',
       params: {
         childName: trimmedName,
+        childId: childData.id,
         childDobDay: dobDay,
         childDobMonth: dobMonth,
         childDobYear: dobYear,
@@ -102,9 +139,7 @@ export default function ChildScreen() {
         </View>
 
         <Text style={styles.headline}>Who are we investing for?</Text>
-        <Text style={styles.subheadline}>
-          Tell us about your child. You can add more children later.
-        </Text>
+        <Text style={styles.subheadline}>Tell us about your child. You can add more children later.</Text>
 
         {/* Child's name */}
         <View style={styles.fieldWrapper}>
@@ -189,33 +224,29 @@ export default function ChildScreen() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setPhoto(null)}
-            activeOpacity={0.7}
-            style={{ marginTop: 12 }}
-          >
+          <TouchableOpacity onPress={() => setPhoto(null)} activeOpacity={0.7} style={{ marginTop: 12 }}>
             <Text style={styles.skipLink}>Skip for now</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Footer note */}
-        <Text style={styles.footerNote}>
-          Add another child after setup
-        </Text>
+        <Text style={styles.footerNote}>Add another child after setup</Text>
+
+        {insertError ? <Text style={styles.insertError}>{insertError}</Text> : null}
 
         {/* CTA */}
         <TouchableOpacity
-          style={[styles.cta, !isFormValid && styles.ctaDisabled]}
+          style={[styles.cta, (!isFormValid || submitting) && styles.ctaDisabled]}
           onPress={handleContinue}
-          disabled={!isFormValid}
+          disabled={!isFormValid || submitting}
           activeOpacity={0.85}
         >
-          <Text style={styles.ctaText}>
-            Continue
-          </Text>
+          {submitting ? (
+            <ActivityIndicator size="small" color={colors.midnight} />
+          ) : (
+            <Text style={styles.ctaText}>Continue</Text>
+          )}
         </TouchableOpacity>
 
-        {/* Spacer so content clears keyboard */}
         <View style={{ height: 16 }} />
       </ScrollView>
     </SafeAreaView>
@@ -227,115 +258,30 @@ export default function ChildScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#ffffff' },
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16 },
   backBtn: { padding: 4 },
   backArrow: { fontSize: 22, color: colors.midnight },
   progress: { fontSize: 14, color: '#64748b', fontWeight: '600' },
-  headline: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.midnight,
-    letterSpacing: -0.5,
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  subheadline: {
-    fontSize: 15,
-    color: '#64748b',
-    lineHeight: 22,
-    marginBottom: 28,
-  },
+  headline: { fontSize: 26, fontWeight: '800', color: colors.midnight, letterSpacing: -0.5, marginTop: 8, marginBottom: 8 },
+  subheadline: { fontSize: 15, color: '#64748b', lineHeight: 22, marginBottom: 28 },
   fieldWrapper: { marginBottom: 24 },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.midnight,
-    marginBottom: 6,
-  },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.midnight, marginBottom: 6 },
   fieldError: { fontSize: 12, color: '#ef4444', marginTop: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.midnight,
-    backgroundColor: '#ffffff',
-  },
+  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.midnight, backgroundColor: '#ffffff' },
   inputError: { borderColor: '#ef4444' },
   dobRow: { flexDirection: 'row', gap: 10 },
-  dobInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.midnight,
-    backgroundColor: '#ffffff',
-  },
-  dobYearInput: {
-    flex: 1.7,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.midnight,
-    backgroundColor: '#ffffff',
-  },
-  photoSection: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  photoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-    overflow: 'hidden',
-  },
-  photoImage: {
-    width: 120,
-    height: 120,
-  },
-  photoPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
+  dobInput: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: colors.midnight, backgroundColor: '#ffffff' },
+  dobYearInput: { flex: 1.7, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: colors.midnight, backgroundColor: '#ffffff' },
+  photoSection: { alignItems: 'center', marginBottom: 28 },
+  photoCircle: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', overflow: 'hidden' },
+  photoImage: { width: 120, height: 120 },
+  photoPlaceholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   photoIcon: { fontSize: 28, marginBottom: 6 },
-  photoLabel: {
-    fontSize: 11,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 15,
-  },
+  photoLabel: { fontSize: 11, color: '#64748b', textAlign: 'center', lineHeight: 15 },
   skipLink: { fontSize: 13, color: '#94a3b8', fontWeight: '600' },
-  footerNote: {
-    fontSize: 13,
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  cta: {
-    backgroundColor: colors.sky,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
+  footerNote: { fontSize: 13, color: '#94a3b8', textAlign: 'center', marginBottom: 16 },
+  insertError: { fontSize: 13, color: '#ef4444', marginBottom: 12, lineHeight: 19 },
+  cta: { backgroundColor: colors.sky, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
   ctaDisabled: { opacity: 0.4 },
   ctaText: { color: colors.midnight, fontSize: 17, fontWeight: '700' },
 })
