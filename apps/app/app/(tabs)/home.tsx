@@ -238,7 +238,7 @@ export default function HomeScreen() {
         >
           {([
             { icon: '🛍️', label: 'Buy gift cards', onPress: () => router.push('/(tabs)/shop') },
-            { icon: '🎂', label: 'Birthday list',  onPress: () => router.push('/birthday') },
+            { icon: '🎁', label: 'Gift registry',  onPress: () => router.push('/birthday') },
             { icon: '👨‍👩‍👧', label: 'Invite family', onPress: () => comingSoon('Invite family') },
             { icon: '🏷️', label: 'View offers',   onPress: () => router.push('/(tabs)/offers') },
           ] as const).map((a) => (

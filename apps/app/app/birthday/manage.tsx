@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   Alert,
   Linking,
@@ -73,6 +74,11 @@ export default function ManageWishlistScreen() {
   const [childName, setChildName] = useState('your child')
   const [childAgeMonths, setChildAgeMonths] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+
+  const [showAddItem, setShowAddItem] = useState(false)
+  const [newItemName, setNewItemName] = useState('')
+  const [newItemRetailer, setNewItemRetailer] = useState('')
+  const [newItemAmount, setNewItemAmount] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -189,7 +195,76 @@ export default function ManageWishlistScreen() {
               Alert.alert('Error', error.message)
               return
             }
-            setItems((prev) => prev.filter((i) => i.id !== item.id))
+            const updatedItems = items.filter((i) => i.id !== item.id)
+            setItems(updatedItems)
+            const newTotal = updatedItems.reduce((sum, i) => sum + (i.targetAmount || 0), 0)
+            await supabase
+              .from('wishlists')
+              .update({ total_target: newTotal })
+              .eq('id', id)
+          },
+        },
+      ],
+    )
+  }
+
+  const handleAddItem = async () => {
+    if (!newItemName.trim() || !id) return
+    const { data, error } = await (supabase as any)
+      .from('wishlist_items')
+      .insert({
+        wishlist_id: id,
+        name: newItemName.trim(),
+        retailer: newItemRetailer.trim() || '',
+        target_amount: parseFloat(newItemAmount) || 0,
+        pledged_amount: 0,
+        emoji: '🎁',
+      })
+      .select()
+      .single()
+
+    if (error) {
+      Alert.alert('Error', error.message)
+      return
+    }
+
+    const newItem: WishlistItemLocal = {
+      id: data.id,
+      name: data.name,
+      retailer: data.retailer ?? '',
+      targetAmount: data.target_amount,
+      pledgedAmount: data.pledged_amount,
+      imageEmoji: data.emoji,
+      purchased: data.purchased,
+    }
+    const updatedItems = [...items, newItem]
+    setItems(updatedItems)
+
+    const newTotal = updatedItems.reduce((sum, i) => sum + (i.targetAmount || 0), 0)
+    await supabase
+      .from('wishlists')
+      .update({ total_target: newTotal })
+      .eq('id', id)
+
+    setNewItemName('')
+    setNewItemRetailer('')
+    setNewItemAmount('')
+    setShowAddItem(false)
+  }
+
+  const handleDeleteWishlist = () => {
+    Alert.alert(
+      'Delete this wishlist?',
+      'This will permanently remove the wishlist, all items and pledge records.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.from('wishlist_items').delete().eq('wishlist_id', id)
+            await supabase.from('wishlists').delete().eq('id', id)
+            router.replace('/birthday')
           },
         },
       ],
@@ -308,6 +383,53 @@ export default function ManageWishlistScreen() {
           )
         })}
 
+        {/* Add item */}
+        <TouchableOpacity
+          style={styles.addItemBtn}
+          onPress={() => setShowAddItem((v) => !v)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.addItemBtnText}>＋ Add another item</Text>
+        </TouchableOpacity>
+
+        {showAddItem && (
+          <View style={styles.addItemForm}>
+            <TextInput
+              style={styles.addInput}
+              value={newItemName}
+              onChangeText={setNewItemName}
+              placeholder="Item name"
+              placeholderTextColor="#94a3b8"
+            />
+            <TextInput
+              style={styles.addInput}
+              value={newItemRetailer}
+              onChangeText={setNewItemRetailer}
+              placeholder="Retailer (optional)"
+              placeholderTextColor="#94a3b8"
+            />
+            <View style={styles.addAmountRow}>
+              <Text style={styles.addPound}>£</Text>
+              <TextInput
+                style={styles.addAmountInput}
+                value={newItemAmount}
+                onChangeText={setNewItemAmount}
+                placeholder="0.00"
+                placeholderTextColor="#94a3b8"
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.addConfirmBtn, !newItemName.trim() && styles.addConfirmBtnDisabled]}
+              onPress={handleAddItem}
+              disabled={!newItemName.trim()}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.addConfirmBtnText}>Add item</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* S3 — Surplus sweep */}
         {surplus > 0 && (
           <View style={styles.surplusCard}>
@@ -370,6 +492,11 @@ export default function ManageWishlistScreen() {
             <Text style={styles.shareLink}>📱 Share on WhatsApp</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Delete wishlist */}
+        <TouchableOpacity onPress={handleDeleteWishlist} activeOpacity={0.7} style={styles.deleteWishlistRow}>
+          <Text style={styles.deleteWishlistText}>Delete wishlist</Text>
+        </TouchableOpacity>
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -512,6 +639,56 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '600' },
   statusTextConfirmed: { color: '#16a34a' },
   statusTextPending: { color: colors.amber },
+
+  addItemBtn: {
+    backgroundColor: colors.sky,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    alignItems: 'center',
+  },
+  addItemBtnText: { fontSize: 14, fontWeight: '700', color: colors.midnight },
+  addItemForm: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+  },
+  addInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.midnight,
+    marginBottom: 8,
+  },
+  addAmountRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  addPound: { fontSize: 14, fontWeight: '600', color: colors.midnight, marginRight: 6 },
+  addAmountInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.midnight,
+  },
+  addConfirmBtn: {
+    backgroundColor: colors.sky,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  addConfirmBtnDisabled: { opacity: 0.4 },
+  addConfirmBtnText: { fontSize: 14, fontWeight: '700', color: colors.midnight },
+  deleteWishlistRow: { alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  deleteWishlistText: { fontSize: 14, color: '#ef4444', fontWeight: '600' },
 
   shareCard: {
     backgroundColor: `${colors.sky}1A`,
