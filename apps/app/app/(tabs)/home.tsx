@@ -34,12 +34,14 @@ function gbp(n: number, decimals = 2): string {
 
 function formatCompact(value: number): string {
   if (value >= 1_000_000) {
-    return '£' + (value / 1_000_000).toFixed(2).replace(/\.?0+$/, '') + 'm'
+    const m = value / 1_000_000
+    return '£' + (m >= 10 ? Math.round(m) : m.toFixed(1)) + 'm'
   }
   if (value >= 1_000) {
-    return '£' + (value / 1_000).toFixed(1).replace(/\.?0+$/, '') + 'k'
+    const k = value / 1_000
+    return '£' + (k >= 10 ? Math.round(k) : k.toFixed(1)) + 'k'
   }
-  return '£' + Math.round(value).toString()
+  return '£' + Math.round(value).toLocaleString()
 }
 
 const ACTIVITY_ICON: Record<ActivityType, string> = {
@@ -277,17 +279,17 @@ export default function HomeScreen() {
           <View style={styles.projRow}>
             <View style={styles.projCard}>
               <Text style={styles.projLabel}>Age 18</Text>
-              <Text style={[styles.projCardValue, { color: colors.sky }]}>{formatCompact(proj18)}</Text>
+              <Text style={[styles.projCardValue, { color: colors.sky }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatCompact(proj18)}</Text>
               <Text style={styles.projSub}>ISA matures</Text>
             </View>
             <View style={styles.projCard}>
               <Text style={styles.projLabel}>Age 25</Text>
-              <Text style={[styles.projCardValue, { color: colors.midnight }]}>{formatCompact(proj25)}</Text>
+              <Text style={[styles.projCardValue, { color: colors.midnight }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatCompact(proj25)}</Text>
               <Text style={styles.projSub}>First home?</Text>
             </View>
             <View style={styles.projCard}>
               <Text style={styles.projLabel}>Age 65</Text>
-              <Text style={[styles.projCardValue, { color: colors.azure }]}>{formatCompact(proj65)}</Text>
+              <Text style={[styles.projCardValue, { color: colors.azure }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{formatCompact(proj65)}</Text>
               <Text style={styles.projSub}>Retirement</Text>
             </View>
           </View>
@@ -428,7 +430,7 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 12, alignItems: 'center',
   },
   projLabel: { fontSize: 11, color: '#64748b', marginBottom: 4 },
-  projCardValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, textAlign: 'center' },
+  projCardValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3, textAlign: 'center' },
   projSub: { fontSize: 10, color: '#94a3b8', marginTop: 3 },
   sliderDisclaimer: {
     fontSize: 11, color: '#94a3b8',
