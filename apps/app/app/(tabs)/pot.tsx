@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -7,11 +7,14 @@ import {
   StyleSheet,
   Alert,
   Share,
+  ActivityIndicator,
 } from 'react-native'
 import Slider from '@react-native-community/slider'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv, formatGBP } from '@/lib/projections'
 import { colors } from '@/constants/brand'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,39 +27,6 @@ interface Contribution {
   amount: number
   type: ContributionType
 }
-
-interface FamilyContributor {
-  id: string
-  name: string
-  initial: string
-  totalThisYear: number
-}
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const CHILD = {
-  name: 'Olivia',
-  ageMonths: 36,
-  totalToJISA: 487.30,
-  thisMonth: 22.40,
-  thisYear: 187.20,
-  monthlyAverage: 22.40,
-}
-
-const CONTRIBUTIONS: Contribution[] = [
-  { id: '1', date: 'Today',      description: 'Tesco gift card cashback',  amount: 3.00,  type: 'gift_card' },
-  { id: '2', date: 'Yesterday',  description: 'Swept to JISA',             amount: 22.40, type: 'sweep' },
-  { id: '3', date: '3 Jun',      description: 'M&S gift card cashback',    amount: 4.00,  type: 'gift_card' },
-  { id: '4', date: '28 May',     description: 'Grandma contributed',       amount: 50.00, type: 'family' },
-  { id: '5', date: '21 May',     description: 'Swept to JISA',             amount: 45.80, type: 'sweep' },
-  { id: '6', date: '14 May',     description: 'Sainsburys gift card',      amount: 2.50,  type: 'gift_card' },
-  { id: '7', date: '1 May',      description: 'Swept to JISA',             amount: 38.20, type: 'sweep' },
-]
-
-const FAMILY_CONTRIBUTORS: FamilyContributor[] = [
-  { id: '1', name: 'Grandma',   initial: 'G', totalThisYear: 340.00 },
-  { id: '2', name: 'Uncle Tom', initial: 'U', totalThisYear: 50.00 },
-]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -84,24 +54,107 @@ function gbp(n: number): string {
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function PotScreen() {
-  const [sliderValue, setSliderValue] = useState(CHILD.monthlyAverage)
+  const { user } = useAuth()
 
-  const monthsTo18 = Math.max(0, 18 * 12 - CHILD.ageMonths)
-  const monthsTo25 = Math.max(0, 25 * 12 - CHILD.ageMonths)
-  const monthsTo65 = Math.max(0, 65 * 12 - CHILD.ageMonths)
+  const [child, setChild] = useState<{ id: string; name: string; date_of_birth: string } | null>(null)
+  const [wallet, setWallet] = useState<{ balance: number; total_earned: number } | null>(null)
+  const [rawContributions, setRawContributions] = useState<Array<{
+    id: string; type: string; description: string; amount: number; created_at: string
+  }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [sliderValue, setSliderValue] = useState(20)
+
+  useEffect(() => {
+    if (!user) return
+    const fetchData = async () => {
+      setIsLoading(true)
+
+      const { data: childData } = await supabase
+        .from('children')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      if (childData) setChild(childData)
+
+      const { data: walletData } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('owner_id', user.id)
+        .single()
+
+      if (walletData) setWallet(walletData)
+
+      if (childData) {
+        const { data: contribData } = await supabase
+          .from('contributions')
+          .select('*')
+          .eq('child_id', childData.id)
+          .order('created_at', { ascending: false })
+          .limit(20)
+
+        if (contribData) setRawContributions(contribData)
+      }
+
+      setIsLoading(false)
+    }
+    fetchData()
+  }, [user])
+
+  const childName = child?.name ?? 'Your child'
+
+  const childAgeMonths = child?.date_of_birth
+    ? Math.floor((Date.now() - new Date(child.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 30))
+    : 0
+
+  const totalToJISA = wallet?.total_earned ?? 0
+
+  const now = new Date()
+  const thisMonth = rawContributions
+    .filter((c) => {
+      const d = new Date(c.created_at)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    })
+    .reduce((sum, c) => sum + (c.amount || 0), 0)
+  const thisYear = rawContributions
+    .filter((c) => new Date(c.created_at).getFullYear() === now.getFullYear())
+    .reduce((sum, c) => sum + (c.amount || 0), 0)
+
+  const contributions: Contribution[] = rawContributions.map((c) => ({
+    id: c.id,
+    date: new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+    description: c.description,
+    amount: c.amount,
+    type: (c.type as ContributionType) in CONTRIBUTION_ICON
+      ? (c.type as ContributionType)
+      : 'gift_card',
+  }))
+
+  const monthsTo18 = Math.max(0, 18 * 12 - childAgeMonths)
+  const monthsTo25 = Math.max(0, 25 * 12 - childAgeMonths)
+  const monthsTo65 = Math.max(0, 65 * 12 - childAgeMonths)
 
   const proj18 = fv(sliderValue, monthsTo18)
   const proj25 = fv(sliderValue, monthsTo25)
   const proj65 = fv(sliderValue, monthsTo65)
 
-  // Compounding callout — hardcoded £50/month illustration
-  const earlyStart = fv(50, 65 * 12 - CHILD.ageMonths)
+  const earlyStart = fv(50, 65 * 12 - childAgeMonths)
   const lateStart  = fv(50, (65 - 30) * 12)
 
   const handleShare = () => {
     Share.share({
-      message: `${CHILD.name}'s JISA pot just hit £487! We've been using Amplifi to turn our everyday shopping into her financial future. 🎉`,
+      message: `${childName}'s JISA pot is growing! We've been using Amplifi to turn our everyday shopping into her financial future. 🎉`,
     }).catch(() => {})
+  }
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.offwhite, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.sky} />
+      </View>
+    )
   }
 
   return (
@@ -110,25 +163,25 @@ export default function PotScreen() {
 
         {/* ── S1: Header card ──────────────────────────────────────────── */}
         <View style={styles.headerCard}>
-          <Text style={styles.headerName}>{CHILD.name}'s Pot</Text>
+          <Text style={styles.headerName}>{childName}'s Pot</Text>
           <Text style={styles.headerTagline}>Building her future, one shop at a time</Text>
 
-          <Text style={styles.headerTotal}>{gbp(CHILD.totalToJISA)}</Text>
+          <Text style={styles.headerTotal}>{gbp(totalToJISA)}</Text>
           <Text style={styles.headerTotalLabel}>total contributed to JISA</Text>
 
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Text style={styles.statValue}>{gbp(CHILD.thisMonth)}</Text>
+              <Text style={styles.statValue}>{gbp(thisMonth)}</Text>
               <Text style={styles.statLabel}>This month</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
-              <Text style={styles.statValue}>{gbp(CHILD.thisYear)}</Text>
+              <Text style={styles.statValue}>{gbp(thisYear)}</Text>
               <Text style={styles.statLabel}>This year</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
-              <Text style={styles.statValue}>{CONTRIBUTIONS.length}</Text>
+              <Text style={styles.statValue}>{contributions.length}</Text>
               <Text style={styles.statLabel}>Contributions</Text>
             </View>
           </View>
@@ -136,7 +189,7 @@ export default function PotScreen() {
 
         {/* ── S2: Projection slider ────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>📈 What could {CHILD.name} have?</Text>
+          <Text style={styles.cardTitle}>📈 What could {childName} have?</Text>
           <Text style={styles.cardSubtitle}>
             Adjust your monthly cashback to see the impact
           </Text>
@@ -206,15 +259,7 @@ export default function PotScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>👨‍👩‍👧 Family network</Text>
 
-          {FAMILY_CONTRIBUTORS.map((fc) => (
-            <View key={fc.id} style={styles.contributorRow}>
-              <View style={styles.contributorAvatar}>
-                <Text style={styles.contributorInitial}>{fc.initial}</Text>
-              </View>
-              <Text style={styles.contributorName}>{fc.name}</Text>
-              <Text style={styles.contributorAmount}>{gbp(fc.totalThisYear)} this year</Text>
-            </View>
-          ))}
+          <Text style={styles.emptyText}>No family contributors yet</Text>
 
           <TouchableOpacity
             onPress={() => Alert.alert('Invite family', 'Invite family coming soon')}
@@ -228,8 +273,8 @@ export default function PotScreen() {
         {/* ── S5: Milestone card ───────────────────────────────────────── */}
         <View style={styles.milestoneCard}>
           <View style={styles.milestoneTop}>
-            <View>
-              <Text style={styles.milestoneTitle}>🎉 {CHILD.name}'s pot hit £487!</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.milestoneTitle}>🎉 {childName}'s pot is growing!</Text>
               <Text style={styles.milestoneSub}>Share this milestone with family</Text>
             </View>
             <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
@@ -242,22 +287,26 @@ export default function PotScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Contribution history</Text>
 
-          {CONTRIBUTIONS.map((c) => (
-            <View key={c.id} style={styles.contribRow}>
-              <View style={[styles.contribIcon, { backgroundColor: CONTRIBUTION_BG[c.type] }]}>
-                <Text style={styles.contribIconText}>{CONTRIBUTION_ICON[c.type]}</Text>
+          {contributions.length === 0 ? (
+            <Text style={styles.emptyText}>No contributions yet</Text>
+          ) : (
+            contributions.map((c) => (
+              <View key={c.id} style={styles.contribRow}>
+                <View style={[styles.contribIcon, { backgroundColor: CONTRIBUTION_BG[c.type] }]}>
+                  <Text style={styles.contribIconText}>{CONTRIBUTION_ICON[c.type]}</Text>
+                </View>
+                <View style={styles.contribMid}>
+                  <Text style={styles.contribDesc}>{c.description}</Text>
+                  <Text style={styles.contribDate}>{c.date}</Text>
+                </View>
+                {c.type === 'sweep' ? (
+                  <Text style={styles.contribSweep}>→ JISA</Text>
+                ) : (
+                  <Text style={styles.contribAmount}>+{gbp(c.amount)}</Text>
+                )}
               </View>
-              <View style={styles.contribMid}>
-                <Text style={styles.contribDesc}>{c.description}</Text>
-                <Text style={styles.contribDate}>{c.date}</Text>
-              </View>
-              {c.type === 'sweep' ? (
-                <Text style={styles.contribSweep}>→ JISA</Text>
-              ) : (
-                <Text style={styles.contribAmount}>+{gbp(c.amount)}</Text>
-              )}
-            </View>
-          ))}
+            ))
+          )}
         </View>
 
         <View style={{ height: 100 }} />
@@ -400,27 +449,8 @@ const styles = StyleSheet.create({
   },
 
   // Family contributors
-  contributorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  contributorAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.sky,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  contributorInitial: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
-  contributorName: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.midnight },
-  contributorAmount: { fontSize: 13, color: '#64748b' },
   inviteLink: { fontSize: 14, color: colors.sky, fontWeight: '600' },
+  emptyText: { fontSize: 14, color: '#94a3b8', paddingVertical: 8 },
 
   // Milestone card
   milestoneCard: {
@@ -442,7 +472,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.midnight,
-    flex: 1,
   },
   milestoneSub: { fontSize: 13, color: '#64748b', marginTop: 4 },
   shareBtn: {

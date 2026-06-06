@@ -186,8 +186,8 @@ export default function BirthdayHomeScreen() {
             <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
           <View>
-            <Text style={styles.title}>Birthday Registry</Text>
-            <Text style={styles.subtitle}>Turn birthdays into investments</Text>
+            <Text style={styles.title}>Gift Registry</Text>
+            <Text style={styles.subtitle}>Create wishlists for any occasion</Text>
           </View>
         </View>
 
@@ -270,7 +270,7 @@ export default function BirthdayHomeScreen() {
 
         {/* Create new CTA */}
         <View style={styles.createCard}>
-          <Text style={styles.createTitle}>🎁 Create a birthday wishlist</Text>
+          <Text style={styles.createTitle}>🎁 Create a new wishlist</Text>
           <Text style={styles.createBody}>
             Share with family, collect pledges, and sweep any surplus straight to{' '}
             {childName}'s JISA.

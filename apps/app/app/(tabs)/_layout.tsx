@@ -25,6 +25,13 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="pot"
+        options={{
+          title: 'Pot',
+          tabBarIcon: ({ color }) => <TabIcon emoji="📈" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="home"
         options={{
           title: 'Home',
@@ -36,13 +43,6 @@ export default function TabsLayout() {
         options={{
           title: 'Shop',
           tabBarIcon: ({ color }) => <TabIcon emoji="🛍️" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="pot"
-        options={{
-          title: 'Pot',
-          tabBarIcon: ({ color }) => <TabIcon emoji="📈" color={color} />,
         }}
       />
       <Tabs.Screen
