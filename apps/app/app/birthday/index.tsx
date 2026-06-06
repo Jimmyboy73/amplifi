@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
@@ -59,68 +59,71 @@ export default function BirthdayHomeScreen() {
   const [wishlists, setWishlists] = useState<Wishlist[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!user) return
+    setIsLoading(true)
 
-    const fetchData = async () => {
-      setIsLoading(true)
+    const { data: childData } = await supabase
+      .from('children')
+      .select('*')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
 
-      const { data: childData } = await supabase
-        .from('children')
+    if (childData) setChild(childData)
+
+    const { data: wlData } = await supabase
+      .from('wishlists')
+      .select('*')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (wlData && wlData.length > 0) {
+      const ids = wlData.map((w) => w.id)
+      const { data: itemsData } = await supabase
+        .from('wishlist_items')
         .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single()
+        .in('wishlist_id', ids)
 
-      if (childData) setChild(childData)
-
-      const { data: wlData } = await supabase
-        .from('wishlists')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (wlData && wlData.length > 0) {
-        const ids = wlData.map((w) => w.id)
-        const { data: itemsData } = await supabase
-          .from('wishlist_items')
-          .select('*')
-          .in('wishlist_id', ids)
-
-        const mapped: Wishlist[] = wlData.map((w) => {
-          const wItems = (itemsData ?? []).filter((i) => i.wishlist_id === w.id)
-          const occasionDate = new Date(w.occasion_date)
-          const daysUntil = Math.ceil((occasionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          return {
-            id: w.id,
-            childName: childData?.name ?? 'Your child',
-            occasion: w.occasion,
-            date: occasionDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-            daysUntil,
-            status: w.status,
-            items: wItems.map((i) => ({
-              id: i.id,
-              name: i.name,
-              targetAmount: i.target_amount,
-              pledgedAmount: i.pledged_amount,
-              retailer: i.retailer ?? '',
-              imageEmoji: i.emoji,
-            })),
-            totalTarget: w.total_target,
-            totalPledged: w.total_pledged,
-            surplusAmount: w.surplus_amount,
-            paymentMethod: w.payment_method,
-          }
-        })
-        setWishlists(mapped)
-      }
-
-      setIsLoading(false)
+      const mapped: Wishlist[] = wlData.map((w) => {
+        const wItems = (itemsData ?? []).filter((i) => i.wishlist_id === w.id)
+        const occasionDate = new Date(w.occasion_date)
+        const daysUntil = Math.ceil((occasionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        return {
+          id: w.id,
+          childName: childData?.name ?? 'Your child',
+          occasion: w.occasion,
+          date: occasionDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+          daysUntil,
+          status: w.status,
+          items: wItems.map((i) => ({
+            id: i.id,
+            name: i.name,
+            targetAmount: i.target_amount,
+            pledgedAmount: i.pledged_amount,
+            retailer: i.retailer ?? '',
+            imageEmoji: i.emoji,
+          })),
+          totalTarget: w.total_target,
+          totalPledged: w.total_pledged,
+          surplusAmount: w.surplus_amount,
+          paymentMethod: w.payment_method,
+        }
+      })
+      setWishlists(mapped)
+    } else {
+      setWishlists([])
     }
 
-    fetchData()
+    setIsLoading(false)
   }, [user])
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData()
+    }, [fetchData])
+  )
 
   if (isLoading) {
     return (

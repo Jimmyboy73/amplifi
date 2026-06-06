@@ -27,7 +27,6 @@ const OCCASION_TYPES = [
 
 type OccasionId = typeof OCCASION_TYPES[number]['id']
 
-const EMOJIS = ['👟', '🧸', '📚', '🎮', '🚲', '👗', '🎨', '🏀']
 const PAYMENT_METHODS = ['Monzo', 'Revolut', 'PayPal', 'Bank transfer'] as const
 type PaymentMethod = typeof PAYMENT_METHODS[number]
 
@@ -75,8 +74,6 @@ export default function CreateWishlistScreen() {
   const [itemName, setItemName] = useState('')
   const [itemRetailer, setItemRetailer] = useState('')
   const [itemAmount, setItemAmount] = useState('')
-  const [itemEmoji, setItemEmoji] = useState('🎁')
-
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
   const [paymentDetail, setPaymentDetail] = useState('')
@@ -117,12 +114,11 @@ export default function CreateWishlistScreen() {
     if (!itemName.trim() || !itemAmount.trim()) return
     setItems((prev) => [
       ...prev,
-      { id: Date.now().toString(), name: itemName.trim(), retailer: itemRetailer.trim(), amount: itemAmount.trim(), emoji: itemEmoji },
+      { id: Date.now().toString(), name: itemName.trim(), retailer: itemRetailer.trim(), amount: itemAmount.trim(), emoji: '🎁' },
     ])
     setItemName('')
     setItemRetailer('')
     setItemAmount('')
-    setItemEmoji('🎁')
   }
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id))
@@ -336,14 +332,14 @@ export default function CreateWishlistScreen() {
               style={styles.input}
               value={itemName}
               onChangeText={setItemName}
-              placeholder="e.g. Nike Air Max trainers"
+              placeholder="Item name e.g. Nike Air Max trainers"
               placeholderTextColor="#94a3b8"
             />
             <TextInput
               style={styles.input}
               value={itemRetailer}
               onChangeText={setItemRetailer}
-              placeholder="e.g. Nike, Amazon, Next"
+              placeholder="Retailer (optional) e.g. Nike, Amazon"
               placeholderTextColor="#94a3b8"
             />
             <View style={styles.amountRow}>
@@ -356,19 +352,6 @@ export default function CreateWishlistScreen() {
                 placeholderTextColor="#94a3b8"
                 keyboardType="decimal-pad"
               />
-            </View>
-
-            <View style={styles.emojiRow}>
-              {EMOJIS.map((e) => (
-                <TouchableOpacity
-                  key={e}
-                  style={[styles.emojiChip, itemEmoji === e && styles.emojiChipActive]}
-                  onPress={() => setItemEmoji(e)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.emojiText}>{e}</Text>
-                </TouchableOpacity>
-              ))}
             </View>
 
             <TouchableOpacity
@@ -532,14 +515,6 @@ const styles = StyleSheet.create({
     flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.midnight,
   },
-  emojiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  emojiChip: {
-    width: 44, height: 44, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#e2e8f0',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  emojiChipActive: { borderColor: colors.sky, backgroundColor: `${colors.sky}15` },
-  emojiText: { fontSize: 22 },
   addItemBtn: {
     backgroundColor: colors.sky, borderRadius: 10,
     paddingVertical: 12, alignItems: 'center',
