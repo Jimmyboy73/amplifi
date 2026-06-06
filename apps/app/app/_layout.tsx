@@ -11,6 +11,8 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { supabase } from '@/lib/supabase'
 import { AuthProvider, useAuth } from '@/lib/auth'
 
 SplashScreen.preventAutoHideAsync()
@@ -23,9 +25,8 @@ function AuthRedirect() {
 
   useEffect(() => {
     if (isLoading) return
-    if (session) {
-      router.replace('/(tabs)/home')
-    } else {
+    if (!session) {
+      AsyncStorage.clear()
       router.replace('/(auth)/welcome')
     }
   }, [session, isLoading])
@@ -41,6 +42,14 @@ function AuthRedirect() {
 // ── Root layout ───────────────────────────────────────────────────────────────
 
 export default function RootLayout() {
+  useEffect(() => {
+    // TEMP: force sign out on every app start during development
+    // Remove this before beta launch
+    supabase.auth.signOut().then(() => {
+      AsyncStorage.clear()
+    })
+  }, [])
+
   const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,

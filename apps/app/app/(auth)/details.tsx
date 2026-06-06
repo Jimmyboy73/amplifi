@@ -124,20 +124,34 @@ export default function DetailsScreen() {
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     // 2. Insert profile row
-    const dob = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      full_name: name.trim(),
-      phone: phone.trim() || null,
-      date_of_birth: dob,
-    })
+    const fullName = name.trim()
+    const dobString = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
 
-    if (profileError) {
-      setAuthError(profileError.message)
-      setSubmitting(false)
-      return
+    console.log('[Profile Insert] Attempting insert for user:', data.user.id)
+    console.log('[Profile Insert] Fields:', { fullName, email, phone, dobString })
+
+    let profileError = null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`[Profile Insert] Attempt ${attempt}/3`)
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          full_name: fullName,
+          email: email,
+          phone: phone,
+          date_of_birth: dobString,
+        })
+      profileError = error
+      if (!error) {
+        console.log('[Profile Insert] SUCCESS on attempt', attempt)
+        break
+      }
+      console.error(`[Profile Insert] Attempt ${attempt} FAILED:`, error.message)
     }
 
+    console.log('[Navigation] Navigating to child screen')
     setSubmitting(false)
     router.push('/(auth)/child')
   }

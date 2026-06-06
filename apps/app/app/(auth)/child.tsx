@@ -90,8 +90,8 @@ export default function ChildScreen() {
     const { data: childData, error: childError } = await supabase
       .from('children')
       .insert({
-        parent_id: user.id,
-        first_name: trimmedName,
+        owner_id: user.id,
+        name: trimmedName,
         date_of_birth: dob,
         photo_url: photo,
       })
@@ -105,10 +105,16 @@ export default function ChildScreen() {
     }
 
     // 2. Create wallet for child
-    await supabase.from('wallets').upsert(
-      { child_id: childData.id },
-      { onConflict: 'child_id' },
+    console.log('[Wallet Upsert] Attempting for user:', user.id)
+    const { error: walletError } = await supabase.from('wallets').upsert(
+      { owner_id: user.id, balance: 0, total_earned: 0 },
+      { onConflict: 'owner_id' },
     )
+    if (walletError) {
+      console.error('[Wallet Upsert] FAILED:', walletError.message)
+    } else {
+      console.log('[Wallet Upsert] SUCCESS')
+    }
 
     setSubmitting(false)
     router.push({

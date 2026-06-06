@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from './supabase'
 import type { Profile } from './database.types'
 
@@ -42,32 +43,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    await AsyncStorage.clear()
   }
 
   useEffect(() => {
-    // Restore session on mount
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      setUser(s?.user ?? null)
-      if (s?.user) {
-        fetchProfile(s.user.id).finally(() => setIsLoading(false))
-      } else {
-        setIsLoading(false)
-      }
-    })
+    let mounted = true
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
-      setUser(s?.user ?? null)
-      if (s?.user) {
-        fetchProfile(s.user.id)
-      } else {
-        setProfile(null)
-      }
-    })
+    const init = async () => {
+      // Force sign out on mount during development
+      await supabase.auth.signOut()
+      try { await AsyncStorage.clear() } catch {}
 
-    return () => subscription.unsubscribe()
+      if (!mounted) return
+      setSession(null)
+      setUser(null)
+      setProfile(null)
+      setIsLoading(false)
+    }
+
+    init()
+
+    // Listen for auth changes after initial forced signout
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        if (!mounted) return
+        if (event === 'SIGNED_IN' && newSession) {
+          setSession(newSession)
+          setUser(newSession.user)
+          setIsLoading(false)
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setIsLoading(false)
+        }
+      }
+    )
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   return (
