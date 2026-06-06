@@ -65,6 +65,7 @@ export default function CreateWishlistScreen() {
   const [dobDay, setDobDay]   = useState('')
   const [dobMonth, setDobMonth] = useState('')
   const [dobYear, setDobYear]  = useState('')
+  const [dateError, setDateError] = useState('')
 
   const monthRef = useRef<TextInput>(null)
   const yearRef  = useRef<TextInput>(null)
@@ -96,6 +97,21 @@ export default function CreateWishlistScreen() {
     }
     return '—'
   })()
+
+  const validateDate = (d: string, m: string, y: string) => {
+    if (d.length === 2 && m.length === 2 && y.length === 4) {
+      const selected = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (selected <= today) {
+        setDateError('Please choose a future date')
+      } else {
+        setDateError('')
+      }
+    } else {
+      setDateError('')
+    }
+  }
 
   const addItem = () => {
     if (!itemName.trim() || !itemAmount.trim()) return
@@ -258,6 +274,7 @@ export default function CreateWishlistScreen() {
               onChangeText={(v) => {
                 const d = v.replace(/\D/g, '').slice(0, 2)
                 setDobDay(d)
+                validateDate(d, dobMonth, dobYear)
                 if (d.length === 2) monthRef.current?.focus()
               }}
               placeholder="DD"
@@ -273,6 +290,7 @@ export default function CreateWishlistScreen() {
               onChangeText={(v) => {
                 const m = v.replace(/\D/g, '').slice(0, 2)
                 setDobMonth(m)
+                validateDate(dobDay, m, dobYear)
                 if (m.length === 2) yearRef.current?.focus()
               }}
               placeholder="MM"
@@ -288,6 +306,7 @@ export default function CreateWishlistScreen() {
               onChangeText={(v) => {
                 const y = v.replace(/\D/g, '').slice(0, 4)
                 setDobYear(y)
+                validateDate(dobDay, dobMonth, y)
                 if (y.length === 4) yearRef.current?.blur()
               }}
               placeholder="YYYY"
@@ -297,6 +316,10 @@ export default function CreateWishlistScreen() {
               textAlign="center"
             />
           </View>
+
+          {dateError ? (
+            <Text style={styles.dateError}>{dateError}</Text>
+          ) : null}
 
           <Text style={styles.closingLabel}>
             Wishlist closes: {closingLabel}
@@ -490,6 +513,7 @@ const styles = StyleSheet.create({
     flex: 1.7, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12,
     paddingVertical: 12, fontSize: 15, color: colors.midnight, backgroundColor: '#ffffff',
   },
+  dateError: { fontSize: 13, color: '#ef4444', fontWeight: '600', marginBottom: 6 },
   closingLabel: { fontSize: 13, color: '#475569', marginBottom: 2 },
   closingHint: { fontSize: 12, color: '#94a3b8', fontStyle: 'italic', marginBottom: 8 },
 

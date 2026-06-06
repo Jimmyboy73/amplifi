@@ -145,6 +145,25 @@ export default function BirthdayHomeScreen() {
   const birthday = child?.date_of_birth ? nextBirthday(child.date_of_birth) : null
   const hasActiveWishlist = wishlists.some((w) => w.status === 'active')
 
+  const handleDeleteWishlist = (w: Wishlist) => {
+    Alert.alert(
+      'Delete this wishlist?',
+      'This will permanently remove the wishlist and all its items.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.from('wishlist_items').delete().eq('wishlist_id', w.id)
+            await supabase.from('wishlists').delete().eq('id', w.id)
+            setWishlists((prev) => prev.filter((wl) => wl.id !== w.id))
+          },
+        },
+      ],
+    )
+  }
+
   const shareWishlist = (w: Wishlist) => {
     const itemList = w.items.map((i) => `• ${i.name} (${i.retailer})`).join('\n')
     const msg =
@@ -219,16 +238,9 @@ export default function BirthdayHomeScreen() {
               </View>
 
               {w.items.map((item) => (
-                <View key={item.id} style={styles.itemRow}>
-                  <Text style={styles.itemName}>
-                    {item.imageEmoji} {item.name}{item.retailer ? ` — ${item.retailer}` : ''}
-                  </Text>
-                  {item.pledgedAmount >= item.targetAmount ? (
-                    <Text style={styles.itemReady}>✓ Ready to buy</Text>
-                  ) : (
-                    <Text style={styles.itemProgress}>{gbp(item.pledgedAmount)} / {gbp(item.targetAmount)}</Text>
-                  )}
-                </View>
+                <Text key={item.id} style={styles.itemRow}>
+                  {item.imageEmoji} {item.name}{item.retailer ? ` — ${item.retailer}` : ''}
+                </Text>
               ))}
 
               <Text style={styles.paymentMethod}>💳 Send to: {w.paymentMethod}</Text>
@@ -249,6 +261,9 @@ export default function BirthdayHomeScreen() {
                   <Text style={styles.shareBtnText}>Share wishlist →</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity onPress={() => handleDeleteWishlist(w)} activeOpacity={0.7} style={styles.deleteRow}>
+                <Text style={styles.deleteText}>Delete wishlist</Text>
+              </TouchableOpacity>
             </View>
           )
         })}
@@ -356,15 +371,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   progressFill: { height: 8, backgroundColor: colors.sky, borderRadius: 4 },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  itemName: { fontSize: 14, color: '#475569', flex: 1 },
-  itemProgress: { fontSize: 13, color: '#64748b' },
-  itemReady: { fontSize: 13, color: '#16a34a', fontWeight: '600' },
+  itemRow: { fontSize: 14, color: '#475569', paddingVertical: 3 },
   paymentMethod: { fontSize: 13, color: '#64748b', marginTop: 8 },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   manageBtn: {
@@ -385,6 +392,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareBtnText: { fontSize: 14, fontWeight: '700', color: colors.midnight },
+  deleteRow: { alignItems: 'center', marginTop: 10 },
+  deleteText: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
 
   createCard: {
     backgroundColor: `${colors.sky}1A`,
