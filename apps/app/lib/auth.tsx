@@ -50,33 +50,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
 
     const init = async () => {
-      // Force sign out on mount during development
-      await supabase.auth.signOut()
-      try { await AsyncStorage.clear() } catch {}
-
+      const { data: { session } } = await supabase.auth.getSession()
       if (!mounted) return
-      setSession(null)
-      setUser(null)
-      setProfile(null)
+      setSession(session)
+      setUser(session?.user ?? null)
       setIsLoading(false)
     }
 
     init()
 
-    // Listen for auth changes after initial forced signout
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return
-        if (event === 'SIGNED_IN' && newSession) {
-          setSession(newSession)
-          setUser(newSession.user)
-          setIsLoading(false)
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null)
-          setUser(null)
-          setProfile(null)
-          setIsLoading(false)
-        }
+        setSession(newSession)
+        setUser(newSession?.user ?? null)
+        if (!newSession) setProfile(null)
+        setIsLoading(false)
       }
     )
 
