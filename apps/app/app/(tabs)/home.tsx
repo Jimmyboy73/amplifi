@@ -161,13 +161,6 @@ export default function HomeScreen() {
   const childName = child?.name ?? 'Your child'
   const childInitial = (child?.name?.[0] ?? 'A').toUpperCase()
 
-  const monthlyAverage = (() => {
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
-    return contributions
-      .filter((c) => new Date(c.created_at).getTime() >= cutoff)
-      .reduce((sum, c) => sum + (c.amount ?? 0), 0)
-  })()
-
   const childAgeMonths = child?.date_of_birth
     ? Math.floor((Date.now() - new Date(child.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 30))
     : 0
@@ -213,20 +206,15 @@ export default function HomeScreen() {
         {/* ── S2: Hero pot card ────────────────────────────────────────── */}
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
-            <View style={styles.childAvatarRow}>
-              <View style={styles.childAvatar}>
-                {childPhoto ? (
-                  <Image source={{ uri: childPhoto }} style={styles.avatarImage} />
-                ) : (
-                  <Text style={styles.childAvatarText}>{childInitial}</Text>
-                )}
-              </View>
-              <View>
-                <Text style={styles.potTitle}>{childName}'s Pot</Text>
-                <Text style={styles.potSub}>Building her future</Text>
-              </View>
+            <View style={styles.childAvatar}>
+              {childPhoto ? (
+                <Image source={{ uri: childPhoto }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.childAvatarText}>{childInitial}</Text>
+              )}
             </View>
-            <Text style={styles.heroMonthly}>↑ {gbp(monthlyAverage)}/mo{'\n'}average</Text>
+            <Text style={styles.potTitle}>{childName}'s Pot</Text>
+            <Text style={styles.potSub}>Building her future</Text>
           </View>
 
           <Text style={styles.heroBalance}>{gbp(wallet?.total_earned ?? 0)}</Text>
@@ -256,7 +244,7 @@ export default function HomeScreen() {
 
         {/* ── S4: Projection slider ────────────────────────────────────── */}
         <View style={styles.sliderCard}>
-          <Text style={styles.sliderCardTitle}>📈 What could {childName} have?</Text>
+          <Text style={styles.sliderCardTitle}>What could {childName} have!</Text>
           <Text style={styles.sliderCardSubtitle}>Adjust monthly contribution to see the impact</Text>
 
           <Text style={styles.sliderAmountLabel}>
@@ -303,9 +291,42 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>Recent activity</Text>
         <View style={styles.activityList}>
           {contributions.length === 0 ? (
-            <Text style={styles.emptyActivity}>
-              No activity yet — buy your first gift card to start earning cashback
-            </Text>
+            <View>
+              <Text style={styles.ghostHeader}>✨ Here's what your activity could look like</Text>
+              <View style={{ opacity: 0.35 }}>
+                <View style={styles.activityRow}>
+                  <View style={[styles.activityIconWrap, { backgroundColor: '#7C3AED26' }]}>
+                    <Text style={styles.activityIcon}>👵</Text>
+                  </View>
+                  <View style={styles.activityMid}>
+                    <Text style={styles.activityDesc}>{childName}'s Grandma</Text>
+                    <Text style={styles.activityDate}>Monthly family contribution</Text>
+                  </View>
+                  <Text style={styles.activityCashback}>+£20.00</Text>
+                </View>
+                <View style={styles.activityRow}>
+                  <View style={[styles.activityIconWrap, { backgroundColor: '#0891B226' }]}>
+                    <Text style={styles.activityIcon}>👴</Text>
+                  </View>
+                  <View style={styles.activityMid}>
+                    <Text style={styles.activityDesc}>{childName}'s Grandpa</Text>
+                    <Text style={styles.activityDate}>One-off contribution</Text>
+                  </View>
+                  <Text style={styles.activityCashback}>+£10.00</Text>
+                </View>
+                <View style={styles.activityRow}>
+                  <View style={[styles.activityIconWrap, { backgroundColor: `${colors.sky}26` }]}>
+                    <Text style={styles.activityIcon}>🛍️</Text>
+                  </View>
+                  <View style={styles.activityMid}>
+                    <Text style={styles.activityDesc}>Retailer loyalty cashback</Text>
+                    <Text style={styles.activityDate}>Cashback earned</Text>
+                  </View>
+                  <Text style={styles.activityCashback}>+£8.50</Text>
+                </View>
+              </View>
+              <Text style={styles.ghostFooter}>Invite family and earn cashback to see real activity here</Text>
+            </View>
           ) : (
             contributions.map((item) => {
               const activityType = (item.type as ActivityType) in ACTIVITY_ICON
@@ -373,12 +394,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   heroTopRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 20,
   },
-  childAvatarRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   childAvatar: {
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: colors.sky,
@@ -387,9 +405,8 @@ const styles = StyleSheet.create({
   },
   childAvatarText: { color: '#ffffff', fontSize: 22, fontWeight: '800' },
   avatarImage: { width: 56, height: 56, borderRadius: 28 },
-  potTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
-  potSub: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2 },
-  heroMonthly: { color: colors.sky, fontSize: 12, fontWeight: '600', textAlign: 'right', lineHeight: 18 },
+  potTitle: { color: '#ffffff', fontSize: 20, fontWeight: '700', textAlign: 'center', marginTop: 10 },
+  potSub: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2, textAlign: 'center' },
   heroBalance: {
     color: '#ffffff', fontSize: 52, fontWeight: '800',
     textAlign: 'center', letterSpacing: -1, marginTop: 24,
@@ -458,6 +475,7 @@ const styles = StyleSheet.create({
   activityDate: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
   activityCashback: { fontSize: 14, fontWeight: '700', color: '#16a34a' },
   activitySweep: { fontSize: 14, fontWeight: '700', color: colors.azure },
-  emptyActivity: { fontSize: 14, color: '#94a3b8', textAlign: 'center', padding: 20 },
+  ghostHeader: { fontSize: 13, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingTop: 12, paddingHorizontal: 16, marginBottom: 12 },
+  ghostFooter: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 12, paddingBottom: 12, paddingHorizontal: 16 },
 
 })
