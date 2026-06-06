@@ -143,6 +143,15 @@ export default function CreateWishlistScreen() {
 
     const occasionDate = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
 
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const selectedDate = new Date(occasionDate)
+    if (selectedDate <= today) {
+      Alert.alert('Invalid date', 'The occasion date must be in the future.')
+      setSaving(false)
+      return
+    }
+
     const closingDateObj = new Date(parseInt(dobYear, 10), parseInt(dobMonth, 10) - 1, parseInt(dobDay, 10) - 7)
     const closingDate = closingDateObj.toISOString().split('T')[0]
 
@@ -190,6 +199,12 @@ export default function CreateWishlistScreen() {
       // Don't show error to user if wishlist was created successfully
       // Items may have saved despite the error response
     }
+
+    const totalTarget = items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0)
+    await supabase
+      .from('wishlists')
+      .update({ total_target: totalTarget })
+      .eq('id', wlData.id)
 
     setSaving(false)
 

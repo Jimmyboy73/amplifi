@@ -220,7 +220,9 @@ export default function BirthdayHomeScreen() {
 
               {w.items.map((item) => (
                 <View key={item.id} style={styles.itemRow}>
-                  <Text style={styles.itemName}>{item.imageEmoji} {item.name}</Text>
+                  <Text style={styles.itemName}>
+                    {item.imageEmoji} {item.name}{item.retailer ? ` — ${item.retailer}` : ''}
+                  </Text>
                   {item.pledgedAmount >= item.targetAmount ? (
                     <Text style={styles.itemReady}>✓ Ready to buy</Text>
                   ) : (
