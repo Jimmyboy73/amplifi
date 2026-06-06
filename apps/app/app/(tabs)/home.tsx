@@ -140,8 +140,10 @@ export default function HomeScreen() {
   const proj25 = fv(sliderValue, monthsTo25)
   const proj65 = fv(sliderValue, monthsTo65)
 
-  const earlyStart = fv(50, monthsTo65)
-  const lateStart  = fv(50, (65 - 30) * 12)
+  const startAt30Age65 = fv(sliderValue, Math.max(0, (65 - 30) * 12))
+  const multiplier = startAt30Age65 > 0
+    ? (proj65 / startAt30Age65).toFixed(1)
+    : '—'
 
   const comingSoon = (feature: string) =>
     Alert.alert(feature, 'Coming soon. Join the waitlist to be first to know.')
@@ -271,32 +273,16 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          <Text style={styles.comparisonNote}>
+            Starting today gives {multiplier}× more than starting at 30.{'\n'}Same amount. The difference is when you start.
+          </Text>
+
           <Text style={styles.sliderDisclaimer}>
             Illustrative projection at 8% p.a. — not a guarantee
           </Text>
         </View>
 
-        {/* ── S5: Compounding callout ───────────────────────────────────── */}
-        <View style={styles.compoundCard}>
-          <Text style={styles.compoundTitle}>⚡ The power of starting early</Text>
-
-          <View style={styles.compoundRow}>
-            <Text style={styles.compoundLeft}>Starting today</Text>
-            <Text style={styles.compoundRight}>{formatGBP(earlyStart)} by age 65</Text>
-          </View>
-          <View style={styles.compoundRow}>
-            <Text style={styles.compoundLeft}>Starting at 30</Text>
-            <Text style={styles.compoundRightDim}>{formatGBP(lateStart)} by age 65</Text>
-          </View>
-
-          <View style={styles.compoundDivider} />
-
-          <Text style={styles.compoundBottom}>
-            11.6× more wealth. Same monthly amount.{'\n'}The difference is when you start.
-          </Text>
-        </View>
-
-        {/* ── S6: Family network ───────────────────────────────────────── */}
+        {/* ── S5: Family network ───────────────────────────────────────── */}
         <View style={styles.familyCard}>
           <Text style={styles.familyTitle}>👨‍👩‍👧 Family network</Text>
 
@@ -493,31 +479,13 @@ const styles = StyleSheet.create({
   projLabel: { fontSize: 11, color: '#64748b', marginBottom: 4 },
   projCardValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, textAlign: 'center' },
   projSub: { fontSize: 10, color: '#94a3b8', marginTop: 3 },
+  comparisonNote: {
+    fontSize: 12, color: '#64748b',
+    fontStyle: 'italic', textAlign: 'center', marginTop: 8, lineHeight: 18,
+  },
   sliderDisclaimer: {
     fontSize: 11, color: '#94a3b8',
-    textAlign: 'center', fontStyle: 'italic', lineHeight: 16,
-  },
-
-  // Compounding callout
-  compoundCard: {
-    backgroundColor: colors.midnight,
-    borderRadius: 20,
-    marginHorizontal: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  compoundTitle: { fontSize: 16, fontWeight: '700', color: '#ffffff', marginBottom: 12 },
-  compoundRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 10,
-  },
-  compoundLeft: { fontSize: 13, color: 'rgba(255,255,255,0.6)' },
-  compoundRight: { fontSize: 15, fontWeight: '700', color: colors.sky },
-  compoundRightDim: { fontSize: 15, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
-  compoundDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 12 },
-  compoundBottom: {
-    fontSize: 13, color: '#ffffff',
-    fontStyle: 'italic', textAlign: 'center', lineHeight: 20,
+    textAlign: 'center', fontStyle: 'italic', lineHeight: 16, marginTop: 6,
   },
 
   // Family network
