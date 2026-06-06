@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { fv, formatGBP } from '@/lib/projections'
+import { fv } from '@/lib/projections'
 import { colors } from '@/constants/brand'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -29,6 +29,16 @@ function gbp(n: number, decimals = 2): string {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(n)
+}
+
+function formatCompact(value: number): string {
+  if (value >= 1_000_000) {
+    return '£' + (value / 1_000_000).toFixed(2).replace(/\.?0+$/, '') + 'm'
+  }
+  if (value >= 1_000) {
+    return '£' + (value / 1_000).toFixed(1).replace(/\.?0+$/, '') + 'k'
+  }
+  return '£' + Math.round(value).toString()
 }
 
 const ACTIVITY_ICON: Record<ActivityType, string> = {
@@ -128,6 +138,13 @@ export default function HomeScreen() {
 
   const sweepPct = Math.min((wallet?.balance ?? 0) / 20, 1) * 100
 
+  const monthlyAverage = (() => {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+    return contributions
+      .filter((c) => new Date(c.created_at).getTime() >= cutoff)
+      .reduce((sum, c) => sum + (c.amount ?? 0), 0)
+  })()
+
   const childAgeMonths = child?.date_of_birth
     ? Math.floor((Date.now() - new Date(child.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 30))
     : 0
@@ -182,11 +199,24 @@ export default function HomeScreen() {
                 <Text style={styles.potSub}>Building her future</Text>
               </View>
             </View>
-            <Text style={styles.heroMonthly}>↑ {gbp(0)}/mo{'\n'}average</Text>
+            <Text style={styles.heroMonthly}>↑ {gbp(monthlyAverage)}/mo{'\n'}average</Text>
           </View>
 
-          <Text style={styles.heroBalance}>{gbp(wallet?.balance ?? 0)}</Text>
-          <Text style={styles.heroBalanceSub}>building towards your next sweep</Text>
+          <Text style={styles.heroBalance}>{gbp(wallet?.total_earned ?? 0)}</Text>
+          <Text style={styles.heroBalanceSub}>total in {childName}'s JISA</Text>
+
+          <View style={styles.heroDivider} />
+
+          <View style={styles.heroStats}>
+            <View>
+              <Text style={styles.heroStatValue}>{gbp(wallet?.balance ?? 0)}</Text>
+              <Text style={styles.heroStatLabel}>accruing to sweep</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.heroStatValue}>{gbp(monthlyAverage)}</Text>
+              <Text style={styles.heroStatLabel}>monthly average</Text>
+            </View>
+          </View>
 
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${sweepPct.toFixed(1)}%` as `${number}%` }]} />
@@ -194,19 +224,6 @@ export default function HomeScreen() {
           <Text style={styles.progressLabel}>
             {gbp(wallet?.balance ?? 0)} of {gbp(20)} sweep threshold
           </Text>
-
-          <View style={styles.heroDivider} />
-
-          <View style={styles.heroStats}>
-            <View>
-              <Text style={styles.heroStatValue}>{gbp(wallet?.total_earned ?? 0)}</Text>
-              <Text style={styles.heroStatLabel}>Total to JISA</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.heroStatValue}>{gbp(0)}</Text>
-              <Text style={styles.heroStatLabel}>This month</Text>
-            </View>
-          </View>
         </View>
 
         {/* ── S3: Quick actions ────────────────────────────────────────── */}
@@ -254,17 +271,17 @@ export default function HomeScreen() {
           <View style={styles.projRow}>
             <View style={styles.projCard}>
               <Text style={styles.projLabel}>Age 18</Text>
-              <Text style={[styles.projCardValue, { color: colors.sky }]}>{formatGBP(proj18)}</Text>
+              <Text style={[styles.projCardValue, { color: colors.sky }]}>{formatCompact(proj18)}</Text>
               <Text style={styles.projSub}>ISA matures</Text>
             </View>
             <View style={styles.projCard}>
               <Text style={styles.projLabel}>Age 25</Text>
-              <Text style={[styles.projCardValue, { color: colors.midnight }]}>{formatGBP(proj25)}</Text>
+              <Text style={[styles.projCardValue, { color: colors.midnight }]}>{formatCompact(proj25)}</Text>
               <Text style={styles.projSub}>First home?</Text>
             </View>
             <View style={styles.projCard}>
               <Text style={styles.projLabel}>Age 65</Text>
-              <Text style={[styles.projCardValue, { color: colors.azure }]}>{formatGBP(proj65)}</Text>
+              <Text style={[styles.projCardValue, { color: colors.azure }]}>{formatCompact(proj65)}</Text>
               <Text style={styles.projSub}>Retirement</Text>
             </View>
           </View>
