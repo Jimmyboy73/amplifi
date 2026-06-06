@@ -614,8 +614,9 @@ export type Database = {
         Row: {
           id: string
           child_id: string
-          user_id: string
+          owner_id: string
           occasion: string
+          occasion_label: string | null
           occasion_date: string
           closing_date: string | null
           status: 'active' | 'closed'
@@ -623,14 +624,16 @@ export type Database = {
           total_pledged: number
           surplus_amount: number
           payment_method: string
+          payment_detail: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           child_id: string
-          user_id: string
+          owner_id: string
           occasion: string
+          occasion_label?: string | null
           occasion_date: string
           closing_date?: string | null
           status?: 'active' | 'closed'
@@ -638,14 +641,16 @@ export type Database = {
           total_pledged?: number
           surplus_amount?: number
           payment_method: string
+          payment_detail?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           child_id?: string
-          user_id?: string
+          owner_id?: string
           occasion?: string
+          occasion_label?: string | null
           occasion_date?: string
           closing_date?: string | null
           status?: 'active' | 'closed'
@@ -653,12 +658,13 @@ export type Database = {
           total_pledged?: number
           surplus_amount?: number
           payment_method?: string
+          payment_detail?: string | null
           created_at?: string
           updated_at?: string
         }
         Relationships: [
           { foreignKeyName: 'wishlists_child_id_fkey'; columns: ['child_id']; referencedRelation: 'children'; referencedColumns: ['id'] },
-          { foreignKeyName: 'wishlists_user_id_fkey'; columns: ['user_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+          { foreignKeyName: 'wishlists_owner_id_fkey'; columns: ['owner_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
         ]
       }
 
@@ -670,7 +676,7 @@ export type Database = {
           retailer: string | null
           target_amount: number
           pledged_amount: number
-          image_emoji: string
+          emoji: string
           purchased: boolean
           created_at: string
         }
@@ -681,7 +687,7 @@ export type Database = {
           retailer?: string | null
           target_amount: number
           pledged_amount?: number
-          image_emoji?: string
+          emoji?: string
           purchased?: boolean
           created_at?: string
         }
@@ -692,7 +698,7 @@ export type Database = {
           retailer?: string | null
           target_amount?: number
           pledged_amount?: number
-          image_emoji?: string
+          emoji?: string
           purchased?: boolean
           created_at?: string
         }
@@ -745,7 +751,37 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      create_wishlist: {
+        Args: {
+          p_child_id: string
+          p_owner_id: string
+          p_occasion: string
+          p_occasion_label: string
+          p_occasion_date: string
+          p_closing_date: string
+          p_payment_method: string
+          p_payment_detail: string
+        }
+        Returns: {
+          id: string
+          child_id: string
+          owner_id: string
+          occasion: string
+          occasion_label: string | null
+          occasion_date: string
+          closing_date: string | null
+          status: 'active' | 'closed'
+          total_target: number
+          total_pledged: number
+          surplus_amount: number
+          payment_method: string
+          payment_detail: string | null
+          created_at: string
+          updated_at: string
+        }
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

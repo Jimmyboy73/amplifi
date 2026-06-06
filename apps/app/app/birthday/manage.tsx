@@ -114,7 +114,7 @@ export default function ManageWishlistScreen() {
           retailer: i.retailer ?? '',
           targetAmount: i.target_amount,
           pledgedAmount: i.pledged_amount,
-          imageEmoji: i.image_emoji,
+          imageEmoji: i.emoji,
           purchased: i.purchased,
         })))
       }
@@ -169,6 +169,31 @@ export default function ManageWishlistScreen() {
       .eq('id', item.id)
 
     setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, purchased: true } : i))
+  }
+
+  const handleDeleteItem = (item: WishlistItemLocal) => {
+    Alert.alert(
+      'Remove this item?',
+      `"${item.name}" will be removed from the wishlist.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('wishlist_items')
+              .delete()
+              .eq('id', item.id)
+            if (error) {
+              Alert.alert('Error', error.message)
+              return
+            }
+            setItems((prev) => prev.filter((i) => i.id !== item.id))
+          },
+        },
+      ],
+    )
   }
 
   const handleSweepSurplus = () => {
@@ -271,6 +296,13 @@ export default function ManageWishlistScreen() {
                     ? `Buy ${item.name} — tap to confirm 🛍️`
                     : `${gbp(remaining)} more needed`}
                 </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDeleteItem(item)}
+                activeOpacity={0.7}
+                style={styles.removeBtn}
+              >
+                <Text style={styles.removeBtnText}>Remove item</Text>
               </TouchableOpacity>
             </View>
           )
@@ -416,6 +448,8 @@ const styles = StyleSheet.create({
   buyBtnDisabled: { backgroundColor: '#e2e8f0', opacity: 0.6 },
   buyBtnText: { fontSize: 13, fontWeight: '700', color: colors.midnight },
   buyBtnTextDisabled: { color: '#94a3b8' },
+  removeBtn: { alignSelf: 'center', marginTop: 8 },
+  removeBtnText: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
 
   surplusCard: {
     backgroundColor: 'rgba(245,158,11,0.10)',

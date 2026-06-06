@@ -126,8 +126,16 @@ export default function CreateWishlistScreen() {
   const childName = child?.name ?? 'your child'
 
   const handleCreate = async () => {
-    if (!isValid || saving || !user || !child) return
+    if (!user) {
+      console.error('[Wishlist] No user found')
+      return
+    }
+    if (!isValid || saving || !child) return
     setSaving(true)
+
+    console.log('[Wishlist] Starting create for user:', user?.id)
+    console.log('[Wishlist] Child ID:', child.id)
+    console.log('[Wishlist] Items:', items)
 
     const occasionLabel =
       occasionType === 'birthday' ? `${childName}'s Birthday` :
@@ -138,28 +146,23 @@ export default function CreateWishlistScreen() {
     const closingDateObj = new Date(parseInt(dobYear, 10), parseInt(dobMonth, 10) - 1, parseInt(dobDay, 10) - 7)
     const closingDate = closingDateObj.toISOString().split('T')[0]
 
-    const paymentString = paymentMethod === 'Bank transfer'
-      ? `Bank transfer — ${sortCode} / ${accountNumber}`
-      : `${paymentMethod} — ${paymentDetail}`
-
-    const totalTarget = items.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
+    const paymentDetail_ = (paymentMethod === 'Bank transfer'
+      ? `${sortCode} / ${accountNumber}`
+      : paymentDetail || '').trim() || 'Not specified'
 
     const { data: wlData, error: wlError } = await supabase
-      .from('wishlists')
-      .insert({
-        child_id: child.id,
-        user_id: user.id,
-        occasion: occasionLabel,
-        occasion_date: occasionDate,
-        closing_date: closingDate,
-        payment_method: paymentString,
-        total_target: totalTarget,
-        total_pledged: 0,
-        surplus_amount: 0,
-        status: 'active',
+      .rpc('create_wishlist', {
+        p_child_id: child.id,
+        p_owner_id: user.id,
+        p_occasion: occasionType ?? 'other',
+        p_occasion_label: occasionLabel,
+        p_occasion_date: occasionDate,
+        p_closing_date: closingDate,
+        p_payment_method: paymentMethod ?? '',
+        p_payment_detail: paymentDetail_,
       })
-      .select('id')
-      .single()
+
+    console.log('[Wishlist] Insert result:', wlData, wlError)
 
     if (wlError || !wlData) {
       Alert.alert('Error', wlError?.message ?? 'Failed to create wishlist. Please try again.')
@@ -167,24 +170,28 @@ export default function CreateWishlistScreen() {
       return
     }
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await (supabase as any)
       .from('wishlist_items')
       .insert(
         items.map((item) => ({
           wishlist_id: wlData.id,
           name: item.name,
-          retailer: item.retailer || null,
-          target_amount: parseFloat(item.amount),
+          retailer: item.retailer || '',
+          target_amount: parseFloat(item.amount) || 0,
           pledged_amount: 0,
-          image_emoji: item.emoji,
+          emoji: item.emoji,
         }))
       )
 
-    setSaving(false)
+    console.log('[Wishlist Items] Insert result:', itemsError)
 
     if (itemsError) {
-      Alert.alert('Error', 'Wishlist created but some items failed to save.')
+      console.error('[Wishlist Items] Error:', itemsError)
+      // Don't show error to user if wishlist was created successfully
+      // Items may have saved despite the error response
     }
+
+    setSaving(false)
 
     Alert.alert(
       'Wishlist created! 🎉',

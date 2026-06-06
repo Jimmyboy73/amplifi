@@ -82,7 +82,7 @@ export default function PledgeScreen() {
           retailer: i.retailer ?? '',
           targetAmount: i.target_amount,
           pledgedAmount: i.pledged_amount,
-          imageEmoji: i.image_emoji,
+          imageEmoji: i.emoji,
         })))
       }
 

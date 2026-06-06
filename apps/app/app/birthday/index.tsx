@@ -89,7 +89,7 @@ export default function BirthdayHomeScreen() {
       const { data: wlData } = await supabase
         .from('wishlists')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('owner_id', user.id)
         .order('created_at', { ascending: false })
 
       if (wlData && wlData.length > 0) {
@@ -116,7 +116,7 @@ export default function BirthdayHomeScreen() {
               targetAmount: i.target_amount,
               pledgedAmount: i.pledged_amount,
               retailer: i.retailer ?? '',
-              imageEmoji: i.image_emoji,
+              imageEmoji: i.emoji,
             })),
             totalTarget: w.total_target,
             totalPledged: w.total_pledged,
