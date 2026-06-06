@@ -214,7 +214,7 @@ export default function HomeScreen() {
               )}
             </View>
             <Text style={styles.potTitle}>{childName}'s Pot</Text>
-            <Text style={styles.potSub}>Building her future</Text>
+            <Text style={styles.potSub}>Building {child?.name ?? 'her'}'s future</Text>
           </View>
 
           <Text style={styles.heroBalance}>{gbp(wallet?.total_earned ?? 0)}</Text>
@@ -244,7 +244,7 @@ export default function HomeScreen() {
 
         {/* ── S4: Projection slider ────────────────────────────────────── */}
         <View style={styles.sliderCard}>
-          <Text style={styles.sliderCardTitle}>What could {childName} have!</Text>
+          <Text style={styles.sliderCardTitle}>What {childName} could have!</Text>
           <Text style={styles.sliderCardSubtitle}>Adjust monthly contribution to see the impact</Text>
 
           <Text style={styles.sliderAmountLabel}>
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   potSub: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2, textAlign: 'center' },
   heroBalance: {
     color: '#ffffff', fontSize: 42, fontWeight: '800',
-    textAlign: 'center', letterSpacing: -1, marginTop: 16,
+    textAlign: 'center', letterSpacing: -1, marginTop: 8,
   },
   heroBalanceSub: { color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', marginTop: 4 },
 
