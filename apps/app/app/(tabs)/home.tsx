@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -78,6 +79,7 @@ export default function HomeScreen() {
     created_at: string
   }>>([])
 
+  const [childPhoto, setChildPhoto] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [sliderValue, setSliderValue] = useState(20)
 
@@ -95,7 +97,10 @@ export default function HomeScreen() {
         .limit(1)
         .single()
 
-      if (childData) setChild(childData)
+      if (childData) {
+        setChild(childData)
+        if (childData.photo_url) setChildPhoto(childData.photo_url)
+      }
 
       const { data: walletData } = await supabase
         .from('wallets')
@@ -125,6 +130,24 @@ export default function HomeScreen() {
     fetchData()
   }, [user])
 
+  useEffect(() => {
+    if (isLoading) return
+    let current = 10
+    const target = 50
+    const steps = 40
+    const increment = (target - current) / steps
+    const timer = setInterval(() => {
+      current += increment
+      if (current >= target) {
+        setSliderValue(target)
+        clearInterval(timer)
+      } else {
+        setSliderValue(Math.round(current))
+      }
+    }, 2000 / steps)
+    return () => clearInterval(timer)
+  }, [isLoading])
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' }}>
@@ -135,8 +158,6 @@ export default function HomeScreen() {
 
   const childName = child?.name ?? 'Your child'
   const childInitial = (child?.name?.[0] ?? 'A').toUpperCase()
-
-  const sweepPct = Math.min((wallet?.balance ?? 0) / 20, 1) * 100
 
   const monthlyAverage = (() => {
     const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
@@ -192,7 +213,11 @@ export default function HomeScreen() {
           <View style={styles.heroTopRow}>
             <View style={styles.childAvatarRow}>
               <View style={styles.childAvatar}>
-                <Text style={styles.childAvatarText}>{childInitial}</Text>
+                {childPhoto ? (
+                  <Image source={{ uri: childPhoto }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.childAvatarText}>{childInitial}</Text>
+                )}
               </View>
               <View>
                 <Text style={styles.potTitle}>{childName}'s Pot</Text>
@@ -204,26 +229,6 @@ export default function HomeScreen() {
 
           <Text style={styles.heroBalance}>{gbp(wallet?.total_earned ?? 0)}</Text>
           <Text style={styles.heroBalanceSub}>total in {childName}'s JISA</Text>
-
-          <View style={styles.heroDivider} />
-
-          <View style={styles.heroStats}>
-            <View>
-              <Text style={styles.heroStatValue}>{gbp(wallet?.balance ?? 0)}</Text>
-              <Text style={styles.heroStatLabel}>accruing to sweep</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.heroStatValue}>{gbp(monthlyAverage)}</Text>
-              <Text style={styles.heroStatLabel}>monthly average</Text>
-            </View>
-          </View>
-
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${sweepPct.toFixed(1)}%` as `${number}%` }]} />
-          </View>
-          <Text style={styles.progressLabel}>
-            {gbp(wallet?.balance ?? 0)} of {gbp(20)} sweep threshold
-          </Text>
         </View>
 
         {/* ── S3: Quick actions ────────────────────────────────────────── */}
@@ -435,26 +440,18 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: colors.sky,
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
   },
   childAvatarText: { color: '#ffffff', fontSize: 22, fontWeight: '800' },
+  avatarImage: { width: 56, height: 56, borderRadius: 28 },
   potTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
   potSub: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2 },
   heroMonthly: { color: colors.sky, fontSize: 12, fontWeight: '600', textAlign: 'right', lineHeight: 18 },
   heroBalance: {
-    color: '#ffffff', fontSize: 42, fontWeight: '800',
-    textAlign: 'center', letterSpacing: -1, marginBottom: 6,
+    color: '#ffffff', fontSize: 52, fontWeight: '800',
+    textAlign: 'center', letterSpacing: -1, marginTop: 24,
   },
-  heroBalanceSub: { color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', marginBottom: 16 },
-  progressTrack: {
-    height: 6, backgroundColor: 'rgba(89,201,233,0.25)',
-    borderRadius: 3, overflow: 'hidden', marginBottom: 8,
-  },
-  progressFill: { height: 6, backgroundColor: colors.sky, borderRadius: 3 },
-  progressLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 16 },
-  heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
-  heroStats: { flexDirection: 'row', justifyContent: 'space-between' },
-  heroStatValue: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
-  heroStatLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 },
+  heroBalanceSub: { color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', marginTop: 4 },
 
   // Quick actions
   actionsRow: { marginBottom: 16 },
