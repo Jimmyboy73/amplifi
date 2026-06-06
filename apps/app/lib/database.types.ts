@@ -8,6 +8,7 @@ export type Database = {
         Row: {
           id: string
           full_name: string
+          email: string | null
           phone: string | null
           date_of_birth: string | null
           avatar_url: string | null
@@ -17,6 +18,7 @@ export type Database = {
         Insert: {
           id: string
           full_name: string
+          email?: string | null
           phone?: string | null
           date_of_birth?: string | null
           avatar_url?: string | null
@@ -26,6 +28,7 @@ export type Database = {
         Update: {
           id?: string
           full_name?: string
+          email?: string | null
           phone?: string | null
           date_of_birth?: string | null
           avatar_url?: string | null
@@ -38,8 +41,8 @@ export type Database = {
       children: {
         Row: {
           id: string
-          parent_id: string
-          first_name: string
+          owner_id: string
+          name: string
           date_of_birth: string
           photo_url: string | null
           created_at: string
@@ -47,8 +50,8 @@ export type Database = {
         }
         Insert: {
           id?: string
-          parent_id: string
-          first_name: string
+          owner_id: string
+          name: string
           date_of_birth: string
           photo_url?: string | null
           created_at?: string
@@ -56,15 +59,15 @@ export type Database = {
         }
         Update: {
           id?: string
-          parent_id?: string
-          first_name?: string
+          owner_id?: string
+          name?: string
           date_of_birth?: string
           photo_url?: string | null
           created_at?: string
           updated_at?: string
         }
         Relationships: [
-          { foreignKeyName: 'children_parent_id_fkey'; columns: ['parent_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+          { foreignKeyName: 'children_owner_id_fkey'; columns: ['owner_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
         ]
       }
 
@@ -110,33 +113,27 @@ export type Database = {
       wallets: {
         Row: {
           id: string
-          child_id: string
-          available_balance: number
-          pending_balance: number
-          sweep_threshold: number
-          currency: string
+          owner_id: string
+          balance: number
+          total_earned: number
           updated_at: string
         }
         Insert: {
           id?: string
-          child_id: string
-          available_balance?: number
-          pending_balance?: number
-          sweep_threshold?: number
-          currency?: string
+          owner_id: string
+          balance?: number
+          total_earned?: number
           updated_at?: string
         }
         Update: {
           id?: string
-          child_id?: string
-          available_balance?: number
-          pending_balance?: number
-          sweep_threshold?: number
-          currency?: string
+          owner_id?: string
+          balance?: number
+          total_earned?: number
           updated_at?: string
         }
         Relationships: [
-          { foreignKeyName: 'wallets_child_id_fkey'; columns: ['child_id']; referencedRelation: 'children'; referencedColumns: ['id'] }
+          { foreignKeyName: 'wallets_owner_id_fkey'; columns: ['owner_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
         ]
       }
 

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -5,9 +6,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv, formatGBP } from '@/lib/projections'
 import { colors } from '@/constants/brand'
@@ -15,46 +18,6 @@ import { colors } from '@/constants/brand'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ActivityType = 'gift_card' | 'sweep' | 'family'
-
-interface Activity {
-  id: string
-  type: ActivityType
-  description: string
-  cashback?: number
-  amount?: number
-  date: string
-}
-
-interface MockChild {
-  name: string
-  age: number
-  photoInitial: string
-  walletBalance: number
-  sweepThreshold: number
-  totalSweptToJISA: number
-  monthlyAverage: number
-  birthdayDays: number
-  recentActivity: Activity[]
-}
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const mockChild: MockChild = {
-  name: 'Olivia',
-  age: 3,
-  photoInitial: 'O',
-  walletBalance: 14.20,
-  sweepThreshold: 20.00,
-  totalSweptToJISA: 487.30,
-  monthlyAverage: 22.40,
-  birthdayDays: 23,
-  recentActivity: [
-    { id: '1', type: 'gift_card', description: 'Tesco gift card',    cashback: 3.00,  date: 'Today' },
-    { id: '2', type: 'sweep',     description: 'Swept to JISA',      amount:  22.40,  date: 'Yesterday' },
-    { id: '3', type: 'gift_card', description: 'M&S gift card',      cashback: 4.00,  date: '3 days ago' },
-    { id: '4', type: 'family',    description: 'Grandma contributed', cashback: 50.00, date: 'Last week' },
-  ],
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -83,11 +46,101 @@ const ACTIVITY_ICON_BG: Record<ActivityType, string> = {
 
 export default function HomeScreen() {
   const router = useRouter()
-  const { signOut } = useAuth()
+  const { user, signOut } = useAuth()
 
-  const sweepPct = Math.min(mockChild.walletBalance / mockChild.sweepThreshold, 1) * 100
-  const monthsRemaining = (18 - mockChild.age) * 12
-  const projectedValue = fv(mockChild.monthlyAverage, monthsRemaining)
+  const [child, setChild] = useState<{
+    id: string
+    name: string
+    date_of_birth: string
+  } | null>(null)
+
+  const [wallet, setWallet] = useState<{
+    balance: number
+    total_earned: number
+  } | null>(null)
+
+  const [contributions, setContributions] = useState<Array<{
+    id: string
+    type: string
+    description: string
+    amount: number
+    created_at: string
+  }>>([])
+
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user) return
+
+    const fetchData = async () => {
+      setIsLoading(true)
+
+      // Fetch first child
+      const { data: childData } = await supabase
+        .from('children')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      if (childData) setChild(childData)
+
+      // Fetch wallet
+      const { data: walletData } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('owner_id', user.id)
+        .single()
+
+      if (walletData) setWallet(walletData)
+
+      // Fetch recent contributions
+      if (childData) {
+        const { data: contribData } = await supabase
+          .from('contributions')
+          .select('*')
+          .eq('child_id', childData.id)
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        if (contribData) setContributions(contribData)
+      }
+
+      setIsLoading(false)
+    }
+
+    fetchData()
+  }, [user])
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.sky} />
+      </View>
+    )
+  }
+
+  const childName = child?.name ?? 'Your child'
+  const childInitial = (child?.name?.[0] ?? 'A').toUpperCase()
+
+  const birthdayDays = child?.date_of_birth
+    ? (() => {
+        const dob = new Date(child.date_of_birth)
+        const next = new Date(dob)
+        next.setFullYear(new Date().getFullYear())
+        if (next < new Date()) next.setFullYear(new Date().getFullYear() + 1)
+        return Math.ceil((next.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      })()
+    : null
+
+  const sweepPct = Math.min((wallet?.balance ?? 0) / 20, 1) * 100
+
+  const childAgeMonths = child?.date_of_birth
+    ? Math.floor((Date.now() - new Date(child.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 30))
+    : 0
+  const monthsRemaining = Math.max(0, (18 * 12) - childAgeMonths)
+  const projectedValue = fv((wallet?.balance ?? 0) / 12, monthsRemaining)
 
   const comingSoon = (feature: string) =>
     Alert.alert(feature, 'Coming soon. Join the waitlist to be first to know.')
@@ -124,18 +177,18 @@ export default function HomeScreen() {
           <View style={styles.heroTopRow}>
             <View style={styles.childAvatarRow}>
               <View style={styles.childAvatar}>
-                <Text style={styles.childAvatarText}>{mockChild.photoInitial}</Text>
+                <Text style={styles.childAvatarText}>{childInitial}</Text>
               </View>
               <View>
-                <Text style={styles.potTitle}>{mockChild.name}'s Pot</Text>
+                <Text style={styles.potTitle}>{childName}'s Pot</Text>
                 <Text style={styles.potSub}>Building her future</Text>
               </View>
             </View>
-            <Text style={styles.heroMonthly}>↑ {gbp(mockChild.monthlyAverage)}/mo{'\n'}average</Text>
+            <Text style={styles.heroMonthly}>↑ {gbp(0)}/mo{'\n'}average</Text>
           </View>
 
           {/* Balance */}
-          <Text style={styles.heroBalance}>{gbp(mockChild.walletBalance)}</Text>
+          <Text style={styles.heroBalance}>{gbp(wallet?.balance ?? 0)}</Text>
           <Text style={styles.heroBalanceSub}>building towards your next sweep</Text>
 
           {/* Progress bar */}
@@ -143,7 +196,7 @@ export default function HomeScreen() {
             <View style={[styles.progressFill, { width: `${sweepPct.toFixed(1)}%` as `${number}%` }]} />
           </View>
           <Text style={styles.progressLabel}>
-            {gbp(mockChild.walletBalance)} of {gbp(mockChild.sweepThreshold)} sweep threshold
+            {gbp(wallet?.balance ?? 0)} of {gbp(20)} sweep threshold
           </Text>
 
           {/* Divider */}
@@ -152,25 +205,25 @@ export default function HomeScreen() {
           {/* Stats */}
           <View style={styles.heroStats}>
             <View>
-              <Text style={styles.heroStatValue}>{gbp(mockChild.totalSweptToJISA)}</Text>
+              <Text style={styles.heroStatValue}>{gbp(wallet?.total_earned ?? 0)}</Text>
               <Text style={styles.heroStatLabel}>Total to JISA</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.heroStatValue}>{gbp(mockChild.monthlyAverage)}</Text>
+              <Text style={styles.heroStatValue}>{gbp(0)}</Text>
               <Text style={styles.heroStatLabel}>This month</Text>
             </View>
           </View>
         </View>
 
         {/* ── S3: Birthday banner ──────────────────────────────────────── */}
-        {mockChild.birthdayDays <= 60 && (
+        {birthdayDays !== null && birthdayDays <= 60 && (
           <TouchableOpacity
             style={styles.birthdayBanner}
-            onPress={() => router.push('/birthday/index')}
+            onPress={() => router.push('/birthday')}
             activeOpacity={0.85}
           >
             <Text style={styles.birthdayTitle}>
-              🎂 {mockChild.name}'s birthday is in {mockChild.birthdayDays} days
+              🎂 {childName}'s birthday is in {birthdayDays} days
             </Text>
             <Text style={styles.birthdayLink}>Create her wishlist →</Text>
           </TouchableOpacity>
@@ -185,7 +238,7 @@ export default function HomeScreen() {
         >
           {([
             { icon: '🛍️', label: 'Buy gift cards', onPress: () => router.push('/(tabs)/shop') },
-            { icon: '🎂', label: 'Birthday list',  onPress: () => router.push('/birthday/index') },
+            { icon: '🎂', label: 'Birthday list',  onPress: () => router.push('/birthday') },
             { icon: '👨‍👩‍👧', label: 'Invite family', onPress: () => comingSoon('Invite family') },
             { icon: '🏷️', label: 'View offers',   onPress: () => router.push('/(tabs)/offers') },
           ] as const).map((a) => (
@@ -198,7 +251,7 @@ export default function HomeScreen() {
 
         {/* ── S5: Projection nudge ─────────────────────────────────────── */}
         <View style={styles.projectionCard}>
-          <Text style={styles.projPre}>📈 At this rate, {mockChild.name} will have</Text>
+          <Text style={styles.projPre}>📈 At this rate, {childName} will have</Text>
           <Text style={styles.projValue}>{formatGBP(projectedValue)}</Text>
           <Text style={styles.projPost}>by age 18</Text>
           <Text style={styles.projDisclaimer}>
@@ -209,22 +262,37 @@ export default function HomeScreen() {
         {/* ── S6: Recent activity ──────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Recent activity</Text>
         <View style={styles.activityList}>
-          {mockChild.recentActivity.map((item) => (
-            <View key={item.id} style={styles.activityRow}>
-              <View style={[styles.activityIconWrap, { backgroundColor: ACTIVITY_ICON_BG[item.type] }]}>
-                <Text style={styles.activityIcon}>{ACTIVITY_ICON[item.type]}</Text>
-              </View>
-              <View style={styles.activityMid}>
-                <Text style={styles.activityDesc}>{item.description}</Text>
-                <Text style={styles.activityDate}>{item.date}</Text>
-              </View>
-              {item.type === 'sweep' ? (
-                <Text style={styles.activitySweep}>→ JISA</Text>
-              ) : (
-                <Text style={styles.activityCashback}>+{gbp(item.cashback ?? 0)}</Text>
-              )}
-            </View>
-          ))}
+          {contributions.length === 0 ? (
+            <Text style={styles.emptyActivity}>
+              No activity yet — buy your first gift card to start earning cashback
+            </Text>
+          ) : (
+            contributions.map((item) => {
+              const activityType = (item.type as ActivityType) in ACTIVITY_ICON
+                ? (item.type as ActivityType)
+                : 'gift_card'
+              const formattedDate = new Date(item.created_at).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+              })
+              return (
+                <View key={item.id} style={styles.activityRow}>
+                  <View style={[styles.activityIconWrap, { backgroundColor: ACTIVITY_ICON_BG[activityType] }]}>
+                    <Text style={styles.activityIcon}>{ACTIVITY_ICON[activityType]}</Text>
+                  </View>
+                  <View style={styles.activityMid}>
+                    <Text style={styles.activityDesc}>{item.description}</Text>
+                    <Text style={styles.activityDate}>{formattedDate}</Text>
+                  </View>
+                  {item.type === 'sweep' ? (
+                    <Text style={styles.activitySweep}>→ JISA</Text>
+                  ) : (
+                    <Text style={styles.activityCashback}>+{gbp(item.amount ?? 0)}</Text>
+                  )}
+                </View>
+              )
+            })
+          )}
         </View>
 
         {/* ── S7: Products rail ────────────────────────────────────────── */}
@@ -447,6 +515,12 @@ const styles = StyleSheet.create({
   activityDate: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
   activityCashback: { fontSize: 14, fontWeight: '700', color: '#16a34a' },
   activitySweep: { fontSize: 14, fontWeight: '700', color: colors.azure },
+  emptyActivity: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    padding: 20,
+  },
 
   // Products
   productsContent: { paddingHorizontal: 16, paddingBottom: 8, gap: 12 },

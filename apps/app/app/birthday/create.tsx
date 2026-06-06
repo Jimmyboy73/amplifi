@@ -110,7 +110,7 @@ export default function CreateWishlistScreen() {
     Alert.alert(
       'Wishlist created! 🎉',
       'Share it with family to start collecting pledges.',
-      [{ text: 'Done', onPress: () => router.replace('/birthday/index') }],
+      [{ text: 'Done', onPress: () => router.replace('/birthday') }],
     )
   }
 
