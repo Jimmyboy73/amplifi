@@ -232,6 +232,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── S3: Quick actions ────────────────────────────────────────── */}
+        <Text style={styles.actionsTitle}>Ways to grow {child?.name ?? 'your child'}'s pot</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -296,24 +297,7 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* ── S5: Family network ───────────────────────────────────────── */}
-        <View style={styles.familyCard}>
-          <Text style={styles.familyTitle}>👨‍👩‍👧 Family network</Text>
-
-          <Text style={styles.familyEmpty}>
-            No contributors yet — invite family to contribute
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => Alert.alert('Invite family', 'Invite family coming soon')}
-            activeOpacity={0.7}
-            style={{ marginTop: 12 }}
-          >
-            <Text style={styles.familyInvite}>＋ Invite family to contribute</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── S7: Recent activity ──────────────────────────────────────── */}
+        {/* ── S5: Recent activity ──────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Recent activity</Text>
         <View style={styles.activityList}>
           {contributions.length === 0 ? (
@@ -348,49 +332,6 @@ export default function HomeScreen() {
             })
           )}
         </View>
-
-        {/* ── S8: Products rail ────────────────────────────────────────── */}
-        <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Amplifi products</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.productsContent}
-          style={{ marginBottom: 0 }}
-        >
-          <View style={styles.productActive}>
-            <Text style={styles.productNameActive}>✨ Spark</Text>
-            <Text style={styles.productSubActive}>Junior ISA cashback</Text>
-            <View style={styles.activeBadge}>
-              <Text style={styles.activeBadgeText}>Active</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.productLocked}
-            onPress={() => Alert.alert('Launchpad', 'Coming soon. Join the waitlist to be first to know.')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.lockEmoji}>🔒</Text>
-            <Text style={styles.productNameLocked}>🚀 Launchpad</Text>
-            <Text style={styles.productSubLocked}>First home deposit</Text>
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>Coming soon</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.productLocked}
-            onPress={() => Alert.alert('Legacy', 'Coming soon. Join the waitlist to be first to know.')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.lockEmoji}>🔒</Text>
-            <Text style={styles.productNameLocked}>🏛️ Legacy</Text>
-            <Text style={styles.productSubLocked}>Estate coordination</Text>
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>Coming soon</Text>
-            </View>
-          </TouchableOpacity>
-        </ScrollView>
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -454,6 +395,10 @@ const styles = StyleSheet.create({
   heroBalanceSub: { color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', marginTop: 4 },
 
   // Quick actions
+  actionsTitle: {
+    fontSize: 16, fontWeight: '700', color: colors.midnight,
+    paddingHorizontal: 16, marginBottom: 8, marginTop: 16,
+  },
   actionsRow: { marginBottom: 16 },
   actionsContent: { paddingHorizontal: 16, paddingVertical: 4, gap: 10 },
   actionChip: {
@@ -490,18 +435,6 @@ const styles = StyleSheet.create({
     textAlign: 'center', fontStyle: 'italic', lineHeight: 16, marginTop: 6,
   },
 
-  // Family network
-  familyCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    marginHorizontal: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  familyTitle: { fontSize: 16, fontWeight: '700', color: colors.midnight, marginBottom: 10 },
-  familyEmpty: { fontSize: 14, color: '#94a3b8', textAlign: 'center', paddingVertical: 12 },
-  familyInvite: { fontSize: 14, color: colors.sky, fontWeight: '600', textAlign: 'center' },
-
   // Activity
   sectionTitle: {
     fontSize: 18, fontWeight: '700', color: colors.midnight,
@@ -525,29 +458,4 @@ const styles = StyleSheet.create({
   activitySweep: { fontSize: 14, fontWeight: '700', color: colors.azure },
   emptyActivity: { fontSize: 14, color: '#94a3b8', textAlign: 'center', padding: 20 },
 
-  // Products
-  productsContent: { paddingHorizontal: 16, paddingBottom: 8, gap: 12 },
-  productActive: {
-    width: 160, height: 100, borderRadius: 14, padding: 14,
-    backgroundColor: colors.sky, justifyContent: 'space-between',
-  },
-  productLocked: {
-    width: 160, height: 100, borderRadius: 14, padding: 14,
-    backgroundColor: colors.midnight, opacity: 0.7, justifyContent: 'space-between',
-  },
-  lockEmoji: { position: 'absolute', top: 10, right: 12, fontSize: 12 },
-  productNameActive: { fontSize: 15, fontWeight: '700', color: colors.midnight },
-  productNameLocked: { fontSize: 15, fontWeight: '700', color: '#ffffff' },
-  productSubActive: { fontSize: 12, color: `${colors.midnight}b3` },
-  productSubLocked: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-  activeBadge: {
-    alignSelf: 'flex-start', backgroundColor: '#ffffff',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100,
-  },
-  activeBadgeText: { fontSize: 11, fontWeight: '700', color: colors.midnight },
-  comingSoonBadge: {
-    alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100,
-  },
-  comingSoonText: { fontSize: 11, fontWeight: '700', color: '#ffffff' },
 })
