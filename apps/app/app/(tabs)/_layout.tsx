@@ -32,33 +32,27 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="shop"
-        options={{
-          title: 'Shop',
-          tabBarIcon: ({ color }) => <TabIcon emoji="🛍️" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="offers"
-        options={{
-          title: 'Offers',
-          tabBarIcon: ({ color }) => <TabIcon emoji="🏷️" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="pot"
-        options={{
-          title: 'Pot',
-          tabBarIcon: ({ color }) => <TabIcon emoji="📈" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="family"
         options={{
           title: 'Family',
           tabBarIcon: ({ color }) => <TabIcon emoji="👨‍👩‍👧" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="offers"
+        options={{
+          title: 'Loyalty',
+          tabBarIcon: ({ color }) => <TabIcon emoji="⭐" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="shop"
+        options={{
+          title: 'Cashback',
+          tabBarIcon: ({ color }) => <TabIcon emoji="💳" color={color} />,
+        }}
+      />
+      <Tabs.Screen name="pot" options={{ href: null }} />
     </Tabs>
   )
 }

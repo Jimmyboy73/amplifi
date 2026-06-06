@@ -57,11 +57,25 @@ export default function BirthdayHomeScreen() {
 
   const [child, setChild] = useState<{ id: string; name: string; date_of_birth: string } | null>(null)
   const [wishlists, setWishlists] = useState<Wishlist[]>([])
+  const [ownerPayment, setOwnerPayment] = useState<{ payment_method: string; payment_detail: string } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
     if (!user) return
     setIsLoading(true)
+
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('payment_method, payment_detail')
+      .eq('id', user.id)
+      .single()
+
+    if (profileData) {
+      setOwnerPayment({
+        payment_method: profileData.payment_method ?? '',
+        payment_detail: profileData.payment_detail ?? '',
+      })
+    }
 
     const { data: childData } = await supabase
       .from('children')
@@ -212,7 +226,15 @@ export default function BirthdayHomeScreen() {
                 </Text>
               ))}
 
-              <Text style={styles.paymentMethod}>💳 Send to: {w.paymentMethod}</Text>
+              {ownerPayment?.payment_method ? (
+                <Text style={styles.paymentMethod}>
+                  💳 Send to: {ownerPayment.payment_method}{ownerPayment.payment_detail ? ` — ${ownerPayment.payment_detail}` : ''}
+                </Text>
+              ) : (
+                <TouchableOpacity onPress={() => router.push('/settings/payment')} activeOpacity={0.7}>
+                  <Text style={styles.paymentWarning}>⚠️ Set up payment in settings</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.actionRow}>
                 <TouchableOpacity
@@ -317,6 +339,7 @@ const styles = StyleSheet.create({
   progressFill: { height: 8, backgroundColor: colors.sky, borderRadius: 4 },
   itemRow: { fontSize: 14, color: '#475569', paddingVertical: 3 },
   paymentMethod: { fontSize: 13, color: '#64748b', marginTop: 8 },
+  paymentWarning: { fontSize: 13, color: '#d97706', fontWeight: '600', marginTop: 8 },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   manageBtn: {
     flex: 1,

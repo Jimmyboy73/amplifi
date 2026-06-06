@@ -77,7 +77,6 @@ export default function ManageWishlistScreen() {
 
   const [showAddItem, setShowAddItem] = useState(false)
   const [newItemName, setNewItemName] = useState('')
-  const [newItemRetailer, setNewItemRetailer] = useState('')
   const [newItemAmount, setNewItemAmount] = useState('')
 
   useEffect(() => {
@@ -210,44 +209,46 @@ export default function ManageWishlistScreen() {
 
   const handleAddItem = async () => {
     if (!newItemName.trim() || !id) return
-    const { data, error } = await (supabase as any)
+    const { error } = await supabase
       .from('wishlist_items')
       .insert({
         wishlist_id: id,
         name: newItemName.trim(),
-        retailer: newItemRetailer.trim() || '',
+        retailer: '',
         target_amount: parseFloat(newItemAmount) || 0,
         pledged_amount: 0,
         emoji: '🎁',
       })
-      .select()
-      .single()
 
     if (error) {
       Alert.alert('Error', error.message)
       return
     }
 
-    const newItem: WishlistItemLocal = {
-      id: data.id,
-      name: data.name,
-      retailer: data.retailer ?? '',
-      targetAmount: data.target_amount,
-      pledgedAmount: data.pledged_amount,
-      imageEmoji: data.emoji,
-      purchased: data.purchased,
-    }
-    const updatedItems = [...items, newItem]
-    setItems(updatedItems)
+    const { data: freshItems } = await supabase
+      .from('wishlist_items')
+      .select('*')
+      .eq('wishlist_id', id)
 
-    const newTotal = updatedItems.reduce((sum, i) => sum + (i.targetAmount || 0), 0)
-    await supabase
-      .from('wishlists')
-      .update({ total_target: newTotal })
-      .eq('id', id)
+    if (freshItems) {
+      setItems(freshItems.map((i) => ({
+        id: i.id,
+        name: i.name,
+        retailer: i.retailer ?? '',
+        targetAmount: i.target_amount,
+        pledgedAmount: i.pledged_amount,
+        imageEmoji: i.emoji,
+        purchased: i.purchased,
+      })))
+      const newTotal = freshItems.reduce((sum, i) => sum + (i.target_amount || 0), 0)
+      await supabase
+        .from('wishlists')
+        .update({ total_target: newTotal })
+        .eq('id', id)
+      setWishlist((prev) => prev ? { ...prev, total_target: newTotal } : prev)
+    }
 
     setNewItemName('')
-    setNewItemRetailer('')
     setNewItemAmount('')
     setShowAddItem(false)
   }
@@ -398,14 +399,7 @@ export default function ManageWishlistScreen() {
               style={styles.addInput}
               value={newItemName}
               onChangeText={setNewItemName}
-              placeholder="Item name"
-              placeholderTextColor="#94a3b8"
-            />
-            <TextInput
-              style={styles.addInput}
-              value={newItemRetailer}
-              onChangeText={setNewItemRetailer}
-              placeholder="Retailer (optional)"
+              placeholder="Item name e.g. Nike Air Max trainers"
               placeholderTextColor="#94a3b8"
             />
             <View style={styles.addAmountRow}>

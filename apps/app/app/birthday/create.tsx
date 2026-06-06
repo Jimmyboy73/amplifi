@@ -27,13 +27,9 @@ const OCCASION_TYPES = [
 
 type OccasionId = typeof OCCASION_TYPES[number]['id']
 
-const PAYMENT_METHODS = ['Monzo', 'Revolut', 'PayPal', 'Bank transfer'] as const
-type PaymentMethod = typeof PAYMENT_METHODS[number]
-
 interface Item {
   id: string
   name: string
-  retailer: string
   amount: string
   emoji: string
 }
@@ -72,13 +68,7 @@ export default function CreateWishlistScreen() {
   // Items
   const [items, setItems] = useState<Item[]>([])
   const [itemName, setItemName] = useState('')
-  const [itemRetailer, setItemRetailer] = useState('')
   const [itemAmount, setItemAmount] = useState('')
-  // Payment
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
-  const [paymentDetail, setPaymentDetail] = useState('')
-  const [sortCode, setSortCode] = useState('')
-  const [accountNumber, setAccountNumber] = useState('')
 
   // Closing date — auto 7 days before
   const closingLabel = (() => {
@@ -114,26 +104,18 @@ export default function CreateWishlistScreen() {
     if (!itemName.trim() || !itemAmount.trim()) return
     setItems((prev) => [
       ...prev,
-      { id: Date.now().toString(), name: itemName.trim(), retailer: itemRetailer.trim(), amount: itemAmount.trim(), emoji: '🎁' },
+      { id: Date.now().toString(), name: itemName.trim(), amount: itemAmount.trim(), emoji: '🎁' },
     ])
     setItemName('')
-    setItemRetailer('')
     setItemAmount('')
   }
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id))
 
-  const paymentValid = (() => {
-    if (!paymentMethod) return false
-    if (paymentMethod === 'Bank transfer') return sortCode.length > 0 && accountNumber.length > 0
-    return paymentDetail.trim().length > 0
-  })()
-
   const isValid =
     occasionType !== null &&
     dobDay.length === 2 && dobMonth.length === 2 && dobYear.length === 4 &&
-    items.length > 0 &&
-    paymentValid
+    items.length > 0
 
   const childName = child?.name ?? 'your child'
 
@@ -167,10 +149,6 @@ export default function CreateWishlistScreen() {
     const closingDateObj = new Date(parseInt(dobYear, 10), parseInt(dobMonth, 10) - 1, parseInt(dobDay, 10) - 7)
     const closingDate = closingDateObj.toISOString().split('T')[0]
 
-    const paymentDetail_ = (paymentMethod === 'Bank transfer'
-      ? `${sortCode} / ${accountNumber}`
-      : paymentDetail || '').trim() || 'Not specified'
-
     const { data: wlData, error: wlError } = await supabase
       .rpc('create_wishlist', {
         p_child_id: child.id,
@@ -179,8 +157,8 @@ export default function CreateWishlistScreen() {
         p_occasion_label: occasionLabel,
         p_occasion_date: occasionDate,
         p_closing_date: closingDate,
-        p_payment_method: paymentMethod ?? '',
-        p_payment_detail: paymentDetail_,
+        p_payment_method: '',
+        p_payment_detail: '',
       })
 
     console.log('[Wishlist] Insert result:', wlData, wlError)
@@ -197,7 +175,7 @@ export default function CreateWishlistScreen() {
         items.map((item) => ({
           wishlist_id: wlData.id,
           name: item.name,
-          retailer: item.retailer || '',
+          retailer: '',
           target_amount: parseFloat(item.amount) || 0,
           pledged_amount: 0,
           emoji: item.emoji,
@@ -335,13 +313,6 @@ export default function CreateWishlistScreen() {
               placeholder="Item name e.g. Nike Air Max trainers"
               placeholderTextColor="#94a3b8"
             />
-            <TextInput
-              style={styles.input}
-              value={itemRetailer}
-              onChangeText={setItemRetailer}
-              placeholder="Retailer (optional) e.g. Nike, Amazon"
-              placeholderTextColor="#94a3b8"
-            />
             <View style={styles.amountRow}>
               <Text style={styles.poundSign}>£</Text>
               <TextInput
@@ -369,7 +340,7 @@ export default function CreateWishlistScreen() {
               {items.map((item) => (
                 <View key={item.id} style={styles.addedItem}>
                   <Text style={styles.addedItemText}>
-                    {item.emoji} {item.name} — {item.retailer} — £{item.amount}
+                    {item.emoji} {item.name} — £{item.amount}
                   </Text>
                   <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7}>
                     <Text style={styles.removeItem}>✕</Text>
@@ -379,63 +350,7 @@ export default function CreateWishlistScreen() {
             </View>
           )}
 
-          {/* S3 — Payment setup */}
-          <Text style={[styles.sectionHeadline, { marginTop: 24 }]}>
-            How will guests send money?
-          </Text>
-
-          <View style={styles.paymentGrid}>
-            {PAYMENT_METHODS.map((m) => (
-              <TouchableOpacity
-                key={m}
-                style={[styles.paymentChip, paymentMethod === m && styles.paymentChipActive]}
-                onPress={() => { setPaymentMethod(m); setPaymentDetail('') }}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.paymentChipText, paymentMethod === m && styles.paymentChipTextActive]}>
-                  {m}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {paymentMethod === 'Bank transfer' ? (
-            <View style={styles.paymentInputWrap}>
-              <TextInput
-                style={styles.input}
-                value={sortCode}
-                onChangeText={setSortCode}
-                placeholder="Sort code (XX-XX-XX)"
-                placeholderTextColor="#94a3b8"
-                keyboardType="number-pad"
-              />
-              <TextInput
-                style={styles.input}
-                value={accountNumber}
-                onChangeText={setAccountNumber}
-                placeholder="Account number (8 digits)"
-                placeholderTextColor="#94a3b8"
-                keyboardType="number-pad"
-              />
-            </View>
-          ) : paymentMethod ? (
-            <View style={styles.paymentInputWrap}>
-              <TextInput
-                style={styles.input}
-                value={paymentDetail}
-                onChangeText={setPaymentDetail}
-                placeholder={
-                  paymentMethod === 'Monzo'   ? 'Your Monzo username e.g. @sarah-jones' :
-                  paymentMethod === 'Revolut' ? 'Your Revolut username e.g. @sarah' :
-                                                'Your PayPal.me link e.g. paypal.me/sarah'
-                }
-                placeholderTextColor="#94a3b8"
-                autoCapitalize="none"
-              />
-            </View>
-          ) : null}
-
-          {/* S4 — Create button */}
+          {/* S3 — Create button */}
           <TouchableOpacity
             style={[styles.createBtn, (!isValid || saving) && styles.createBtnDisabled]}
             onPress={handleCreate}
@@ -529,17 +444,6 @@ const styles = StyleSheet.create({
   },
   addedItemText: { flex: 1, fontSize: 13, color: '#475569' },
   removeItem: { fontSize: 16, color: '#ef4444', paddingHorizontal: 8 },
-
-  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
-  paymentChip: {
-    width: '48%', paddingVertical: 12,
-    borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12,
-    alignItems: 'center', backgroundColor: '#ffffff',
-  },
-  paymentChipActive: { borderColor: colors.sky, backgroundColor: `${colors.sky}15` },
-  paymentChipText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
-  paymentChipTextActive: { color: colors.midnight },
-  paymentInputWrap: { marginBottom: 8 },
 
   createBtn: {
     backgroundColor: colors.sky, borderRadius: 14,

@@ -12,6 +12,8 @@ export type Database = {
           phone: string | null
           date_of_birth: string | null
           avatar_url: string | null
+          payment_method: string
+          payment_detail: string
           created_at: string
           updated_at: string
         }
@@ -22,6 +24,8 @@ export type Database = {
           phone?: string | null
           date_of_birth?: string | null
           avatar_url?: string | null
+          payment_method?: string
+          payment_detail?: string
           created_at?: string
           updated_at?: string
         }
@@ -32,6 +36,8 @@ export type Database = {
           phone?: string | null
           date_of_birth?: string | null
           avatar_url?: string | null
+          payment_method?: string
+          payment_detail?: string
           created_at?: string
           updated_at?: string
         }

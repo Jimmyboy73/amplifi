@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -7,9 +7,12 @@ import {
   StyleSheet,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -31,19 +34,9 @@ interface PendingInvite {
   sentDays: number
 }
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const CHILD_NAME = 'Olivia'
-const NETWORK_TOTAL = 390.00
-
-const CONTRIBUTORS: Contributor[] = [
-  { id: '1', name: 'Grandma',   initial: 'G', relationship: 'Grandparent', totalContributed: 340.00, lastActive: '2 days ago', avatar_color: '#7C3AED' },
-  { id: '2', name: 'Uncle Tom', initial: 'T', relationship: 'Uncle',       totalContributed: 50.00,  lastActive: 'Last week',  avatar_color: '#0891B2' },
-]
-
-const PENDING_INVITES: PendingInvite[] = [
-  { id: '1', name: 'Grandad', sentTo: 'grandad@email.com', sentDays: 3 },
-]
+const AVATAR_COLORS = ['#7C3AED', '#0891B2', '#059669', '#D97706', '#DC2626']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -54,32 +47,113 @@ function gbp(n: number): string {
   }).format(n)
 }
 
-const INVITE_MESSAGE =
-  `I've set up Amplifi so our everyday shopping builds ${CHILD_NAME}'s future. ` +
-  `You can contribute too — join her gifting network: https://amplifi-plan.netlify.app`
+function relativeDate(dateStr: string): string {
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24))
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days} days ago`
+  if (days < 14) return 'Last week'
+  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function FamilyScreen() {
+  const { user } = useAuth()
+  const [child, setChild] = useState<{ id: string; name: string } | null>(null)
+  const [contributors, setContributors] = useState<Contributor[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
+  useEffect(() => {
+    if (!user) return
+    const fetchData = async () => {
+      setIsLoading(true)
+
+      const { data: childData } = await supabase
+        .from('children')
+        .select('id, name')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      if (childData) {
+        setChild(childData)
+
+        const { data: contribs } = await supabase
+          .from('family_contributors')
+          .select('*')
+          .eq('child_id', childData.id)
+
+        if (contribs) {
+          setContributors(contribs.map((c, idx) => ({
+            id: c.id,
+            name: c.name ?? 'Family member',
+            initial: ((c.name ?? 'F') as string).charAt(0).toUpperCase(),
+            relationship: c.relationship ?? '',
+            totalContributed: c.total_contributed ?? 0,
+            lastActive: relativeDate(c.last_active_at ?? c.joined_at),
+            avatar_color: c.avatar_color ?? AVATAR_COLORS[idx % AVATAR_COLORS.length],
+          })))
+        }
+
+        const { data: invites } = await supabase
+          .from('family_invites')
+          .select('*')
+          .eq('child_id', childData.id)
+          .eq('status', 'pending')
+
+        if (invites) {
+          setPendingInvites(invites.map((inv) => ({
+            id: inv.id,
+            name: inv.invited_name ?? 'Guest',
+            sentTo: inv.sent_to_email ?? '',
+            sentDays: Math.floor(
+              (Date.now() - new Date(inv.sent_at).getTime()) / (1000 * 60 * 60 * 24)
+            ),
+          })))
+        }
+      }
+
+      setIsLoading(false)
+    }
+    fetchData()
+  }, [user])
+
+  const childName = child?.name ?? 'your child'
+  const networkTotal = contributors.reduce((sum, c) => sum + c.totalContributed, 0)
+
+  const inviteMessage =
+    `I've set up Amplifi so our everyday shopping builds ${childName}'s future. ` +
+    `You can contribute too — join her gifting network: https://amplifi-plan.netlify.app`
+
   const shareWhatsApp = () => {
-    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(INVITE_MESSAGE)}`).catch(() =>
+    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(inviteMessage)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
     )
   }
 
   const copyLink = async () => {
-    await Clipboard.setStringAsync(INVITE_MESSAGE)
+    await Clipboard.setStringAsync(inviteMessage)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   const sendEmail = () => {
-    const subject = encodeURIComponent(`Join ${CHILD_NAME}'s gifting network on Amplifi`)
-    const body = encodeURIComponent(INVITE_MESSAGE)
+    const subject = encodeURIComponent(`Join ${childName}'s gifting network on Amplifi`)
+    const body = encodeURIComponent(inviteMessage)
     Linking.openURL(`mailto:?subject=${subject}&body=${body}`).catch(() =>
       Alert.alert('Email not available', 'Please set up an email account on this device.')
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.offwhite, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.sky} />
+      </View>
     )
   }
 
@@ -90,52 +164,60 @@ export default function FamilyScreen() {
         {/* S1 — Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Family Network</Text>
-          <Text style={styles.subtitle}>Building {CHILD_NAME}'s future together</Text>
+          <Text style={styles.subtitle}>Building {childName}'s future together</Text>
         </View>
 
         {/* S2 — Network value card */}
         <View style={styles.networkCard}>
-          <Text style={styles.networkLabel}>👨‍👩‍👧 {CHILD_NAME}'s family network</Text>
-          <Text style={styles.networkTotal}>{gbp(NETWORK_TOTAL)}</Text>
+          <Text style={styles.networkLabel}>👨‍👩‍👧 {childName}'s family network</Text>
+          <Text style={styles.networkTotal}>{gbp(networkTotal)}</Text>
           <Text style={styles.networkSub}>contributed to her JISA this year</Text>
-          <Text style={styles.networkCount}>{CONTRIBUTORS.length} active contributors</Text>
+          <Text style={styles.networkCount}>{contributors.length} active contributors</Text>
         </View>
 
         {/* S3 — Contributors */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Contributors</Text>
 
-          {CONTRIBUTORS.map((c, idx) => (
-            <View key={c.id}>
-              <View style={styles.contributorRow}>
-                <View style={[styles.avatar, { backgroundColor: c.avatar_color }]}>
-                  <Text style={styles.avatarText}>{c.initial}</Text>
+          {contributors.length === 0 ? (
+            <Text style={styles.emptyContributors}>
+              No contributors yet — invite family to get started
+            </Text>
+          ) : (
+            contributors.map((c, idx) => (
+              <View key={c.id}>
+                <View style={styles.contributorRow}>
+                  <View style={[styles.avatar, { backgroundColor: c.avatar_color }]}>
+                    <Text style={styles.avatarText}>{c.initial}</Text>
+                  </View>
+                  <View style={styles.contributorMid}>
+                    <Text style={styles.contributorName}>{c.name}</Text>
+                    <Text style={styles.contributorRel}>{c.relationship}</Text>
+                    <Text style={styles.contributorActive}>Last active {c.lastActive}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.contributorAmount}>{gbp(c.totalContributed)}</Text>
+                    <Text style={styles.contributorAmountLabel}>this year</Text>
+                  </View>
                 </View>
-                <View style={styles.contributorMid}>
-                  <Text style={styles.contributorName}>{c.name}</Text>
-                  <Text style={styles.contributorRel}>{c.relationship}</Text>
-                  <Text style={styles.contributorActive}>Last active {c.lastActive}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.contributorAmount}>{gbp(c.totalContributed)}</Text>
-                  <Text style={styles.contributorAmountLabel}>this year</Text>
-                </View>
+                {idx < contributors.length - 1 && <View style={styles.divider} />}
               </View>
-              {idx < CONTRIBUTORS.length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
+            ))
+          )}
 
-          <Text style={styles.contributorFooter}>
-            {CONTRIBUTORS.length} people are building {CHILD_NAME}'s future
-          </Text>
+          {contributors.length > 0 && (
+            <Text style={styles.contributorFooter}>
+              {contributors.length} {contributors.length === 1 ? 'person is' : 'people are'} building {childName}'s future
+            </Text>
+          )}
         </View>
 
         {/* S4 — Pending invites */}
-        {PENDING_INVITES.length > 0 && (
+        {pendingInvites.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Pending invites</Text>
 
-            {PENDING_INVITES.map((inv) => (
+            {pendingInvites.map((inv) => (
               <View key={inv.id} style={styles.pendingRow}>
                 <View style={styles.pendingAvatar}>
                   <Text style={styles.pendingAvatarText}>?</Text>
@@ -159,10 +241,10 @@ export default function FamilyScreen() {
 
         {/* S5 — Invite CTA */}
         <View style={styles.inviteCard}>
-          <Text style={styles.inviteTitle}>Invite {CHILD_NAME}'s family</Text>
+          <Text style={styles.inviteTitle}>Invite {childName}'s family</Text>
           <Text style={styles.inviteBody}>
             Grandparents, aunts, uncles and friends can all buy gift cards that earn cashback
-            for {CHILD_NAME}'s JISA.
+            for {childName}'s JISA.
           </Text>
 
           <TouchableOpacity style={styles.whatsappBtn} onPress={shareWhatsApp} activeOpacity={0.85}>
@@ -181,20 +263,6 @@ export default function FamilyScreen() {
 
           <TouchableOpacity style={styles.emailBtn} onPress={sendEmail} activeOpacity={0.85}>
             <Text style={styles.emailBtnText}>✉️ Send by email</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* S6 — Upgrade nudge */}
-        <View style={styles.upgradeCard}>
-          <Text style={styles.upgradeTitle}>Do you have children?</Text>
-          <Text style={styles.upgradeSub}>
-            Set up a pot for your own children and start building their future too.
-          </Text>
-          <TouchableOpacity
-            onPress={() => Alert.alert('Set up a pot', 'Account creation coming soon.')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.upgradeLink}>Set up my child's pot →</Text>
           </TouchableOpacity>
         </View>
 
@@ -235,6 +303,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.midnight, marginBottom: 12 },
+
+  emptyContributors: {
+    fontSize: 14, color: '#94a3b8', textAlign: 'center', padding: 20,
+  },
 
   contributorRow: {
     flexDirection: 'row',
@@ -316,17 +388,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   emailBtnText: { color: colors.azure, fontSize: 14, fontWeight: '700' },
-
-  upgradeCard: {
-    backgroundColor: colors.offwhite,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 20,
-    marginHorizontal: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  upgradeTitle: { fontSize: 15, fontWeight: '700', color: colors.midnight },
-  upgradeSub: { fontSize: 13, color: '#64748b', marginTop: 4, lineHeight: 19 },
-  upgradeLink: { fontSize: 14, color: colors.sky, fontWeight: '600', marginTop: 10 },
 })

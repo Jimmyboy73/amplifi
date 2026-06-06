@@ -140,11 +140,6 @@ export default function HomeScreen() {
   const proj25 = fv(sliderValue, monthsTo25)
   const proj65 = fv(sliderValue, monthsTo65)
 
-  const startAt30Age65 = fv(sliderValue, Math.max(0, (65 - 30) * 12))
-  const multiplier = startAt30Age65 > 0
-    ? (proj65 / startAt30Age65).toFixed(1)
-    : '—'
-
   const comingSoon = (feature: string) =>
     Alert.alert(feature, 'Coming soon. Join the waitlist to be first to know.')
 
@@ -162,6 +157,7 @@ export default function HomeScreen() {
               onPress={() =>
                 Alert.alert('Your account', '', [
                   { text: 'Profile', onPress: () => Alert.alert('Coming soon', 'Profile settings coming soon.') },
+                  { text: 'Payment settings', onPress: () => router.push('/settings/payment') },
                   { text: 'Sign out', style: 'destructive', onPress: () => { void signOut() } },
                   { text: 'Cancel', style: 'cancel' },
                 ])
@@ -223,8 +219,8 @@ export default function HomeScreen() {
           {([
             { icon: '👨‍👩‍👧', label: 'Invite family', onPress: () => comingSoon('Invite family') },
             { icon: '🎁', label: 'Wishlists',       onPress: () => router.push('/birthday') },
-            { icon: '🛍️', label: 'Buy gift cards', onPress: () => router.push('/(tabs)/shop') },
-            { icon: '🏷️', label: 'View offers',   onPress: () => router.push('/(tabs)/offers') },
+            { icon: '💳', label: 'Cashback',       onPress: () => router.push('/(tabs)/shop') },
+            { icon: '🎯', label: 'Loyalty offers', onPress: () => router.push('/(tabs)/offers') },
           ] as const).map((a) => (
             <TouchableOpacity key={a.label} style={styles.actionChip} onPress={a.onPress} activeOpacity={0.8}>
               <Text style={styles.actionIcon}>{a.icon}</Text>
@@ -272,10 +268,6 @@ export default function HomeScreen() {
               <Text style={styles.projSub}>Retirement</Text>
             </View>
           </View>
-
-          <Text style={styles.comparisonNote}>
-            Starting today gives {multiplier}× more than starting at 30.{'\n'}Same amount. The difference is when you start.
-          </Text>
 
           <Text style={styles.sliderDisclaimer}>
             Illustrative projection at 8% p.a. — not a guarantee
@@ -479,10 +471,6 @@ const styles = StyleSheet.create({
   projLabel: { fontSize: 11, color: '#64748b', marginBottom: 4 },
   projCardValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, textAlign: 'center' },
   projSub: { fontSize: 10, color: '#94a3b8', marginTop: 3 },
-  comparisonNote: {
-    fontSize: 12, color: '#64748b',
-    fontStyle: 'italic', textAlign: 'center', marginTop: 8, lineHeight: 18,
-  },
   sliderDisclaimer: {
     fontSize: 11, color: '#94a3b8',
     textAlign: 'center', fontStyle: 'italic', lineHeight: 16, marginTop: 6,
