@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   View,
   Text,
@@ -9,14 +9,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const CHILD_NAME = 'Olivia'
 
 const OCCASION_TYPES = [
   { id: 'birthday', label: '🎂 Birthday' },
@@ -42,6 +43,22 @@ interface Item {
 
 export default function CreateWishlistScreen() {
   const router = useRouter()
+  const { user } = useAuth()
+
+  const [child, setChild] = useState<{ id: string; name: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('children')
+      .select('id, name')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+      .then(({ data }) => { if (data) setChild(data) })
+  }, [user])
 
   // Occasion
   const [occasionType, setOccasionType] = useState<OccasionId | null>(null)
@@ -106,7 +123,69 @@ export default function CreateWishlistScreen() {
     items.length > 0 &&
     paymentValid
 
-  const handleCreate = () => {
+  const childName = child?.name ?? 'your child'
+
+  const handleCreate = async () => {
+    if (!isValid || saving || !user || !child) return
+    setSaving(true)
+
+    const occasionLabel =
+      occasionType === 'birthday' ? `${childName}'s Birthday` :
+      occasionType === 'christmas' ? 'Christmas' : 'Other'
+
+    const occasionDate = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
+
+    const closingDateObj = new Date(parseInt(dobYear, 10), parseInt(dobMonth, 10) - 1, parseInt(dobDay, 10) - 7)
+    const closingDate = closingDateObj.toISOString().split('T')[0]
+
+    const paymentString = paymentMethod === 'Bank transfer'
+      ? `Bank transfer — ${sortCode} / ${accountNumber}`
+      : `${paymentMethod} — ${paymentDetail}`
+
+    const totalTarget = items.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
+
+    const { data: wlData, error: wlError } = await supabase
+      .from('wishlists')
+      .insert({
+        child_id: child.id,
+        user_id: user.id,
+        occasion: occasionLabel,
+        occasion_date: occasionDate,
+        closing_date: closingDate,
+        payment_method: paymentString,
+        total_target: totalTarget,
+        total_pledged: 0,
+        surplus_amount: 0,
+        status: 'active',
+      })
+      .select('id')
+      .single()
+
+    if (wlError || !wlData) {
+      Alert.alert('Error', wlError?.message ?? 'Failed to create wishlist. Please try again.')
+      setSaving(false)
+      return
+    }
+
+    const { error: itemsError } = await supabase
+      .from('wishlist_items')
+      .insert(
+        items.map((item) => ({
+          wishlist_id: wlData.id,
+          name: item.name,
+          retailer: item.retailer || null,
+          target_amount: parseFloat(item.amount),
+          pledged_amount: 0,
+          image_emoji: item.emoji,
+        }))
+      )
+
+    setSaving(false)
+
+    if (itemsError) {
+      Alert.alert('Error', 'Wishlist created but some items failed to save.')
+    }
+
     Alert.alert(
       'Wishlist created! 🎉',
       'Share it with family to start collecting pledges.',
@@ -146,7 +225,7 @@ export default function CreateWishlistScreen() {
             ))}
           </View>
 
-          <Text style={styles.forChild}>For: {CHILD_NAME}</Text>
+          <Text style={styles.forChild}>For: {childName}</Text>
 
           {/* Date */}
           <Text style={styles.fieldLabel}>Occasion date:</Text>
@@ -204,7 +283,7 @@ export default function CreateWishlistScreen() {
 
           {/* S2 — Add items */}
           <Text style={[styles.sectionHeadline, { marginTop: 24 }]}>
-            Add items to {CHILD_NAME}'s wishlist
+            Add items to {childName}'s wishlist
           </Text>
 
           <View style={styles.itemCard}>
@@ -330,14 +409,18 @@ export default function CreateWishlistScreen() {
 
           {/* S4 — Create button */}
           <TouchableOpacity
-            style={[styles.createBtn, !isValid && styles.createBtnDisabled]}
+            style={[styles.createBtn, (!isValid || saving) && styles.createBtnDisabled]}
             onPress={handleCreate}
-            disabled={!isValid}
+            disabled={!isValid || saving}
             activeOpacity={0.85}
           >
-            <Text style={styles.createBtnText}>
-              Create {CHILD_NAME}'s wishlist 🎂
-            </Text>
+            {saving ? (
+              <ActivityIndicator size="small" color={colors.midnight} />
+            ) : (
+              <Text style={styles.createBtnText}>
+                Create {childName}'s wishlist 🎂
+              </Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

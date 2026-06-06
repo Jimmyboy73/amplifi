@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -7,30 +7,28 @@ import {
   StyleSheet,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv, formatGBP } from '@/lib/projections'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const CHILD_NAME = 'Olivia'
+type PledgeStatus = 'pending' | 'confirmed' | 'swept'
 
-const WISHLIST = {
-  id: '1',
-  occasion: '7th Birthday',
-  daysUntil: 23,
-  totalTarget: 130.00,
-  totalPledged: 110.00,
-  paymentMethod: '@sarah-jones',
-  items: [
-    { id: 'a', name: 'Nike Air Max trainers', targetAmount: 85.00, pledgedAmount: 65.00, retailer: 'Nike',   imageEmoji: '👟' },
-    { id: 'b', name: 'LEGO Technic Set',      targetAmount: 45.00, pledgedAmount: 45.00, retailer: 'Smyths', imageEmoji: '🧱' },
-  ],
+interface WishlistItemLocal {
+  id: string
+  name: string
+  retailer: string
+  targetAmount: number
+  pledgedAmount: number
+  imageEmoji: string
+  purchased: boolean
 }
-
-type PledgeStatus = 'confirmed' | 'pending'
 
 interface Pledger {
   id: string
@@ -39,15 +37,6 @@ interface Pledger {
   status: PledgeStatus
   item: string
 }
-
-const INITIAL_PLEDGERS: Pledger[] = [
-  { id: '1', name: 'Grandma',      amount: 30.00, status: 'confirmed', item: 'Nike trainers' },
-  { id: '2', name: 'Uncle Tom',    amount: 20.00, status: 'confirmed', item: 'Nike trainers' },
-  { id: '3', name: 'Auntie Sarah', amount: 15.00, status: 'pending',   item: 'Nike trainers' },
-  { id: '4', name: 'Dad',          amount: 45.00, status: 'confirmed', item: 'LEGO set' },
-]
-
-const DEMO_SURPLUS = 15.00
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -66,42 +55,162 @@ function avatarInitial(name: string): string {
 
 export default function ManageWishlistScreen() {
   const router = useRouter()
-  const [pledgers, setPledgers] = useState<Pledger[]>(INITIAL_PLEDGERS)
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const { user } = useAuth()
 
-  const markReceived = (id: string) => {
+  const [wishlist, setWishlist] = useState<{
+    id: string
+    occasion: string
+    occasion_date: string
+    total_target: number
+    total_pledged: number
+    payment_method: string
+    child_id: string
+  } | null>(null)
+
+  const [items, setItems] = useState<WishlistItemLocal[]>([])
+  const [pledgers, setPledgers] = useState<Pledger[]>([])
+  const [childName, setChildName] = useState('your child')
+  const [childAgeMonths, setChildAgeMonths] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!id) return
+
+    const fetchData = async () => {
+      setIsLoading(true)
+
+      const { data: wlData } = await supabase
+        .from('wishlists')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (wlData) {
+        setWishlist(wlData)
+
+        const { data: childData } = await supabase
+          .from('children')
+          .select('name, date_of_birth')
+          .eq('id', wlData.child_id)
+          .single()
+
+        if (childData) {
+          setChildName(childData.name)
+          const ageMs = Date.now() - new Date(childData.date_of_birth).getTime()
+          setChildAgeMonths(Math.floor(ageMs / (1000 * 60 * 60 * 24 * 30)))
+        }
+      }
+
+      const { data: itemsData } = await supabase
+        .from('wishlist_items')
+        .select('*')
+        .eq('wishlist_id', id)
+
+      if (itemsData) {
+        setItems(itemsData.map((i) => ({
+          id: i.id,
+          name: i.name,
+          retailer: i.retailer ?? '',
+          targetAmount: i.target_amount,
+          pledgedAmount: i.pledged_amount,
+          imageEmoji: i.image_emoji,
+          purchased: i.purchased,
+        })))
+      }
+
+      const { data: pledgesData } = await supabase
+        .from('pledges')
+        .select('*')
+        .eq('wishlist_id', id)
+        .order('created_at', { ascending: false })
+
+      if (pledgesData) {
+        setPledgers(pledgesData.map((p) => ({
+          id: p.id,
+          name: p.pledger_name,
+          amount: p.amount,
+          status: p.status as PledgeStatus,
+          item: p.item_label ?? 'General',
+        })))
+      }
+
+      setIsLoading(false)
+    }
+
+    fetchData()
+  }, [id])
+
+  const markReceived = async (pledgeId: string) => {
+    const { error } = await supabase
+      .from('pledges')
+      .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+      .eq('id', pledgeId)
+
+    if (error) {
+      Alert.alert('Error', error.message)
+      return
+    }
+
     setPledgers((prev) =>
-      prev.map((p) => p.id === id ? { ...p, status: 'confirmed' as PledgeStatus } : p)
+      prev.map((p) => p.id === pledgeId ? { ...p, status: 'confirmed' as PledgeStatus } : p)
     )
   }
 
-  const progressPct = Math.min(WISHLIST.totalPledged / WISHLIST.totalTarget, 1) * 100
-
-  const handleBuyItem = (item: typeof WISHLIST.items[number]) => {
+  const handleBuyItem = async (item: WishlistItemLocal) => {
     Alert.alert(
       'Purchase initiated! 🎉',
       `Your ${gbp(item.targetAmount)} ${item.retailer} gift card is being processed via Tillo. Expected delivery 3-5 days. The gift card will be sent to your email.`,
     )
+
+    await supabase
+      .from('wishlist_items')
+      .update({ purchased: true })
+      .eq('id', item.id)
+
+    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, purchased: true } : i))
   }
 
   const handleSweepSurplus = () => {
-    const surplusGrowth = formatGBP(fv(DEMO_SURPLUS / 12, (18 - 3) * 12))
+    const surplusGrowth = formatGBP(fv(surplus / 12, Math.max(0, (18 * 12) - childAgeMonths)))
     Alert.alert(
       'Swept! 🎉',
-      `${gbp(DEMO_SURPLUS)} swept to ${CHILD_NAME}'s JISA! At 8% per year, that ${gbp(DEMO_SURPLUS)} becomes ${surplusGrowth} by the time she turns 18.`,
+      `${gbp(surplus)} swept to ${childName}'s JISA! At 8% per year, that ${gbp(surplus)} becomes ${surplusGrowth} by the time she turns 18.`,
     )
   }
 
   const handleShareReminder = () => {
-    const items = WISHLIST.items.map((i) => i.name).join(' and ')
+    const itemNames = items.map((i) => i.name).join(' and ')
     const msg =
-      `${CHILD_NAME}'s 7th birthday wishlist is live! 🎂 ` +
-      `She'd love ${items}. ` +
-      `Send your contribution to ${WISHLIST.paymentMethod} on Monzo. ` +
-      `View her wishlist here: https://amplifi-plan.netlify.app`
+      `${childName}'s ${wishlist?.occasion ?? 'birthday'} wishlist is live! 🎂 ` +
+      `She'd love ${itemNames}. ` +
+      `Send your contribution to ${wishlist?.payment_method ?? ''} on Monzo. ` +
+      `View her wishlist here: https://amplifi-plan.netlify.app/birthday/${id}`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share.')
     )
   }
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.offwhite, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.sky} />
+      </View>
+    )
+  }
+
+  const totalPledged = wishlist?.total_pledged ?? 0
+  const totalTarget = wishlist?.total_target ?? 0
+  const progressPct = totalTarget > 0 ? Math.min(totalPledged / totalTarget, 1) * 100 : 0
+
+  const confirmedTotal = pledgers
+    .filter((p) => p.status === 'confirmed')
+    .reduce((sum, p) => sum + p.amount, 0)
+  const surplus = Math.max(0, confirmedTotal - totalTarget)
+
+  const daysUntil = wishlist?.occasion_date
+    ? Math.ceil((new Date(wishlist.occasion_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -112,27 +221,31 @@ export default function ManageWishlistScreen() {
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
             <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{CHILD_NAME}'s Birthday</Text>
+          <Text style={styles.headerTitle}>{childName}'s {wishlist?.occasion ?? 'Birthday'}</Text>
           <View style={{ width: 32 }} />
         </View>
 
         {/* S1 — Summary card */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryAmount}>
-            {gbp(WISHLIST.totalPledged)} of {gbp(WISHLIST.totalTarget)} pledged
+            {gbp(totalPledged)} of {gbp(totalTarget)} pledged
           </Text>
           <View style={styles.summaryTrack}>
             <View style={[styles.summaryFill, { width: `${progressPct.toFixed(0)}%` as `${number}%` }]} />
           </View>
-          <Text style={styles.summaryDays}>{WISHLIST.daysUntil} days until birthday</Text>
+          <Text style={styles.summaryDays}>
+            {daysUntil > 0 ? `${daysUntil} days until ${wishlist?.occasion ?? 'birthday'}` : 'Occasion passed'}
+          </Text>
         </View>
 
         {/* S2 — Items */}
         <Text style={styles.sectionTitle}>Wishlist items</Text>
 
-        {WISHLIST.items.map((item) => {
-          const itemPct = Math.min(item.pledgedAmount / item.targetAmount, 1) * 100
-          const canBuy = item.pledgedAmount >= item.targetAmount
+        {items.map((item) => {
+          const itemPct = item.targetAmount > 0
+            ? Math.min(item.pledgedAmount / item.targetAmount, 1) * 100
+            : 0
+          const canBuy = item.pledgedAmount >= item.targetAmount && !item.purchased
           const remaining = item.targetAmount - item.pledgedAmount
 
           return (
@@ -152,7 +265,9 @@ export default function ManageWishlistScreen() {
                 activeOpacity={canBuy ? 0.85 : 1}
               >
                 <Text style={[styles.buyBtnText, !canBuy && styles.buyBtnTextDisabled]}>
-                  {canBuy
+                  {item.purchased
+                    ? `Purchased ✓`
+                    : canBuy
                     ? `Buy ${item.name} — tap to confirm 🛍️`
                     : `${gbp(remaining)} more needed`}
                 </Text>
@@ -162,57 +277,63 @@ export default function ManageWishlistScreen() {
         })}
 
         {/* S3 — Surplus sweep */}
-        <View style={styles.surplusCard}>
-          <Text style={styles.surplusTitle}>💰 Surplus to sweep</Text>
-          <Text style={styles.surplusAmount}>{gbp(DEMO_SURPLUS)} received above item costs</Text>
-          <TouchableOpacity
-            style={styles.sweepBtn}
-            onPress={handleSweepSurplus}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.sweepBtnText}>Sweep to {CHILD_NAME}'s JISA →</Text>
-          </TouchableOpacity>
-        </View>
+        {surplus > 0 && (
+          <View style={styles.surplusCard}>
+            <Text style={styles.surplusTitle}>💰 Surplus to sweep</Text>
+            <Text style={styles.surplusAmount}>{gbp(surplus)} received above item costs</Text>
+            <TouchableOpacity
+              style={styles.sweepBtn}
+              onPress={handleSweepSurplus}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.sweepBtnText}>Sweep to {childName}'s JISA →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* S4 — Pledgers */}
         <Text style={styles.sectionTitle}>Pledges received</Text>
 
         <View style={styles.pledgerList}>
-          {pledgers.map((p) => (
-            <View key={p.id} style={styles.pledgerRow}>
-              <View style={styles.pledgerAvatar}>
-                <Text style={styles.pledgerInitial}>{avatarInitial(p.name)}</Text>
-              </View>
-              <View style={styles.pledgerMid}>
-                <Text style={styles.pledgerName}>{p.name}</Text>
-                <Text style={styles.pledgerItem}>{p.item}</Text>
-                {p.status === 'pending' && (
-                  <TouchableOpacity onPress={() => markReceived(p.id)} activeOpacity={0.7}>
-                    <Text style={styles.markReceived}>Mark as received</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <Text style={styles.pledgerAmount}>{gbp(p.amount)}</Text>
-                <View style={[
-                  styles.statusChip,
-                  p.status === 'confirmed' ? styles.statusConfirmed : styles.statusPending,
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    p.status === 'confirmed' ? styles.statusTextConfirmed : styles.statusTextPending,
+          {pledgers.length === 0 ? (
+            <Text style={styles.emptyPledgers}>No pledges yet — share the wishlist to get started</Text>
+          ) : (
+            pledgers.map((p) => (
+              <View key={p.id} style={styles.pledgerRow}>
+                <View style={styles.pledgerAvatar}>
+                  <Text style={styles.pledgerInitial}>{avatarInitial(p.name)}</Text>
+                </View>
+                <View style={styles.pledgerMid}>
+                  <Text style={styles.pledgerName}>{p.name}</Text>
+                  <Text style={styles.pledgerItem}>{p.item}</Text>
+                  {p.status === 'pending' && (
+                    <TouchableOpacity onPress={() => markReceived(p.id)} activeOpacity={0.7}>
+                      <Text style={styles.markReceived}>Mark as received</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={styles.pledgerAmount}>{gbp(p.amount)}</Text>
+                  <View style={[
+                    styles.statusChip,
+                    p.status === 'confirmed' ? styles.statusConfirmed : styles.statusPending,
                   ]}>
-                    {p.status === 'confirmed' ? 'Received ✓' : 'Pending'}
-                  </Text>
+                    <Text style={[
+                      styles.statusText,
+                      p.status === 'confirmed' ? styles.statusTextConfirmed : styles.statusTextPending,
+                    ]}>
+                      {p.status === 'confirmed' ? 'Received ✓' : 'Pending'}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
 
         {/* S5 — Share reminder */}
         <View style={styles.shareCard}>
-          <Text style={styles.shareTitle}>Share {CHILD_NAME}'s wishlist with more family</Text>
+          <Text style={styles.shareTitle}>Share {childName}'s wishlist with more family</Text>
           <TouchableOpacity onPress={handleShareReminder} activeOpacity={0.7}>
             <Text style={styles.shareLink}>📱 Share on WhatsApp</Text>
           </TouchableOpacity>
@@ -322,6 +443,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     overflow: 'hidden',
+  },
+  emptyPledgers: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    padding: 20,
   },
   pledgerRow: {
     flexDirection: 'row',
