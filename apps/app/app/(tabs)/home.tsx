@@ -236,10 +236,10 @@ export default function HomeScreen() {
         {/* ── S4: Projection slider ────────────────────────────────────── */}
         <View style={styles.sliderCard}>
           <Text style={styles.sliderCardTitle}>📈 What could {childName} have?</Text>
-          <Text style={styles.sliderCardSubtitle}>Adjust monthly cashback to see the impact</Text>
+          <Text style={styles.sliderCardSubtitle}>Adjust monthly contribution to see the impact</Text>
 
           <Text style={styles.sliderAmountLabel}>
-            Monthly cashback:{' '}
+            Monthly contribution:{' '}
             <Text style={styles.sliderAmountBold}>{gbp(sliderValue)}</Text>
           </Text>
 

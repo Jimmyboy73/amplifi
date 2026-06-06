@@ -49,17 +49,6 @@ function gbp(n: number): string {
   }).format(n)
 }
 
-function nextBirthday(dob: string): { days: number; date: Date } {
-  const d = new Date(dob)
-  const next = new Date(d)
-  next.setFullYear(new Date().getFullYear())
-  if (next <= new Date()) next.setFullYear(new Date().getFullYear() + 1)
-  return {
-    days: Math.ceil((next.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-    date: next,
-  }
-}
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function BirthdayHomeScreen() {
@@ -142,8 +131,6 @@ export default function BirthdayHomeScreen() {
   }
 
   const childName = child?.name ?? 'your child'
-  const birthday = child?.date_of_birth ? nextBirthday(child.date_of_birth) : null
-  const hasActiveWishlist = wishlists.some((w) => w.status === 'active')
 
   const handleDeleteWishlist = (w: Wishlist) => {
     Alert.alert(
@@ -191,27 +178,6 @@ export default function BirthdayHomeScreen() {
           </View>
         </View>
 
-        {/* Upcoming birthday banner */}
-        {birthday && birthday.days > 0 && (
-          <View style={styles.birthdayBanner}>
-            <View style={styles.bannerLeft}>
-              <Text style={styles.bannerName}>🎂 {childName}'s birthday</Text>
-              <Text style={styles.bannerDate}>
-                {birthday.days} days away — {birthday.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </Text>
-            </View>
-            {hasActiveWishlist ? (
-              <View style={styles.bannerActiveBadge}>
-                <Text style={styles.bannerActiveBadgeText}>Wishlist active ✓</Text>
-              </View>
-            ) : (
-              <TouchableOpacity onPress={() => router.push('/birthday/create')} activeOpacity={0.8}>
-                <Text style={styles.bannerCta}>Create wishlist →</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
         {/* Active wishlists */}
         {wishlists.length > 0 && (
           <Text style={styles.sectionTitle}>Active wishlists</Text>
@@ -251,14 +217,14 @@ export default function BirthdayHomeScreen() {
                   onPress={() => router.push(`/birthday/manage?id=${w.id}`)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.manageBtnText}>Manage pledges →</Text>
+                  <Text style={styles.manageBtnText}>View wishlist →</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.shareBtn}
                   onPress={() => shareWishlist(w)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.shareBtnText}>Share wishlist →</Text>
+                  <Text style={styles.shareBtnText}>Share →</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => handleDeleteWishlist(w)} activeOpacity={0.7} style={styles.deleteRow}>
@@ -307,31 +273,6 @@ const styles = StyleSheet.create({
   backArrow: { fontSize: 22, color: colors.midnight },
   title: { fontSize: 26, fontWeight: '800', color: colors.midnight, letterSpacing: -0.5 },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 2 },
-
-  birthdayBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(245,158,11,0.10)',
-    borderWidth: 1,
-    borderColor: colors.amber,
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginBottom: 20,
-    padding: 16,
-    gap: 12,
-  },
-  bannerLeft: { flex: 1 },
-  bannerName: { fontSize: 17, fontWeight: '700', color: colors.midnight },
-  bannerDate: { fontSize: 14, color: '#475569', marginTop: 2 },
-  bannerActiveBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 100,
-  },
-  bannerActiveBadgeText: { fontSize: 12, fontWeight: '700', color: '#16a34a' },
-  bannerCta: { fontSize: 14, fontWeight: '600', color: colors.sky },
 
   sectionTitle: {
     fontSize: 16,
