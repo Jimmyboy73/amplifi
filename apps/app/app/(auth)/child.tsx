@@ -106,10 +106,11 @@ export default function ChildScreen() {
 
     // 2. Create wallet for child
     console.log('[Wallet Upsert] Attempting for user:', user.id)
-    const { error: walletError } = await supabase.from('wallets').upsert(
-      { owner_id: user.id, balance: 0, total_earned: 0 },
-      { onConflict: 'owner_id' },
-    )
+    const { error: walletError } = await supabase.from('wallets').insert({
+      owner_id: user.id,
+      balance: 0,
+      total_earned: 0,
+    })
     if (walletError) {
       console.error('[Wallet Upsert] FAILED:', walletError.message)
     } else {
