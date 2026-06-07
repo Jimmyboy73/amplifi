@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
+import { redeemReferralCode } from '@/lib/redeemReferralCode'
 import { colors } from '@/constants/brand'
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ export default function DetailsScreen() {
   const [authError, setAuthError] = useState('')
 
   const [touched, setTouched] = useState({
-    name: false, email: false, phone: false, dob: false, password: false,
+    name: false, email: false, phone: false, dob: false, password: false, referral: false,
   })
 
   useEffect(() => {
@@ -90,6 +91,8 @@ export default function DetailsScreen() {
       ? 'Please enter a valid date of birth (must be 18+)' : '',
     password: touched.password && !isValidPassword(password)
       ? 'Password must be at least 8 characters' : '',
+    referral: touched.referral && referralCode.trim().length > 0 && referralCode.trim().length !== 5
+      ? 'Referral codes are 5 characters' : '',
   }
 
   const isFormValid =
@@ -98,7 +101,8 @@ export default function DetailsScreen() {
     isValidPhone(phone) &&
     isValidDOB(dobDay, dobMonth, dobYear) &&
     isValidPassword(password) &&
-    agreed
+    agreed &&
+    (referralCode.trim() === '' || referralCode.trim().length === 5)
 
   const handleContinue = async () => {
     if (!isFormValid || submitting) return
@@ -162,21 +166,7 @@ export default function DetailsScreen() {
     // Record referral event if a code was entered
     const trimmedCode = referralCode.trim().toUpperCase()
     if (trimmedCode) {
-      const { data: refData } = await supabase
-        .from('referral_codes')
-        .select('user_id')
-        .eq('code', trimmedCode)
-        .single()
-
-      if (refData) {
-        await supabase.from('referral_events').insert({
-          referrer_id: refData.user_id,
-          referred_id: data.user.id,
-          code_used: trimmedCode,
-          status: 'pending',
-        })
-      }
-
+      await redeemReferralCode(trimmedCode, data.user.id)
       await AsyncStorage.removeItem('amplifi_ref_code')
     }
 
@@ -318,15 +308,17 @@ export default function DetailsScreen() {
             </View>
           </Field>
 
-          <Field label="Referral code" error="">
+          <Field label="Referral code (optional)" error={errors.referral}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.referral ? styles.inputError : null]}
               value={referralCode}
-              onChangeText={(v) => setReferralCode(v.toUpperCase())}
-              placeholder="Got a referral code?"
+              onChangeText={(v) => setReferralCode(v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5))}
+              onBlur={() => touch('referral')}
+              placeholder="Enter a friend's code"
               placeholderTextColor="#94a3b8"
               autoCapitalize="characters"
               autoCorrect={false}
+              maxLength={5}
             />
           </Field>
 

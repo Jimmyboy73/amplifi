@@ -214,6 +214,7 @@ export default function HomeScreen() {
                 Alert.alert('Your account', '', [
                   { text: 'Profile', onPress: () => Alert.alert('Coming soon', 'Profile settings coming soon.') },
                   { text: 'Payment settings', onPress: () => router.push('/settings/payment') },
+                  { text: 'Referral code', onPress: () => router.push('/settings/referral') },
                   { text: 'Sign out', style: 'destructive', onPress: () => { void signOut() } },
                   { text: 'Cancel', style: 'cancel' },
                 ])
