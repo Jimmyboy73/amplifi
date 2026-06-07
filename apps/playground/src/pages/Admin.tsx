@@ -26,6 +26,19 @@ interface Profile {
   email: string | null
 }
 
+type OfferStatus = 'Live' | 'Scheduled' | 'Off' | 'Expired'
+
+interface CashbackOffer {
+  id: string
+  merchant_id: string | null
+  reward_type: 'percentage' | 'fixed'
+  reward_value: number
+  active_from: string
+  active_to: string
+  is_active: boolean
+  merchants: { name: string } | null
+}
+
 type Tab = 'merchants' | 'offers' | 'simulate' | 'settle'
 
 // ── Colours ────────────────────────────────────────────────────────────────────
@@ -43,6 +56,31 @@ const C = {
 
 function gbp(n: number) {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n)
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function rewardLabel(type: 'percentage' | 'fixed', value: number) {
+  return type === 'percentage' ? `${value}%` : `£${value}`
+}
+
+function offerStatus(o: CashbackOffer): OfferStatus {
+  if (!o.is_active) return 'Off'
+  const now = new Date()
+  if (new Date(o.active_to) < now) return 'Expired'
+  if (new Date(o.active_from) > now) return 'Scheduled'
+  return 'Live'
+}
+
+const STATUS_ORDER: Record<OfferStatus, number> = { Live: 0, Scheduled: 1, Off: 2, Expired: 3 }
+
+const STATUS_COLOURS: Record<OfferStatus, string> = {
+  Live: '#16a34a',
+  Scheduled: '#d97706',
+  Off: '#64748b',
+  Expired: '#94a3b8',
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -65,6 +103,7 @@ export default function Admin() {
   const [merchants, setMerchants] = useState<Merchant[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [events, setEvents] = useState<CashbackEvent[]>([])
+  const [offers, setOffers] = useState<CashbackOffer[]>([])
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
 
   // ── Merchant form state
@@ -111,10 +150,19 @@ export default function Admin() {
     setEvents(data ?? [])
   }
 
+  const loadOffers = async () => {
+    const { data } = await supabase
+      .from('cashback_offers')
+      .select('id, merchant_id, reward_type, reward_value, active_from, active_to, is_active, merchants(name)')
+      .order('created_at', { ascending: false })
+    setOffers((data ?? []) as CashbackOffer[])
+  }
+
   useEffect(() => {
     loadMerchants()
     loadProfiles()
     loadEvents()
+    loadOffers()
   }, [])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -149,6 +197,7 @@ export default function Admin() {
     if (error) return notify(error.message, false)
     notify('Offer created.')
     setOValue(''); setOFrom(''); setOTo('')
+    loadOffers()
   }
 
   const handleSimulate = async (e: React.FormEvent) => {
@@ -196,6 +245,16 @@ export default function Admin() {
     if (error) return notify(error.message, false)
     notify('Event reversed — credit voided.', false)
     loadEvents()
+  }
+
+  const handleToggleOffer = async (id: string, current: boolean) => {
+    const { error } = await supabase
+      .from('cashback_offers')
+      .update({ is_active: !current })
+      .eq('id', id)
+    if (error) return notify(error.message, false)
+    notify(`Offer ${!current ? 'activated' : 'deactivated'}.`)
+    loadOffers()
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -291,42 +350,87 @@ export default function Admin() {
 
         {/* ── Offers tab ─────────────────────────────────────────── */}
         {tab === 'offers' && (
-          <Card title="Create cashback offer">
-            <form onSubmit={handleCreateOffer} style={formStyle}>
-              <Row label="Merchant *">
-                <select style={inputStyle} value={oMerchant} onChange={(e) => setOMerchant(e.target.value)} required>
-                  <option value="">Select merchant…</option>
-                  {merchants.filter((m) => m.status === 'active').map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </Row>
-              <Row label="Reward type">
-                <select style={inputStyle} value={oType} onChange={(e) => setOType(e.target.value as 'percentage' | 'fixed')}>
-                  <option value="percentage">Percentage (%)</option>
-                  <option value="fixed">Fixed (£)</option>
-                </select>
-              </Row>
-              <Row label={oType === 'percentage' ? 'Cashback % *' : 'Fixed reward £ *'}>
-                <input style={inputStyle} type="number" step="0.01" min="0.01"
-                  value={oValue} onChange={(e) => setOValue(e.target.value)}
-                  placeholder={oType === 'percentage' ? 'e.g. 2.5' : 'e.g. 5.00'} required />
-              </Row>
-              <Row label="Active from *">
-                <input style={inputStyle} type="datetime-local" value={oFrom} onChange={(e) => setOFrom(e.target.value)} required />
-              </Row>
-              <Row label="Active to *">
-                <input style={inputStyle} type="datetime-local" value={oTo} onChange={(e) => setOTo(e.target.value)} required />
-              </Row>
-              <Row label="Live now">
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={oActive} onChange={(e) => setOActive(e.target.checked)} />
-                  <span style={{ fontSize: 14, color: C.midnight }}>is_active</span>
-                </label>
-              </Row>
-              <SubmitBtn>Create offer</SubmitBtn>
-            </form>
-          </Card>
+          <div>
+            <Card title="Create cashback offer">
+              <form onSubmit={handleCreateOffer} style={formStyle}>
+                <Row label="Merchant *">
+                  <select style={inputStyle} value={oMerchant} onChange={(e) => setOMerchant(e.target.value)} required>
+                    <option value="">Select merchant…</option>
+                    {merchants.filter((m) => m.status === 'active').map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </Row>
+                <Row label="Reward type">
+                  <select style={inputStyle} value={oType} onChange={(e) => setOType(e.target.value as 'percentage' | 'fixed')}>
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed">Fixed (£)</option>
+                  </select>
+                </Row>
+                <Row label={oType === 'percentage' ? 'Cashback % *' : 'Fixed reward £ *'}>
+                  <input style={inputStyle} type="number" step="0.01" min="0.01"
+                    value={oValue} onChange={(e) => setOValue(e.target.value)}
+                    placeholder={oType === 'percentage' ? 'e.g. 2.5' : 'e.g. 5.00'} required />
+                </Row>
+                <Row label="Active from *">
+                  <input style={inputStyle} type="datetime-local" value={oFrom} onChange={(e) => setOFrom(e.target.value)} required />
+                </Row>
+                <Row label="Active to *">
+                  <input style={inputStyle} type="datetime-local" value={oTo} onChange={(e) => setOTo(e.target.value)} required />
+                </Row>
+                <Row label="Live now">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={oActive} onChange={(e) => setOActive(e.target.checked)} />
+                    <span style={{ fontSize: 14, color: C.midnight }}>is_active</span>
+                  </label>
+                </Row>
+                <SubmitBtn>Create offer</SubmitBtn>
+              </form>
+            </Card>
+
+            <Card title={`Offers (${offers.length})`}>
+              {offers.length === 0 ? (
+                <p style={emptyStyle}>No offers yet.</p>
+              ) : (
+                <table style={tableStyle}>
+                  <thead><tr>
+                    <Th>Merchant</Th><Th>Reward</Th><Th>From</Th><Th>To</Th><Th>Status</Th><Th></Th>
+                  </tr></thead>
+                  <tbody>
+                    {[...offers]
+                      .sort((a, b) => STATUS_ORDER[offerStatus(a)] - STATUS_ORDER[offerStatus(b)])
+                      .map((o) => {
+                        const s = offerStatus(o)
+                        return (
+                          <tr key={o.id}>
+                            <Td>{o.merchants?.name ?? '—'}</Td>
+                            <Td style={{ fontWeight: 700 }}>{rewardLabel(o.reward_type, o.reward_value)}</Td>
+                            <Td>{fmtDate(o.active_from)}</Td>
+                            <Td>{fmtDate(o.active_to)}</Td>
+                            <Td>
+                              <span style={{
+                                fontSize: 12, fontWeight: 700,
+                                color: STATUS_COLOURS[s],
+                                background: STATUS_COLOURS[s] + '18',
+                                borderRadius: 6, padding: '2px 8px',
+                              }}>{s}</span>
+                            </Td>
+                            <Td>
+                              <ActionBtn
+                                color={o.is_active ? C.red : C.green}
+                                onClick={() => handleToggleOffer(o.id, o.is_active)}
+                              >
+                                {o.is_active ? 'Deactivate' : 'Activate'}
+                              </ActionBtn>
+                            </Td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+          </div>
         )}
 
         {/* ── Simulate transaction tab ───────────────────────────── */}
