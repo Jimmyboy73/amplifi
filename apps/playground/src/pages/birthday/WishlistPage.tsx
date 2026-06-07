@@ -199,7 +199,9 @@ export default function WishlistPage() {
         {/* ── Intro copy ────────────────────────────────────────────────── */}
         <div className="space-y-3 pt-1">
           <p className="text-midnight text-sm leading-relaxed">
-            Here's {name}'s wishlist.
+            {name}'s having a {occasion} and it'd be great to see you there.
+            If you'd like to bring something, here's {name}'s wishlist — but
+            there's absolutely no obligation. Coming along is more than enough.
           </p>
         </div>
 
