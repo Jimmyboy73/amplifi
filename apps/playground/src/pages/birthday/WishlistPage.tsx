@@ -175,13 +175,19 @@ export default function WishlistPage() {
   const name = childName ?? 'They'
   const occasion = wishlist.occasion
 
+  const bannerLabel = occasion.toLowerCase() === 'birthday'
+    ? 'BIRTHDAY WISHLIST'
+    : occasion.toLowerCase() === 'christmas'
+      ? 'CHRISTMAS WISHLIST'
+      : `${occasion.toUpperCase()} WISHLIST`
+
   return (
     <div className="min-h-screen bg-offwhite font-jakarta">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="bg-midnight px-4 pt-10 pb-8 text-center">
         <p className="text-sky text-xs font-bold uppercase tracking-widest mb-3">
-          Gift Wishlist
+          {bannerLabel}
         </p>
         <h1 className="text-white text-3xl font-extrabold leading-tight">
           You're invited to {name}'s {occasion}
@@ -193,9 +199,7 @@ export default function WishlistPage() {
         {/* ── Intro copy ────────────────────────────────────────────────── */}
         <div className="space-y-3 pt-1">
           <p className="text-midnight text-sm leading-relaxed">
-            {name}'s having a {occasion} and it'd be great to see you there. If you'd
-            like to bring something, here's what they're hoping for — but there's
-            absolutely no obligation. Coming along is more than enough.
+            Here's {name}'s wishlist.
           </p>
         </div>
 
@@ -239,8 +243,9 @@ export default function WishlistPage() {
 
         {/* ── JISA note ─────────────────────────────────────────────────── */}
         <p className="text-slate-500 text-sm leading-relaxed">
-          Anything extra automatically goes into {name}'s Junior ISA — a savings
-          account that stays invested for {name}'s future.
+          {name} is set up on Amplifi so that anything extra automatically goes
+          into {name}'s Junior ISA — a savings account that stays invested for{' '}
+          {name}'s future.
         </p>
 
         {/* ── Contribute now accordion ──────────────────────────────────── */}
