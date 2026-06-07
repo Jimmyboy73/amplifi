@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { useReferralCode } from '@/lib/useReferralCode'
 import { colors } from '@/constants/brand'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ function relativeDate(dateStr: string): string {
 
 export default function FamilyScreen() {
   const { user } = useAuth()
+  const { code: referralCode } = useReferralCode()
   const [child, setChild] = useState<{ id: string; name: string } | null>(null)
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
@@ -125,9 +127,11 @@ export default function FamilyScreen() {
   const childName = child?.name ?? 'your child'
   const networkTotal = contributors.reduce((sum, c) => sum + c.totalContributed, 0)
 
+  const inviteUrl = child
+    ? `https://amplifi-plan.netlify.app/family/${child.id}${referralCode ? `?ref=${referralCode}` : ''}`
+    : 'https://amplifi-plan.netlify.app'
   const inviteMessage =
-    `I've set up Amplifi so our everyday shopping builds ${childName}'s future. ` +
-    `You can contribute too — join her gifting network: https://amplifi-plan.netlify.app`
+    `I've set up Amplifi to build ${childName}'s future. You can contribute too — support ${childName}'s Junior ISA here: ${inviteUrl}`
 
   const shareWhatsApp = () => {
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(inviteMessage)}`).catch(() =>
@@ -171,7 +175,7 @@ export default function FamilyScreen() {
         <View style={styles.networkCard}>
           <Text style={styles.networkLabel}>👨‍👩‍👧 {childName}'s family network</Text>
           <Text style={styles.networkTotal}>{gbp(networkTotal)}</Text>
-          <Text style={styles.networkSub}>contributed to her JISA this year</Text>
+          <Text style={styles.networkSub}>contributed to {childName}'s JISA this year</Text>
           <Text style={styles.networkCount}>{contributors.length} active contributors</Text>
         </View>
 
