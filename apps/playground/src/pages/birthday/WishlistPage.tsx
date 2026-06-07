@@ -268,19 +268,55 @@ export default function WishlistPage() {
                 </p>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {hasBank && (
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                  {hasBank && (() => {
+                    const raw = ownerPayment!.pay_bank!
+                    if (!raw.includes('|')) {
+                      // Old format — display raw string with a single copy button
+                      return (
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                              🏦 Bank transfer
+                            </p>
+                            <p className="text-sm font-semibold text-midnight break-all">{raw}</p>
+                          </div>
+                          <CopyButton value={raw} />
+                        </div>
+                      )
+                    }
+                    const [bn, an, sc, acn] = raw.split('|')
+                    return (
+                      <div className="px-4 py-3 space-y-2">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                           🏦 Bank transfer
                         </p>
-                        <p className="text-sm font-semibold text-midnight break-all">
-                          {ownerPayment!.pay_bank}
-                        </p>
+                        {bn && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 w-28 shrink-0">Bank</span>
+                            <span className="text-sm font-semibold text-midnight flex-1">{bn}</span>
+                            <CopyButton value={bn} />
+                          </div>
+                        )}
+                        {an && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 w-28 shrink-0">Account name</span>
+                            <span className="text-sm font-semibold text-midnight flex-1">{an}</span>
+                            <CopyButton value={an} />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 w-28 shrink-0">Sort code</span>
+                          <span className="text-sm font-semibold text-midnight flex-1">{sc}</span>
+                          <CopyButton value={sc} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 w-28 shrink-0">Account number</span>
+                          <span className="text-sm font-semibold text-midnight flex-1">{acn}</span>
+                          <CopyButton value={acn} />
+                        </div>
                       </div>
-                      <CopyButton value={ownerPayment!.pay_bank!} />
-                    </div>
-                  )}
+                    )
+                  })()}
                   {hasMonzo && (
                     <div className="flex items-center gap-3 px-4 py-3">
                       <div className="flex-1 min-w-0">

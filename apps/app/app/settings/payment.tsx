@@ -22,6 +22,8 @@ export default function PaymentSettingsScreen() {
   const [isLoading, setIsLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  const [bankName, setBankName] = useState('')
+  const [bankAccountName, setBankAccountName] = useState('')
   const [bankSortCode, setBankSortCode] = useState('')
   const [bankAccountNumber, setBankAccountNumber] = useState('')
   const [payMonzo, setPayMonzo] = useState('')
@@ -37,10 +39,22 @@ export default function PaymentSettingsScreen() {
       .single()
       .then(({ data }) => {
         if (data) {
-          // Split stored "XXXXXX / XXXXXXXX" back into the two fields
-          const parts = (data.pay_bank ?? '').split(' / ')
-          setBankSortCode(parts[0] ?? '')
-          setBankAccountNumber(parts[1] ?? '')
+          const raw = data.pay_bank ?? ''
+          if (raw.includes('|')) {
+            // New pipe-delimited format: BANK|ACCOUNTNAME|SORTCODE|ACCOUNTNUMBER
+            const parts = raw.split('|')
+            setBankName(parts[0] ?? '')
+            setBankAccountName(parts[1] ?? '')
+            setBankSortCode(parts[2] ?? '')
+            setBankAccountNumber(parts[3] ?? '')
+          } else if (raw.includes(' / ')) {
+            // Old format: SORTCODE / ACCOUNTNUMBER
+            const parts = raw.split(' / ')
+            setBankSortCode(parts[0] ?? '')
+            setBankAccountNumber(parts[1] ?? '')
+          } else if (raw) {
+            setBankAccountNumber(raw)
+          }
           setPayMonzo(data.pay_monzo ?? '')
           setPayPaypal(data.pay_paypal ?? '')
           setPayRevolut(data.pay_revolut ?? '')
@@ -55,14 +69,17 @@ export default function PaymentSettingsScreen() {
 
     const sortCode = bankSortCode.trim()
     const accountNumber = bankAccountNumber.trim()
-    const payBank = sortCode && accountNumber ? `${sortCode} / ${accountNumber}` : null
+    // Require sort code + account number; bank name and account name are optional
+    const payBank = sortCode && accountNumber
+      ? `${bankName.trim()}|${bankAccountName.trim()}|${sortCode}|${accountNumber}`
+      : null
 
     // Derive legacy payment_method/payment_detail for backward compat
     const firstMethod =
-      payBank            ? 'Bank transfer' :
-      payMonzo.trim()    ? 'Monzo' :
-      payPaypal.trim()   ? 'PayPal' :
-      payRevolut.trim()  ? 'Revolut' : ''
+      payBank           ? 'Bank transfer' :
+      payMonzo.trim()   ? 'Monzo' :
+      payPaypal.trim()  ? 'PayPal' :
+      payRevolut.trim() ? 'Revolut' : ''
     const firstDetail =
       payBank || payMonzo.trim() || payPaypal.trim() || payRevolut.trim() || ''
 
@@ -118,9 +135,27 @@ export default function PaymentSettingsScreen() {
           you share a wishlist with.
         </Text>
 
-        {/* Bank transfer — first, split into two inputs */}
+        {/* Bank transfer */}
         <View style={styles.fieldWrapper}>
           <Text style={styles.fieldLabel}>Bank transfer</Text>
+          <TextInput
+            style={[styles.input, styles.inputSpaced]}
+            value={bankName}
+            onChangeText={setBankName}
+            placeholder="e.g. Barclays, HSBC, Monzo"
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="words"
+            autoCorrect={false}
+          />
+          <TextInput
+            style={[styles.input, styles.inputSpaced]}
+            value={bankAccountName}
+            onChangeText={setBankAccountName}
+            placeholder="Name on the account"
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="words"
+            autoCorrect={false}
+          />
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, styles.inputHalf]}
@@ -141,7 +176,7 @@ export default function PaymentSettingsScreen() {
               maxLength={8}
             />
           </View>
-          <Text style={styles.fieldHint}>Sort code · Account number</Text>
+          <Text style={styles.fieldHint}>Bank name · Account name (optional) · Sort code · Account number</Text>
         </View>
 
         <View style={styles.fieldWrapper}>
@@ -230,6 +265,7 @@ const styles = StyleSheet.create({
 
   inputRow: { flexDirection: 'row', gap: 10 },
   inputHalf: { flex: 1 },
+  inputSpaced: { marginBottom: 10 },
 
   input: {
     borderWidth: 1,
