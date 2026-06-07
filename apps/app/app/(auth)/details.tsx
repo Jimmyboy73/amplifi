@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import {
   View,
@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
@@ -64,12 +65,19 @@ export default function DetailsScreen() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const [referralCode, setReferralCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [authError, setAuthError] = useState('')
 
   const [touched, setTouched] = useState({
     name: false, email: false, phone: false, dob: false, password: false,
   })
+
+  useEffect(() => {
+    AsyncStorage.getItem('amplifi_ref_code').then((stored) => {
+      if (stored) setReferralCode(stored)
+    })
+  }, [])
 
   const touch = (field: keyof typeof touched) =>
     setTouched((t) => ({ ...t, [field]: true }))
@@ -149,6 +157,27 @@ export default function DetailsScreen() {
         break
       }
       console.error(`[Profile Insert] Attempt ${attempt} FAILED:`, error.message)
+    }
+
+    // Record referral event if a code was entered
+    const trimmedCode = referralCode.trim().toUpperCase()
+    if (trimmedCode) {
+      const { data: refData } = await supabase
+        .from('referral_codes')
+        .select('user_id')
+        .eq('code', trimmedCode)
+        .single()
+
+      if (refData) {
+        await supabase.from('referral_events').insert({
+          referrer_id: refData.user_id,
+          referred_id: data.user.id,
+          code_used: trimmedCode,
+          status: 'pending',
+        })
+      }
+
+      await AsyncStorage.removeItem('amplifi_ref_code')
     }
 
     console.log('[Navigation] Navigating to child screen')
@@ -287,6 +316,18 @@ export default function DetailsScreen() {
                 <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
               </TouchableOpacity>
             </View>
+          </Field>
+
+          <Field label="Referral code" error="">
+            <TextInput
+              style={styles.input}
+              value={referralCode}
+              onChangeText={(v) => setReferralCode(v.toUpperCase())}
+              placeholder="Got a referral code?"
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
           </Field>
 
           {/* Terms */}

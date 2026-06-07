@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv, formatGBP } from '@/lib/projections'
 import { useAuth } from '@/lib/auth'
+import { useReferralCode } from '@/lib/useReferralCode'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
@@ -58,6 +59,7 @@ export default function ManageWishlistScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
+  const { code: referralCode, loading: referralLoading } = useReferralCode()
 
   const [wishlist, setWishlist] = useState<{
     id: string
@@ -281,12 +283,13 @@ export default function ManageWishlistScreen() {
   }
 
   const handleShareReminder = () => {
+    console.log('[Share] referralCode:', referralCode, '| loading:', referralLoading)
     const itemNames = items.map((i) => i.name).join(' and ')
     const msg =
       `${childName}'s ${wishlist?.occasion ?? 'birthday'} wishlist is live! 🎂 ` +
       `She'd love ${itemNames}. ` +
       `Send your contribution to ${wishlist?.payment_method ?? ''} on Monzo. ` +
-      `View her wishlist here: https://amplifi-plan.netlify.app/birthday/${id}`
+      `View her wishlist here: https://amplifi-plan.netlify.app/birthday/${id}${referralCode ? `?ref=${referralCode}` : ''}`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share.')
     )

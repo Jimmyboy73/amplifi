@@ -12,6 +12,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth'
+import { useReferralCode } from '@/lib/useReferralCode'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
@@ -54,6 +55,7 @@ function gbp(n: number): string {
 export default function BirthdayHomeScreen() {
   const router = useRouter()
   const { user } = useAuth()
+  const { code: referralCode } = useReferralCode()
 
   const [child, setChild] = useState<{ id: string; name: string; date_of_birth: string } | null>(null)
   const [wishlists, setWishlists] = useState<Wishlist[]>([])
@@ -169,12 +171,14 @@ export default function BirthdayHomeScreen() {
   }
 
   const shareWishlist = (w: Wishlist) => {
+    console.log('[Share] referralCode:', referralCode)
     const itemList = w.items.map((i) => `• ${i.name} (${i.retailer})`).join('\n')
+    const shareUrl = `https://amplifi-plan.netlify.app/birthday/${w.id}${referralCode ? `?ref=${referralCode}` : ''}`
     const msg =
       `${w.childName}'s ${w.occasion} wishlist is live! 🎂\n\n` +
       `She'd love:\n${itemList}\n\n` +
       `Send contributions to ${w.paymentMethod}\n\n` +
-      `View her wishlist: https://amplifi-plan.netlify.app/birthday/${w.id}`
+      `View her wishlist: ${shareUrl}`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share.')
     )

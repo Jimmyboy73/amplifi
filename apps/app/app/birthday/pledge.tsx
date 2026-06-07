@@ -13,6 +13,8 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Clipboard from 'expo-clipboard'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
@@ -29,7 +31,7 @@ function gbp(n: number): string {
 
 export default function PledgeScreen() {
   const router = useRouter()
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, ref: refCode } = useLocalSearchParams<{ id: string; ref?: string }>()
 
   const [wishlist, setWishlist] = useState<{
     id: string
@@ -49,12 +51,26 @@ export default function PledgeScreen() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   // Pledge form
   const [pledgerName, setPledgerName] = useState('')
   const [pledgerEmail, setPledgerEmail] = useState('')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
+
+  useEffect(() => {
+    if (refCode) {
+      AsyncStorage.setItem('amplifi_ref_code', refCode)
+    }
+  }, [refCode])
+
+  const handleCopyCode = async () => {
+    if (!refCode) return
+    await Clipboard.setStringAsync(refCode)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
+  }
 
   useEffect(() => {
     if (!id) return
@@ -247,6 +263,21 @@ export default function PledgeScreen() {
             )}
           </TouchableOpacity>
 
+          {refCode && (
+            <View style={styles.referralCallout}>
+              <Text style={styles.referralCalloutText}>
+                Want to start building your child's financial future? Use code{' '}
+                <Text style={styles.referralCodeText}>{refCode}</Text>
+                {' '}when you sign up to Amplifi and you'll both get £5 credit when you link a JISA.
+              </Text>
+              <TouchableOpacity onPress={handleCopyCode} style={styles.copyBtn} activeOpacity={0.7}>
+                <Text style={styles.copyBtnText}>
+                  {codeCopied ? 'Copied!' : `Copy code: ${refCode}`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -346,4 +377,34 @@ const styles = StyleSheet.create({
   submitBtnText: { color: colors.midnight, fontSize: 17, fontWeight: '700' },
 
   notFoundText: { fontSize: 16, color: '#94a3b8', textAlign: 'center' },
+
+  referralCallout: {
+    backgroundColor: colors.midnight,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 16,
+  },
+  referralCalloutText: {
+    fontSize: 14,
+    color: '#ffffff',
+    lineHeight: 21,
+    marginBottom: 12,
+  },
+  referralCodeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.sky,
+  },
+  copyBtn: {
+    backgroundColor: colors.sky,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  copyBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.midnight,
+    letterSpacing: 1,
+  },
 })
