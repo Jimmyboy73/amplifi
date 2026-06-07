@@ -22,10 +22,11 @@ export default function PaymentSettingsScreen() {
   const [isLoading, setIsLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  const [bankSortCode, setBankSortCode] = useState('')
+  const [bankAccountNumber, setBankAccountNumber] = useState('')
   const [payMonzo, setPayMonzo] = useState('')
   const [payPaypal, setPayPaypal] = useState('')
   const [payRevolut, setPayRevolut] = useState('')
-  const [payBank, setPayBank] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -36,10 +37,13 @@ export default function PaymentSettingsScreen() {
       .single()
       .then(({ data }) => {
         if (data) {
+          // Split stored "XXXXXX / XXXXXXXX" back into the two fields
+          const parts = (data.pay_bank ?? '').split(' / ')
+          setBankSortCode(parts[0] ?? '')
+          setBankAccountNumber(parts[1] ?? '')
           setPayMonzo(data.pay_monzo ?? '')
           setPayPaypal(data.pay_paypal ?? '')
           setPayRevolut(data.pay_revolut ?? '')
-          setPayBank(data.pay_bank ?? '')
         }
         setIsLoading(false)
       })
@@ -49,23 +53,26 @@ export default function PaymentSettingsScreen() {
     if (!user) return
     setSaving(true)
 
-    // Derive legacy payment_method/payment_detail for backward compat with
-    // anything still reading the old single-method columns.
+    const sortCode = bankSortCode.trim()
+    const accountNumber = bankAccountNumber.trim()
+    const payBank = sortCode && accountNumber ? `${sortCode} / ${accountNumber}` : null
+
+    // Derive legacy payment_method/payment_detail for backward compat
     const firstMethod =
-      payMonzo.trim()   ? 'Monzo' :
-      payPaypal.trim()  ? 'PayPal' :
-      payRevolut.trim() ? 'Revolut' :
-      payBank.trim()    ? 'Bank transfer' : ''
+      payBank            ? 'Bank transfer' :
+      payMonzo.trim()    ? 'Monzo' :
+      payPaypal.trim()   ? 'PayPal' :
+      payRevolut.trim()  ? 'Revolut' : ''
     const firstDetail =
-      payMonzo.trim() || payPaypal.trim() || payRevolut.trim() || payBank.trim() || ''
+      payBank || payMonzo.trim() || payPaypal.trim() || payRevolut.trim() || ''
 
     const { error } = await supabase
       .from('profiles')
       .update({
+        pay_bank:    payBank,
         pay_monzo:   payMonzo.trim()   || null,
         pay_paypal:  payPaypal.trim()  || null,
         pay_revolut: payRevolut.trim() || null,
-        pay_bank:    payBank.trim()    || null,
         // Legacy columns — kept for backward compat, not removed yet
         payment_method: firstMethod,
         payment_detail: firstDetail,
@@ -111,6 +118,32 @@ export default function PaymentSettingsScreen() {
           you share a wishlist with.
         </Text>
 
+        {/* Bank transfer — first, split into two inputs */}
+        <View style={styles.fieldWrapper}>
+          <Text style={styles.fieldLabel}>Bank transfer</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, styles.inputHalf]}
+              value={bankSortCode}
+              onChangeText={(v) => setBankSortCode(v.replace(/\D/g, '').slice(0, 6))}
+              placeholder="123456"
+              placeholderTextColor="#94a3b8"
+              keyboardType="number-pad"
+              maxLength={6}
+            />
+            <TextInput
+              style={[styles.input, styles.inputHalf]}
+              value={bankAccountNumber}
+              onChangeText={(v) => setBankAccountNumber(v.replace(/\D/g, '').slice(0, 8))}
+              placeholder="12345678"
+              placeholderTextColor="#94a3b8"
+              keyboardType="number-pad"
+              maxLength={8}
+            />
+          </View>
+          <Text style={styles.fieldHint}>Sort code · Account number</Text>
+        </View>
+
         <View style={styles.fieldWrapper}>
           <Text style={styles.fieldLabel}>Monzo</Text>
           <TextInput
@@ -145,19 +178,6 @@ export default function PaymentSettingsScreen() {
             value={payRevolut}
             onChangeText={setPayRevolut}
             placeholder="@yourrevolut"
-            placeholderTextColor="#94a3b8"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        <View style={styles.fieldWrapper}>
-          <Text style={styles.fieldLabel}>Bank transfer</Text>
-          <TextInput
-            style={styles.input}
-            value={payBank}
-            onChangeText={setPayBank}
-            placeholder="Sort code and account number e.g. 12-34-56 / 12345678"
             placeholderTextColor="#94a3b8"
             autoCapitalize="none"
             autoCorrect={false}
@@ -206,6 +226,10 @@ const styles = StyleSheet.create({
 
   fieldWrapper: { marginBottom: 20 },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.midnight, marginBottom: 6 },
+  fieldHint: { fontSize: 12, color: '#94a3b8', marginTop: 5 },
+
+  inputRow: { flexDirection: 'row', gap: 10 },
+  inputHalf: { flex: 1 },
 
   input: {
     borderWidth: 1,
