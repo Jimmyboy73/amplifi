@@ -333,16 +333,12 @@ export default function WishlistPage() {
         {refCode && (
           <div className="bg-midnight rounded-2xl p-5">
             <p className="text-white font-bold text-base mb-2">
-              Got an occasion coming up?
+              Here's £5 for your child's future
             </p>
             <p className="text-white/80 text-sm leading-relaxed mb-4">
-              Create a wishlist on Amplifi and share it with guests — just like
-              this one. When someone signs up using your code, you'll both get{' '}
-              <span className="text-white font-bold">£5</span> credited to your
-              child's Junior ISA.
-            </p>
-            <p className="text-white/60 text-xs font-semibold mb-2">
-              Use code {refCode} to get started.
+              Sign up to Amplifi and use this code when you create your account.
+              You'll get £5 credited to your child's Junior ISA when you link a
+              savings account.
             </p>
             <div className="bg-white/10 rounded-xl px-4 py-3 text-center mb-3">
               <span className="text-sky font-extrabold text-3xl tracking-[0.25em]">
