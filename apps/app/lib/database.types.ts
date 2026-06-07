@@ -832,6 +832,241 @@ export type Database = {
         ]
       }
 
+      merchants: {
+        Row: {
+          id: string
+          name: string
+          category: string
+          logo_url: string | null
+          contact_email: string | null
+          stripe_customer_id: string | null
+          status: 'active' | 'inactive'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          category: string
+          logo_url?: string | null
+          contact_email?: string | null
+          stripe_customer_id?: string | null
+          status?: 'active' | 'inactive'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          category?: string
+          logo_url?: string | null
+          contact_email?: string | null
+          stripe_customer_id?: string | null
+          status?: 'active' | 'inactive'
+          created_at?: string
+        }
+        Relationships: []
+      }
+
+      cashback_offers: {
+        Row: {
+          id: string
+          source: 'amplifi' | 'fidel_oaas' | 'sientia'
+          merchant_id: string | null
+          provider_offer_id: string | null
+          reward_type: 'percentage' | 'fixed'
+          reward_value: number
+          active_from: string
+          active_to: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          source?: 'amplifi' | 'fidel_oaas' | 'sientia'
+          merchant_id?: string | null
+          provider_offer_id?: string | null
+          reward_type: 'percentage' | 'fixed'
+          reward_value: number
+          active_from: string
+          active_to: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          source?: 'amplifi' | 'fidel_oaas' | 'sientia'
+          merchant_id?: string | null
+          provider_offer_id?: string | null
+          reward_type?: 'percentage' | 'fixed'
+          reward_value?: number
+          active_from?: string
+          active_to?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'cashback_offers_merchant_id_fkey'; columns: ['merchant_id']; referencedRelation: 'merchants'; referencedColumns: ['id'] }
+        ]
+      }
+
+      linked_accounts: {
+        Row: {
+          id: string
+          user_id: string
+          provider: 'sientia' | 'fidel'
+          provider_ref: string
+          status: 'active' | 'revoked'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          provider: 'sientia' | 'fidel'
+          provider_ref: string
+          status?: 'active' | 'revoked'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          provider?: 'sientia' | 'fidel'
+          provider_ref?: string
+          status?: 'active' | 'revoked'
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'linked_accounts_user_id_fkey'; columns: ['user_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
+      }
+
+      cashback_events: {
+        Row: {
+          id: string
+          user_id: string
+          linked_account_id: string | null
+          provider: string
+          provider_txn_id: string | null
+          merchant_id: string | null
+          merchant_name: string
+          amount_gbp: number
+          currency: string
+          offer_id: string | null
+          cashback_gbp: number | null
+          status: 'pending' | 'settled' | 'reversed'
+          transacted_at: string
+          settled_at: string | null
+          raw: Record<string, unknown>
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          linked_account_id?: string | null
+          provider?: string
+          provider_txn_id?: string | null
+          merchant_id?: string | null
+          merchant_name: string
+          amount_gbp: number
+          currency?: string
+          offer_id?: string | null
+          cashback_gbp?: number | null
+          status?: 'pending' | 'settled' | 'reversed'
+          transacted_at?: string
+          settled_at?: string | null
+          raw?: Record<string, unknown>
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          linked_account_id?: string | null
+          provider?: string
+          provider_txn_id?: string | null
+          merchant_id?: string | null
+          merchant_name?: string
+          amount_gbp?: number
+          currency?: string
+          offer_id?: string | null
+          cashback_gbp?: number | null
+          status?: 'pending' | 'settled' | 'reversed'
+          transacted_at?: string
+          settled_at?: string | null
+          raw?: Record<string, unknown>
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'cashback_events_user_id_fkey'; columns: ['user_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'cashback_events_merchant_id_fkey'; columns: ['merchant_id']; referencedRelation: 'merchants'; referencedColumns: ['id'] },
+          { foreignKeyName: 'cashback_events_offer_id_fkey'; columns: ['offer_id']; referencedRelation: 'cashback_offers'; referencedColumns: ['id'] }
+        ]
+      }
+
+      cashback_credits: {
+        Row: {
+          id: string
+          user_id: string
+          amount_gbp: number
+          source: 'cashback'
+          cashback_event_id: string
+          status: 'pending' | 'redeemable' | 'redeemed' | 'reversed'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          amount_gbp: number
+          source?: 'cashback'
+          cashback_event_id: string
+          status?: 'pending' | 'redeemable' | 'redeemed' | 'reversed'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          amount_gbp?: number
+          source?: 'cashback'
+          cashback_event_id?: string
+          status?: 'pending' | 'redeemable' | 'redeemed' | 'reversed'
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'cashback_credits_user_id_fkey'; columns: ['user_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'cashback_credits_cashback_event_id_fkey'; columns: ['cashback_event_id']; referencedRelation: 'cashback_events'; referencedColumns: ['id'] }
+        ]
+      }
+
+      spend_insights: {
+        Row: {
+          id: string
+          user_id: string
+          period_start: string
+          period_end: string
+          missed_cashback_gbp: number
+          detail: Record<string, unknown>
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          period_start: string
+          period_end: string
+          missed_cashback_gbp?: number
+          detail?: Record<string, unknown>
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          period_start?: string
+          period_end?: string
+          missed_cashback_gbp?: number
+          detail?: Record<string, unknown>
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'spend_insights_user_id_fkey'; columns: ['user_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
+      }
+
       referral_credits: {
         Row: {
           id: string
@@ -932,3 +1167,9 @@ export type Pledge              = Tables['pledges']['Row']
 export type ReferralCode        = Tables['referral_codes']['Row']
 export type ReferralEvent       = Tables['referral_events']['Row']
 export type ReferralCredit      = Tables['referral_credits']['Row']
+export type Merchant            = Tables['merchants']['Row']
+export type CashbackOffer       = Tables['cashback_offers']['Row']
+export type LinkedAccount       = Tables['linked_accounts']['Row']
+export type CashbackEvent       = Tables['cashback_events']['Row']
+export type CashbackCredit      = Tables['cashback_credits']['Row']
+export type SpendInsight        = Tables['spend_insights']['Row']

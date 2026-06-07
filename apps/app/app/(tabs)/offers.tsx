@@ -1,231 +1,135 @@
-import { useState } from 'react'
 import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
+  ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors } from '@/constants/brand'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface CloOffer {
-  id: string
-  merchant: string
-  category: string
-  cashbackPercent: number
-  logo: string
-  color: string
-  description: string
-}
-
-interface ActivatedOffer {
-  id: string
-  merchant: string
-  category: string
-  cashbackPercent: number
-  logo: string
-  color: string
-  description: string
-  expiry: string
-  activated: boolean
-}
-
-interface Challenge {
-  id: string
-  merchant: string
-  challenge: string
-  reward: number
-  progress: number
-  target: number
-  logo: string
-  color: string
-  expiry: string
-  status: 'active' | 'completed'
-}
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const CHILD_NAME = 'Olivia'
-const MISSED_CASHBACK = 89.00
-
-const CLO_OFFERS: CloOffer[] = [
-  { id: '1', merchant: 'Waitrose',     category: 'Groceries', cashbackPercent: 2, logo: 'W',  color: '#007A3B', description: 'Always on — use your linked card' },
-  { id: '2', merchant: 'Costa Coffee', category: 'Dining',    cashbackPercent: 3, logo: 'C',  color: '#6B2737', description: 'Always on — use your linked card' },
-  { id: '3', merchant: 'Boots',        category: 'Health',    cashbackPercent: 2, logo: 'B',  color: '#003DA5', description: 'Always on — use your linked card' },
-]
-
-const INITIAL_ACTIVATED: ActivatedOffer[] = [
-  { id: '4', merchant: 'Holland & Barrett', category: 'Health',   cashbackPercent: 8,  logo: 'H',  color: '#4CAF50', description: 'Spend £20+ in one transaction', expiry: '30 Jun', activated: false },
-  { id: '5', merchant: 'Pizza Express',     category: 'Dining',   cashbackPercent: 10, logo: 'PE', color: '#003087', description: 'Dine in only. Min spend £15.',   expiry: '15 Jun', activated: true },
-  { id: '6', merchant: 'Clarks',            category: 'Fashion',  cashbackPercent: 7,  logo: 'Cl', color: '#8B4513', description: 'Online and in-store',            expiry: '30 Jun', activated: false },
-]
-
-const CHALLENGES: Challenge[] = [
-  { id: '7', merchant: 'Costa Coffee', challenge: 'Visit 6 times in June',   reward: 3.00, progress: 3, target: 6, logo: 'C',  color: '#6B2737', expiry: '30 Jun', status: 'active' },
-  { id: '8', merchant: "Nando's",      challenge: 'Spend £50 this month',    reward: 5.00, progress: 0, target: 1, logo: "N'", color: '#C8102E', expiry: '30 Jun', status: 'active' },
-]
+import { useCashbackOffers } from '@/lib/useCashbackOffers'
+import { useCashbackBalance } from '@/lib/useCashbackBalance'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function gbp(n: number): string {
+function gbp(n: number, decimals = 2): string {
   return new Intl.NumberFormat('en-GB', {
-    style: 'currency', currency: 'GBP',
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
+    style: 'currency',
+    currency: 'GBP',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(n)
 }
 
-// ── Activated offer item ──────────────────────────────────────────────────────
-
-function ActivatedOfferItem({ offer }: { offer: ActivatedOffer }) {
-  const [isActivated, setIsActivated] = useState(offer.activated)
-  const [justActivated, setJustActivated] = useState(false)
-
-  const handleActivate = () => {
-    setIsActivated(true)
-    setJustActivated(true)
-    setTimeout(() => setJustActivated(false), 1200)
-  }
-
-  return (
-    <View style={act.card}>
-      <View style={act.row}>
-        <View style={[act.logo, { backgroundColor: offer.color }]}>
-          <Text style={act.logoText}>{offer.logo}</Text>
-        </View>
-        <View style={act.mid}>
-          <Text style={act.name}>{offer.merchant}</Text>
-          <Text style={act.desc}>{offer.description}</Text>
-          <Text style={act.expiry}>Expires {offer.expiry}</Text>
-        </View>
-        <View style={act.right}>
-          <Text style={act.pct}>{offer.cashbackPercent}%</Text>
-          <Text style={act.pctLabel}>cashback</Text>
-        </View>
-      </View>
-      {isActivated ? (
-        <View style={[act.btn, act.btnActive]}>
-          <Text style={act.btnActiveText}>
-            {justActivated ? 'Activated! ✓' : 'Active ✓'}
-          </Text>
-        </View>
-      ) : (
-        <TouchableOpacity style={act.btn} onPress={handleActivate} activeOpacity={0.85}>
-          <Text style={act.btnText}>Activate offer</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  )
+function rewardLabel(type: 'percentage' | 'fixed', value: number): string {
+  return type === 'percentage' ? `${value}%` : gbp(value, 0)
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function OffersScreen() {
+  const { offers, loading: offersLoading } = useCashbackOffers()
+  const { pendingGbp, redeemableGbp, loading: balanceLoading } = useCashbackBalance()
+
+  const totalCashback = pendingGbp + redeemableGbp
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* S1 — Header */}
+        {/* ── Header ───────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <Text style={styles.title}>Offers & Challenges</Text>
-          <Text style={styles.subtitle}>Earn cashback for {CHILD_NAME}'s JISA</Text>
+          <Text style={styles.title}>Cashback</Text>
+          <Text style={styles.subtitle}>
+            Earn cashback for your child's JISA every time you spend
+          </Text>
         </View>
 
-        {/* S2 — Missed cashback banner */}
-        {MISSED_CASHBACK > 0 && (
-          <View style={styles.missedBanner}>
-            <Text style={styles.missedTitle}>
-              💡 Last month you spent £{MISSED_CASHBACK.toFixed(0)} at Boots without Amplifi.
-            </Text>
-            <Text style={styles.missedSub}>
-              That was {gbp(MISSED_CASHBACK * 0.02)} {CHILD_NAME} missed.
-            </Text>
-          </View>
-        )}
+        {/* ── S1: Your cashback balance ────────────────────────────── */}
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Your cashback</Text>
+          {balanceLoading ? (
+            <ActivityIndicator size="small" color={colors.azure} style={{ marginVertical: 10 }} />
+          ) : totalCashback === 0 ? (
+            <>
+              <Text style={styles.balanceZero}>{gbp(0)}</Text>
+              <Text style={styles.balanceNudge}>
+                No cashback yet — spend at an active offer below and it'll appear here.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.balanceTotal}>{gbp(totalCashback)}</Text>
+              <View style={styles.balanceRow}>
+                <View style={styles.balanceStat}>
+                  <Text style={styles.balanceStatValue}>{gbp(pendingGbp)}</Text>
+                  <Text style={styles.balanceStatLabel}>pending</Text>
+                </View>
+                <View style={styles.balanceDivider} />
+                <View style={styles.balanceStat}>
+                  <Text style={[styles.balanceStatValue, { color: '#16a34a' }]}>{gbp(redeemableGbp)}</Text>
+                  <Text style={styles.balanceStatLabel}>ready to sweep</Text>
+                </View>
+              </View>
+            </>
+          )}
+          <Text style={styles.balanceCaption}>
+            Credits held as pending until sweep — beta behaviour
+          </Text>
+        </View>
 
-        {/* S3 — Challenges */}
+        {/* ── S2: Active offers ─────────────────────────────────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Challenges</Text>
-          <TouchableOpacity
-            onPress={() => Alert.alert(
-              'What are Challenges?',
-              `Challenges are merchant-funded targets. Complete the challenge and cashback goes straight to ${CHILD_NAME}'s JISA. Powered by Fidel API — coming in Phase 2.`
-            )}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.sectionLink}>What's this?</Text>
-          </TouchableOpacity>
-        </View>
-
-        {CHALLENGES.map((ch) => {
-          const progressPct = Math.min(ch.progress / ch.target, 1) * 100
-          return (
-            <View key={ch.id} style={styles.challengeCard}>
-              <View style={styles.challengeTop}>
-                <View style={[styles.logoCircle, { backgroundColor: ch.color }]}>
-                  <Text style={styles.logoText}>{ch.logo}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.challengeName}>{ch.merchant}</Text>
-                  <Text style={styles.challengeDesc}>{ch.challenge}</Text>
-                </View>
-                <View style={styles.rewardBadge}>
-                  <Text style={styles.rewardText}>£{ch.reward.toFixed(2)} for {CHILD_NAME}</Text>
-                </View>
-              </View>
-
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${progressPct.toFixed(0)}%` as `${number}%` }]} />
-              </View>
-              <Text style={styles.progressLabel}>{ch.progress} of {ch.target} complete</Text>
-              <Text style={styles.expiryLabel}>Expires {ch.expiry}</Text>
-
-              <View style={styles.challengeFooter}>
-                <Text style={styles.statusLabel}>
-                  {ch.status === 'completed' ? '✓ Complete' : 'Active 🔥'}
-                </Text>
-                <Text style={styles.phaseLabel}>Phase 2 feature — coming soon</Text>
-              </View>
-            </View>
-          )
-        })}
-
-        {/* S4 — Always-on CLO offers */}
-        <View style={[styles.sectionHeader, { marginTop: 8 }]}>
-          <Text style={styles.sectionTitle}>Active card offers</Text>
+          <Text style={styles.sectionTitle}>Active offers</Text>
         </View>
         <Text style={styles.sectionSubtitle}>
-          Spend with your linked card — cashback is automatic
+          Spend at these merchants — cashback posts automatically
         </Text>
 
-        {CLO_OFFERS.map((o) => (
-          <View key={o.id} style={styles.cloCard}>
-            <View style={[styles.logoCircle40, { backgroundColor: o.color }]}>
-              <Text style={styles.logoText40}>{o.logo}</Text>
-            </View>
-            <View style={styles.cloMid}>
-              <Text style={styles.cloName}>{o.merchant}</Text>
-              <Text style={styles.cloDesc}>{o.description}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.cloPct}>{o.cashbackPercent}%</Text>
-              <Text style={styles.cloPctLabel}>cashback</Text>
-            </View>
+        {offersLoading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="small" color={colors.azure} />
           </View>
-        ))}
+        ) : offers.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyText}>
+              No offers live yet — check back soon.
+            </Text>
+          </View>
+        ) : (
+          offers.map((offer) => (
+            <View key={offer.id} style={styles.offerCard}>
+              <View style={styles.offerLogoWrap}>
+                <Text style={styles.offerLogoText}>
+                  {(offer.merchants?.name ?? '?')[0].toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.offerMid}>
+                <Text style={styles.offerName}>{offer.merchants?.name ?? 'Unknown merchant'}</Text>
+                <Text style={styles.offerCategory}>{offer.merchants?.category ?? ''}</Text>
+                <Text style={styles.offerMeta}>
+                  Until {new Date(offer.active_to).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              </View>
+              <View style={styles.offerRight}>
+                <Text style={styles.offerReward}>
+                  {rewardLabel(offer.reward_type, offer.reward_value)}
+                </Text>
+                <Text style={styles.offerRewardLabel}>cashback</Text>
+              </View>
+            </View>
+          ))
+        )}
 
-        {/* S5 — Activated offers */}
-        <View style={[styles.sectionHeader, { marginTop: 8 }]}>
-          <Text style={styles.sectionTitle}>Activate & earn</Text>
+        {/* ── S3: Phase 2 teaser ───────────────────────────────────── */}
+        <View style={[styles.sectionHeader, { marginTop: 12 }]}>
+          <Text style={styles.sectionTitle}>Coming in Phase 2</Text>
         </View>
-        <Text style={styles.sectionSubtitle}>Tap to activate, then spend to earn</Text>
-
-        {INITIAL_ACTIVATED.map((o) => (
-          <ActivatedOfferItem key={o.id} offer={o} />
-        ))}
+        <View style={styles.phaseCard}>
+          <Text style={styles.phaseItem}>⭐  Loyalty challenges</Text>
+          <Text style={styles.phaseItem}>🔗  Linked-card (always-on) CLO via Fidel</Text>
+          <Text style={styles.phaseItem}>📊  Spend insights &amp; missed cashback alerts</Text>
+        </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -237,83 +141,53 @@ export default function OffersScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.offwhite },
+
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
   title: { fontSize: 24, fontWeight: '800', color: colors.midnight, letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, color: '#64748b', marginTop: 3 },
+  subtitle: { fontSize: 14, color: '#64748b', marginTop: 3, lineHeight: 20 },
 
-  missedBanner: {
-    backgroundColor: 'rgba(245,158,11,0.10)',
-    borderWidth: 1,
-    borderColor: colors.amber,
-    borderRadius: 14,
+  // Balance card
+  balanceCard: {
+    backgroundColor: colors.midnight,
+    borderRadius: 20,
     marginHorizontal: 16,
-    padding: 14,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
   },
-  missedTitle: { fontSize: 14, fontWeight: '600', color: colors.midnight },
-  missedSub: { fontSize: 13, color: '#475569', marginTop: 2 },
+  balanceLabel: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginBottom: 6 },
+  balanceTotal: { fontSize: 38, fontWeight: '800', color: '#ffffff', letterSpacing: -1, marginBottom: 12 },
+  balanceZero: { fontSize: 38, fontWeight: '800', color: 'rgba(255,255,255,0.4)', letterSpacing: -1, marginBottom: 8 },
+  balanceNudge: { fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 19, marginBottom: 8 },
+  balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  balanceStat: { flex: 1, alignItems: 'center' },
+  balanceStatValue: { fontSize: 18, fontWeight: '700', color: colors.sky },
+  balanceStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
+  balanceDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.15)' },
+  balanceCaption: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic', textAlign: 'center' },
 
+  // Section headers
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     marginBottom: 4,
   },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.midnight },
-  sectionLink: { fontSize: 13, color: colors.sky, fontWeight: '600' },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#64748b',
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
+  sectionSubtitle: { fontSize: 13, color: '#64748b', paddingHorizontal: 16, marginBottom: 10 },
 
-  challengeCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+  // Loading / empty
+  loadingWrap: { paddingVertical: 24, alignItems: 'center' },
+  emptyWrap: {
     marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  challengeTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
-  logoCircle: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  logoText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
-  challengeName: { fontSize: 15, fontWeight: '700', color: colors.midnight },
-  challengeDesc: { fontSize: 14, color: '#475569', marginTop: 2 },
-  rewardBadge: {
-    backgroundColor: colors.sky,
-    borderRadius: 100,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    flexShrink: 0,
-  },
-  rewardText: { fontSize: 11, fontWeight: '700', color: colors.midnight },
-  progressTrack: {
-    height: 6, backgroundColor: `${colors.sky}33`,
-    borderRadius: 3, overflow: 'hidden', marginBottom: 6,
-  },
-  progressFill: { height: 6, backgroundColor: colors.sky, borderRadius: 3 },
-  progressLabel: { fontSize: 12, color: '#64748b', marginBottom: 3 },
-  expiryLabel: { fontSize: 11, color: '#94a3b8' },
-  challengeFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 20,
     alignItems: 'center',
-    marginTop: 8,
   },
-  statusLabel: { fontSize: 13, color: colors.sky, fontWeight: '600' },
-  phaseLabel: { fontSize: 11, color: '#94a3b8', fontStyle: 'italic' },
+  emptyText: { fontSize: 14, color: '#94a3b8', textAlign: 'center' },
 
-  cloCard: {
+  // Offer cards
+  offerCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -322,41 +196,37 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  logoCircle40: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  logoText40: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
-  cloMid: { flex: 1 },
-  cloName: { fontSize: 14, fontWeight: '700', color: colors.midnight },
-  cloDesc: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
-  cloPct: { fontSize: 20, fontWeight: '800', color: colors.sky },
-  cloPctLabel: { fontSize: 11, color: '#94a3b8' },
-})
+  offerLogoWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.azure,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  offerLogoText: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
+  offerMid: { flex: 1 },
+  offerName: { fontSize: 14, fontWeight: '700', color: colors.midnight },
+  offerCategory: { fontSize: 12, color: '#94a3b8', marginTop: 1 },
+  offerMeta: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+  offerRight: { alignItems: 'flex-end', flexShrink: 0 },
+  offerReward: { fontSize: 22, fontWeight: '800', color: colors.sky },
+  offerRewardLabel: { fontSize: 11, color: '#94a3b8', marginTop: 1 },
 
-const act = StyleSheet.create({
-  card: {
+  // Phase 2 teaser
+  phaseCard: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
     marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 14,
+    padding: 16,
+    gap: 10,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  logo: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  logoText: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
-  mid: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '700', color: colors.midnight },
-  desc: { fontSize: 12, color: '#94a3b8', marginTop: 1 },
-  expiry: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
-  right: { alignItems: 'flex-end' },
-  pct: { fontSize: 20, fontWeight: '800', color: colors.midnight },
-  pctLabel: { fontSize: 11, color: '#94a3b8' },
-  btn: {
-    backgroundColor: colors.sky,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  btnText: { color: colors.midnight, fontSize: 14, fontWeight: '700' },
-  btnActive: { backgroundColor: '#16a34a' },
-  btnActiveText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  phaseItem: { fontSize: 14, color: '#64748b', lineHeight: 20 },
 })
