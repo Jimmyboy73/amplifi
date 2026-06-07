@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 
 interface Wishlist {
   id: string
+  owner_id: string
   occasion: string
   occasion_date: string
   total_target: number
@@ -23,6 +24,13 @@ interface WishlistItem {
   emoji: string
 }
 
+interface OwnerPayment {
+  pay_monzo: string | null
+  pay_paypal: string | null
+  pay_revolut: string | null
+  pay_bank: string | null
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function gbp(n: number): string {
@@ -32,6 +40,23 @@ function gbp(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n)
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      className="ml-auto shrink-0 text-xs font-bold text-azure hover:opacity-75 transition-opacity px-2 py-1 rounded-lg bg-azure/10"
+    >
+      {copied ? '✓' : 'Copy'}
+    </button>
+  )
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
@@ -44,8 +69,10 @@ export default function WishlistPage() {
   const [wishlist, setWishlist] = useState<Wishlist | null>(null)
   const [items, setItems] = useState<WishlistItem[]>([])
   const [childName, setChildName] = useState<string | null>(null)
+  const [ownerPayment, setOwnerPayment] = useState<OwnerPayment | null>(null)
   const [loading, setLoading] = useState(true)
-  const [copied, setCopied] = useState(false)
+  const [contributeOpen, setContributeOpen] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   // Persist ref code to localStorage immediately
   useEffect(() => {
@@ -60,7 +87,7 @@ export default function WishlistPage() {
     const fetchData = async () => {
       const { data: wl } = await supabase
         .from('wishlists')
-        .select('id, occasion, occasion_date, total_target, total_pledged, payment_method, child_id')
+        .select('id, owner_id, occasion, occasion_date, total_target, total_pledged, payment_method, child_id')
         .eq('id', id)
         .single()
 
@@ -71,7 +98,7 @@ export default function WishlistPage() {
 
       setWishlist(wl)
 
-      // Attempt to fetch child name — silently skipped if RLS blocks it
+      // Fetch child name — silently skipped if RLS blocks it
       const { data: child } = await supabase
         .from('children')
         .select('name')
@@ -79,6 +106,17 @@ export default function WishlistPage() {
         .single()
 
       if (child?.name) setChildName(child.name)
+
+      // Fetch owner payment methods — silently skipped if RLS blocks it
+      if (wl.owner_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('pay_monzo, pay_paypal, pay_revolut, pay_bank')
+          .eq('id', wl.owner_id)
+          .single()
+
+        if (profile) setOwnerPayment(profile)
+      }
 
       const { data: wlItems } = await supabase
         .from('wishlist_items')
@@ -92,12 +130,18 @@ export default function WishlistPage() {
     fetchData()
   }, [id])
 
-  const handleCopy = async () => {
+  const handleCopyCode = async () => {
     if (!refCode) return
     await navigator.clipboard.writeText(refCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
   }
+
+  const hasMonzo   = !!ownerPayment?.pay_monzo
+  const hasPaypal  = !!ownerPayment?.pay_paypal
+  const hasRevolut = !!ownerPayment?.pay_revolut
+  const hasBank    = !!ownerPayment?.pay_bank
+  const hasAnyPayment = hasMonzo || hasPaypal || hasRevolut || hasBank
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -128,16 +172,8 @@ export default function WishlistPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const occasionDate = new Date(wishlist.occasion_date)
-  const formattedDate = occasionDate.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-
-  const heading = childName
-    ? `${childName}'s ${wishlist.occasion}`
-    : wishlist.occasion
+  const name = childName ?? 'They'
+  const occasion = wishlist.occasion
 
   return (
     <div className="min-h-screen bg-offwhite font-jakarta">
@@ -148,17 +184,25 @@ export default function WishlistPage() {
           Gift Wishlist
         </p>
         <h1 className="text-white text-3xl font-extrabold leading-tight">
-          {heading}
+          You're invited to {name}'s {occasion}
         </h1>
-        <p className="text-white/50 mt-2 text-sm">🎂 {formattedDate}</p>
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
 
+        {/* ── Intro copy ────────────────────────────────────────────────── */}
+        <div className="space-y-3 pt-1">
+          <p className="text-midnight text-sm leading-relaxed">
+            {name}'s having a {occasion} and it'd be great to see you there. If you'd
+            like to bring something, here's what they're hoping for — but there's
+            absolutely no obligation. Coming along is more than enough.
+          </p>
+        </div>
+
         {/* ── Items ─────────────────────────────────────────────────────── */}
         {items.length > 0 && (
           <>
-            <h2 className="text-midnight font-bold text-base pt-1">What would they love?</h2>
+            <h2 className="text-midnight font-bold text-base pt-1">What they're hoping for</h2>
             {items.map((item) => {
               const pct = item.target_amount > 0
                 ? Math.min(item.pledged_amount / item.target_amount, 1) * 100
@@ -196,19 +240,94 @@ export default function WishlistPage() {
           </>
         )}
 
-        {/* ── Payment info ──────────────────────────────────────────────── */}
-        {wishlist.payment_method && (
-          <div className="bg-white rounded-2xl p-4 border border-slate-100">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-              Send your contribution to
-            </p>
-            <p className="font-bold text-midnight">{wishlist.payment_method}</p>
-          </div>
-        )}
+        {/* ── JISA note ─────────────────────────────────────────────────── */}
+        <p className="text-slate-500 text-sm leading-relaxed">
+          Once the target's been reached, anything extra goes into {name}'s Junior ISA
+          — a savings account that stays invested for their future. Nothing goes to waste.
+        </p>
+
+        {/* ── Contribute now accordion ──────────────────────────────────── */}
+        <div>
+          <button
+            onClick={() => setContributeOpen((v) => !v)}
+            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm transition-opacity hover:opacity-90 active:opacity-75"
+            style={{ backgroundColor: '#407BBF' }}
+          >
+            {contributeOpen ? 'Close ↑' : 'Contribute now ↓'}
+          </button>
+
+          {contributeOpen && (
+            <div className="mt-2 bg-white rounded-2xl border border-slate-100 overflow-hidden">
+              {!hasAnyPayment ? (
+                <p className="text-slate-500 text-sm px-4 py-4">
+                  The family hasn't added payment details yet.
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {hasBank && (
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                          🏦 Bank transfer
+                        </p>
+                        <p className="text-sm font-semibold text-midnight break-all">
+                          {ownerPayment!.pay_bank}
+                        </p>
+                      </div>
+                      <CopyButton value={ownerPayment!.pay_bank!} />
+                    </div>
+                  )}
+                  {hasMonzo && (
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                          💸 Monzo
+                        </p>
+                        <p className="text-sm font-semibold text-midnight">
+                          {ownerPayment!.pay_monzo}
+                        </p>
+                      </div>
+                      <CopyButton value={ownerPayment!.pay_monzo!} />
+                    </div>
+                  )}
+                  {hasPaypal && (
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                          🅿️ PayPal
+                        </p>
+                        <p className="text-sm font-semibold text-midnight">
+                          {ownerPayment!.pay_paypal}
+                        </p>
+                      </div>
+                      <CopyButton value={ownerPayment!.pay_paypal!} />
+                    </div>
+                  )}
+                  {hasRevolut && (
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                          💜 Revolut
+                        </p>
+                        <p className="text-sm font-semibold text-midnight">
+                          {ownerPayment!.pay_revolut}
+                        </p>
+                      </div>
+                      <CopyButton value={ownerPayment!.pay_revolut!} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Divider ───────────────────────────────────────────────────── */}
+        {refCode && <hr className="border-slate-200" />}
 
         {/* ── Referral callout ──────────────────────────────────────────── */}
         {refCode && (
-          <div className="bg-midnight rounded-2xl p-5 mt-2">
+          <div className="bg-midnight rounded-2xl p-5">
             <p className="text-white/80 text-sm leading-relaxed mb-4">
               Want to start building your child's financial future? Use code{' '}
               <span className="text-sky font-extrabold">{refCode}</span>
@@ -222,15 +341,15 @@ export default function WishlistPage() {
               </span>
             </div>
             <button
-              onClick={handleCopy}
+              onClick={handleCopyCode}
               className="w-full bg-sky text-midnight font-bold py-3 rounded-xl text-sm hover:opacity-90 active:opacity-75 transition-opacity"
             >
-              {copied ? '✓ Copied!' : `Copy code: ${refCode}`}
+              {codeCopied ? '✓ Copied!' : `Copy code: ${refCode}`}
             </button>
           </div>
         )}
 
-        {/* ── Footer CTA ────────────────────────────────────────────────── */}
+        {/* ── Footer ────────────────────────────────────────────────────── */}
         <div className="text-center pt-2 pb-10">
           <a
             href="https://letsamplifi.com"

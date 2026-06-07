@@ -14,6 +14,10 @@ export type Database = {
           avatar_url: string | null
           payment_method: string
           payment_detail: string
+          pay_monzo: string | null
+          pay_paypal: string | null
+          pay_revolut: string | null
+          pay_bank: string | null
           created_at: string
           updated_at: string
         }
@@ -26,6 +30,10 @@ export type Database = {
           avatar_url?: string | null
           payment_method?: string
           payment_detail?: string
+          pay_monzo?: string | null
+          pay_paypal?: string | null
+          pay_revolut?: string | null
+          pay_bank?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -38,6 +46,10 @@ export type Database = {
           avatar_url?: string | null
           payment_method?: string
           payment_detail?: string
+          pay_monzo?: string | null
+          pay_paypal?: string | null
+          pay_revolut?: string | null
+          pay_bank?: string | null
           created_at?: string
           updated_at?: string
         }

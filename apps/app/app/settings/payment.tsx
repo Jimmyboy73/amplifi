@@ -15,65 +15,60 @@ import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const PAYMENT_METHODS = ['Monzo', 'Revolut', 'PayPal', 'Bank transfer'] as const
-type PaymentMethod = typeof PAYMENT_METHODS[number]
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
 export default function PaymentSettingsScreen() {
   const router = useRouter()
   const { user } = useAuth()
 
   const [isLoading, setIsLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null)
-  const [paymentDetail, setPaymentDetail] = useState('')
-  const [sortCode, setSortCode] = useState('')
-  const [accountNumber, setAccountNumber] = useState('')
+
+  const [payMonzo, setPayMonzo] = useState('')
+  const [payPaypal, setPayPaypal] = useState('')
+  const [payRevolut, setPayRevolut] = useState('')
+  const [payBank, setPayBank] = useState('')
 
   useEffect(() => {
     if (!user) return
     supabase
       .from('profiles')
-      .select('payment_method, payment_detail')
+      .select('payment_method, payment_detail, pay_monzo, pay_paypal, pay_revolut, pay_bank')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
-        if (data?.payment_method) {
-          const method = data.payment_method as PaymentMethod
-          setSelectedPayment(method)
-          if (method === 'Bank transfer') {
-            const parts = (data.payment_detail ?? '').split(' / ')
-            setSortCode(parts[0] ?? '')
-            setAccountNumber(parts[1] ?? '')
-          } else {
-            setPaymentDetail(data.payment_detail ?? '')
-          }
+        if (data) {
+          setPayMonzo(data.pay_monzo ?? '')
+          setPayPaypal(data.pay_paypal ?? '')
+          setPayRevolut(data.pay_revolut ?? '')
+          setPayBank(data.pay_bank ?? '')
         }
         setIsLoading(false)
       })
   }, [user])
 
-  const detailValue = selectedPayment === 'Bank transfer'
-    ? `${sortCode} / ${accountNumber}`
-    : paymentDetail
-
-  const canSave = selectedPayment !== null && (
-    selectedPayment === 'Bank transfer'
-      ? sortCode.length > 0 && accountNumber.length > 0
-      : paymentDetail.trim().length > 0
-  )
-
   const handleSave = async () => {
-    if (!user || !canSave) return
+    if (!user) return
     setSaving(true)
+
+    // Derive legacy payment_method/payment_detail for backward compat with
+    // anything still reading the old single-method columns.
+    const firstMethod =
+      payMonzo.trim()   ? 'Monzo' :
+      payPaypal.trim()  ? 'PayPal' :
+      payRevolut.trim() ? 'Revolut' :
+      payBank.trim()    ? 'Bank transfer' : ''
+    const firstDetail =
+      payMonzo.trim() || payPaypal.trim() || payRevolut.trim() || payBank.trim() || ''
+
     const { error } = await supabase
       .from('profiles')
       .update({
-        payment_method: selectedPayment,
-        payment_detail: detailValue.trim(),
+        pay_monzo:   payMonzo.trim()   || null,
+        pay_paypal:  payPaypal.trim()  || null,
+        pay_revolut: payRevolut.trim() || null,
+        pay_bank:    payBank.trim()    || null,
+        // Legacy columns — kept for backward compat, not removed yet
+        payment_method: firstMethod,
+        payment_detail: firstDetail,
       })
       .eq('id', user.id)
 
@@ -97,8 +92,11 @@ export default function PaymentSettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
@@ -109,66 +107,67 @@ export default function PaymentSettingsScreen() {
         </View>
 
         <Text style={styles.intro}>
-          Set up how family and friends send you money for wishlists. This is shown to guests when they contribute to a wishlist.
+          Add any payment methods you'd like guests to use. These are shown to anyone
+          you share a wishlist with.
         </Text>
 
-        {/* Method selector */}
-        <Text style={styles.fieldLabel}>Payment method</Text>
-        <View style={styles.paymentGrid}>
-          {PAYMENT_METHODS.map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.paymentChip, selectedPayment === m && styles.paymentChipActive]}
-              onPress={() => { setSelectedPayment(m); setPaymentDetail(''); setSortCode(''); setAccountNumber('') }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.paymentChipText, selectedPayment === m && styles.paymentChipTextActive]}>
-                {m}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Detail input */}
-        {selectedPayment === 'Bank transfer' ? (
-          <View>
-            <TextInput
-              style={styles.input}
-              value={sortCode}
-              onChangeText={setSortCode}
-              placeholder="Sort code (XX-XX-XX)"
-              placeholderTextColor="#94a3b8"
-              keyboardType="number-pad"
-            />
-            <TextInput
-              style={styles.input}
-              value={accountNumber}
-              onChangeText={setAccountNumber}
-              placeholder="Account number (8 digits)"
-              placeholderTextColor="#94a3b8"
-              keyboardType="number-pad"
-            />
-          </View>
-        ) : selectedPayment ? (
+        <View style={styles.fieldWrapper}>
+          <Text style={styles.fieldLabel}>Monzo</Text>
           <TextInput
             style={styles.input}
-            value={paymentDetail}
-            onChangeText={setPaymentDetail}
-            placeholder={
-              selectedPayment === 'Monzo'   ? 'Your Monzo username e.g. @sarah-jones' :
-              selectedPayment === 'Revolut' ? 'Your Revolut username e.g. @sarah' :
-                                              'Your PayPal.me link e.g. paypal.me/sarah'
-            }
+            value={payMonzo}
+            onChangeText={setPayMonzo}
+            placeholder="@yourmonzo"
             placeholderTextColor="#94a3b8"
             autoCapitalize="none"
+            autoCorrect={false}
           />
-        ) : null}
+        </View>
 
-        {/* Save button */}
+        <View style={styles.fieldWrapper}>
+          <Text style={styles.fieldLabel}>PayPal</Text>
+          <TextInput
+            style={styles.input}
+            value={payPaypal}
+            onChangeText={setPayPaypal}
+            placeholder="your@email.com or @handle"
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+          />
+        </View>
+
+        <View style={styles.fieldWrapper}>
+          <Text style={styles.fieldLabel}>Revolut</Text>
+          <TextInput
+            style={styles.input}
+            value={payRevolut}
+            onChangeText={setPayRevolut}
+            placeholder="@yourrevolut"
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
+        <View style={styles.fieldWrapper}>
+          <Text style={styles.fieldLabel}>Bank transfer</Text>
+          <TextInput
+            style={styles.input}
+            value={payBank}
+            onChangeText={setPayBank}
+            placeholder="Sort code and account number e.g. 12-34-56 / 12345678"
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
         <TouchableOpacity
-          style={[styles.saveBtn, (!canSave || saving) && styles.saveBtnDisabled]}
+          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
           onPress={handleSave}
-          disabled={!canSave || saving}
+          disabled={saving}
           activeOpacity={0.85}
         >
           {saving ? (
@@ -177,7 +176,6 @@ export default function PaymentSettingsScreen() {
             <Text style={styles.saveBtnText}>Save payment settings</Text>
           )}
         </TouchableOpacity>
-
       </ScrollView>
     </SafeAreaView>
   )
@@ -200,31 +198,32 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.midnight },
 
   intro: {
-    fontSize: 14, color: '#64748b', lineHeight: 21,
+    fontSize: 14,
+    color: '#64748b',
+    lineHeight: 21,
     marginBottom: 24,
   },
 
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.midnight, marginBottom: 10 },
-
-  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  paymentChip: {
-    width: '48%', paddingVertical: 14,
-    borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12,
-    alignItems: 'center', backgroundColor: '#ffffff',
-  },
-  paymentChipActive: { borderColor: colors.sky, backgroundColor: `${colors.sky}15` },
-  paymentChipText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
-  paymentChipTextActive: { color: colors.midnight },
+  fieldWrapper: { marginBottom: 20 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.midnight, marginBottom: 6 },
 
   input: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 13,
-    fontSize: 15, color: colors.midnight, marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: colors.midnight,
+    backgroundColor: '#ffffff',
   },
 
   saveBtn: {
-    backgroundColor: colors.sky, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginTop: 8,
+    backgroundColor: colors.sky,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
   },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { color: colors.midnight, fontSize: 16, fontWeight: '700' },
