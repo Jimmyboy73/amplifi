@@ -202,7 +202,7 @@ export default function WishlistPage() {
         {/* ── Items ─────────────────────────────────────────────────────── */}
         {items.length > 0 && (
           <>
-            <h2 className="text-midnight font-bold text-base pt-1">What they're hoping for</h2>
+            <h2 className="text-midnight font-bold text-base pt-1">What {name} is hoping for</h2>
             {items.map((item) => {
               const pct = item.target_amount > 0
                 ? Math.min(item.pledged_amount / item.target_amount, 1) * 100
@@ -231,9 +231,6 @@ export default function WishlistPage() {
                       style={{ width: `${pct.toFixed(0)}%` }}
                     />
                   </div>
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    {gbp(item.pledged_amount)} of {gbp(item.target_amount)} pledged
-                  </p>
                 </div>
               )
             })}
@@ -242,8 +239,8 @@ export default function WishlistPage() {
 
         {/* ── JISA note ─────────────────────────────────────────────────── */}
         <p className="text-slate-500 text-sm leading-relaxed">
-          Once the target's been reached, anything extra goes into {name}'s Junior ISA
-          — a savings account that stays invested for their future. Nothing goes to waste.
+          Anything extra automatically goes into {name}'s Junior ISA — a savings
+          account that stays invested for {name}'s future.
         </p>
 
         {/* ── Contribute now accordion ──────────────────────────────────── */}
@@ -253,7 +250,7 @@ export default function WishlistPage() {
             className="w-full py-3.5 rounded-2xl font-bold text-white text-sm transition-opacity hover:opacity-90 active:opacity-75"
             style={{ backgroundColor: '#407BBF' }}
           >
-            {contributeOpen ? 'Close ↑' : 'Contribute now ↓'}
+            Contribute now
           </button>
 
           {contributeOpen && (
