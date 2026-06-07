@@ -767,6 +767,107 @@ export type Database = {
           { foreignKeyName: 'pledges_wishlist_item_id_fkey'; columns: ['wishlist_item_id']; referencedRelation: 'wishlist_items'; referencedColumns: ['id'] }
         ]
       }
+
+      referral_codes: {
+        Row: {
+          id: string
+          user_id: string
+          code: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          code: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          code?: string
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'referral_codes_user_id_fkey'; columns: ['user_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
+      }
+
+      referral_events: {
+        Row: {
+          id: string
+          referrer_id: string
+          referred_id: string
+          code_used: string
+          status: 'pending' | 'jisa_linked' | 'credited'
+          referrer_credit_gbp: number
+          referred_credit_gbp: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          referrer_id: string
+          referred_id: string
+          code_used: string
+          status?: 'pending' | 'jisa_linked' | 'credited'
+          referrer_credit_gbp?: number
+          referred_credit_gbp?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          referrer_id?: string
+          referred_id?: string
+          code_used?: string
+          status?: 'pending' | 'jisa_linked' | 'credited'
+          referrer_credit_gbp?: number
+          referred_credit_gbp?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'referral_events_referrer_id_fkey'; columns: ['referrer_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'referral_events_referred_id_fkey'; columns: ['referred_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
+      }
+
+      referral_credits: {
+        Row: {
+          id: string
+          user_id: string
+          amount_gbp: number
+          source: 'referrer' | 'referred'
+          referral_event_id: string
+          status: 'pending' | 'redeemable' | 'redeemed'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          amount_gbp: number
+          source: 'referrer' | 'referred'
+          referral_event_id: string
+          status?: 'pending' | 'redeemable' | 'redeemed'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          amount_gbp?: number
+          source?: 'referrer' | 'referred'
+          referral_event_id?: string
+          status?: 'pending' | 'redeemable' | 'redeemed'
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'referral_credits_user_id_fkey'; columns: ['user_id']; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'referral_credits_referral_event_id_fkey'; columns: ['referral_event_id']; referencedRelation: 'referral_events'; referencedColumns: ['id'] }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -828,3 +929,6 @@ export type MerchantInvoiceLedger = Tables['merchant_invoice_ledger']['Row']
 export type Wishlist            = Tables['wishlists']['Row']
 export type WishlistItem        = Tables['wishlist_items']['Row']
 export type Pledge              = Tables['pledges']['Row']
+export type ReferralCode        = Tables['referral_codes']['Row']
+export type ReferralEvent       = Tables['referral_events']['Row']
+export type ReferralCredit      = Tables['referral_credits']['Row']

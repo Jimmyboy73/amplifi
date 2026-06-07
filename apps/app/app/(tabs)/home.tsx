@@ -8,7 +8,9 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native'
+import * as Clipboard from 'expo-clipboard'
 import Slider from '@react-native-community/slider'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
@@ -16,6 +18,8 @@ import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
 import { colors } from '@/constants/brand'
+import { useReferralCode } from '@/lib/useReferralCode'
+import { useReferralStats } from '@/lib/useReferralStats'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,6 +65,10 @@ const ACTIVITY_ICON_BG: Record<ActivityType, string> = {
 export default function HomeScreen() {
   const router = useRouter()
   const { user, signOut } = useAuth()
+
+  const { code: referralCode, loading: codeLoading } = useReferralCode()
+  const { inviteCount, pendingGbp, loading: statsLoading } = useReferralStats()
+  const [codeCopied, setCodeCopied] = useState(false)
 
   const [child, setChild] = useState<{
     id: string
@@ -172,6 +180,21 @@ export default function HomeScreen() {
   const proj18 = fv(sliderValue, monthsTo18)
   const proj25 = fv(sliderValue, monthsTo25)
   const proj65 = fv(sliderValue, monthsTo65)
+
+  const handleCopyCode = async () => {
+    if (!referralCode) return
+    await Clipboard.setStringAsync(referralCode)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
+  }
+
+  const handleInvite = async () => {
+    if (!referralCode) return
+    const name = child?.name ?? 'my child'
+    await Share.share({
+      message: `I'm using Amplifi to invest in ${name}'s future. Join with my code ${referralCode} and we both get £5 into our kids' Junior ISAs: https://amplifi-marketing.netlify.app/?ref=${referralCode}`,
+    })
+  }
 
   const comingSoon = (feature: string) =>
     Alert.alert(feature, 'Coming soon. Join the waitlist to be first to know.')
@@ -285,6 +308,64 @@ export default function HomeScreen() {
           <Text style={styles.sliderDisclaimer}>
             Illustrative projection at 8% p.a. — not a guarantee
           </Text>
+        </View>
+
+        {/* ── S4.5: Referral card ──────────────────────────────────────── */}
+        <View style={styles.referralCard}>
+          <Text style={styles.referralTitle}>Invite a friend, boost both your kids' futures</Text>
+          <Text style={styles.referralSubtext}>
+            You and your friend each get £5 into your kids' Junior ISAs when they link a savings account
+          </Text>
+
+          {/* Code pill */}
+          <TouchableOpacity
+            style={styles.codePill}
+            onPress={handleCopyCode}
+            activeOpacity={0.7}
+            disabled={codeLoading || !referralCode}
+          >
+            {codeLoading ? (
+              <ActivityIndicator size="small" color={colors.azure} />
+            ) : (
+              <>
+                <Text style={styles.codeText}>{referralCode ?? '—'}</Text>
+                <Text style={styles.codeCopyHint}>{codeCopied ? '✓ Copied!' : 'Tap to copy'}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Stats */}
+          {statsLoading ? (
+            <View style={styles.statsRow}>
+              <ActivityIndicator size="small" color="#cbd5e1" />
+            </View>
+          ) : inviteCount === 0 ? (
+            <Text style={styles.referralNudge}>No invites yet — share your code to get started.</Text>
+          ) : (
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{inviteCount}</Text>
+                <Text style={styles.statLabel}>{inviteCount === 1 ? 'friend invited' : 'friends invited'}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(pendingGbp)}
+                </Text>
+                <Text style={styles.statLabel}>pending rewards</Text>
+              </View>
+            </View>
+          )}
+
+          {/* CTA */}
+          <TouchableOpacity
+            style={[styles.inviteBtn, (!referralCode || codeLoading) && styles.inviteBtnDisabled]}
+            onPress={handleInvite}
+            activeOpacity={0.85}
+            disabled={!referralCode || codeLoading}
+          >
+            <Text style={styles.inviteBtnText}>Invite friends</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── S5: Recent activity ──────────────────────────────────────── */}
@@ -479,5 +560,61 @@ const styles = StyleSheet.create({
   activitySweep: { fontSize: 14, fontWeight: '700', color: colors.azure },
   ghostHeader: { fontSize: 13, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingTop: 12, paddingHorizontal: 16, marginBottom: 12 },
   ghostFooter: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 12, paddingBottom: 12, paddingHorizontal: 16 },
+
+  // Referral card
+  referralCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    marginHorizontal: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  referralTitle: {
+    fontSize: 16, fontWeight: '700', color: colors.midnight, marginBottom: 6,
+  },
+  referralSubtext: {
+    fontSize: 13, color: '#64748b', lineHeight: 19, marginBottom: 16,
+  },
+  codePill: {
+    backgroundColor: `${colors.azure}14`,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    minHeight: 64,
+    justifyContent: 'center',
+  },
+  codeText: {
+    fontSize: 30, fontWeight: '800', color: colors.azure,
+    letterSpacing: 6, textAlign: 'center',
+  },
+  codeCopyHint: {
+    fontSize: 12, color: colors.azure, marginTop: 4, fontWeight: '600',
+  },
+  statsRow: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: 16, minHeight: 40,
+  },
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 20, fontWeight: '800', color: colors.midnight },
+  statLabel: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+  statDivider: { width: 1, height: 32, backgroundColor: '#e2e8f0' },
+  referralNudge: {
+    fontSize: 13, color: '#94a3b8', textAlign: 'center',
+    marginBottom: 16, fontStyle: 'italic',
+  },
+  inviteBtn: {
+    backgroundColor: colors.azure,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  inviteBtnDisabled: { opacity: 0.4 },
+  inviteBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
 
 })
