@@ -11,13 +11,13 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
-    "@tailwindcss/vite": "^4.3.0",
+    "@tailwindcss/vite": "4.0.6",
     "@types/react-router-dom": "^5.3.3",
     "posthog-js": "^1.380.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.15.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "4.0.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
