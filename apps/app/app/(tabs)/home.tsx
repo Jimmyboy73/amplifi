@@ -20,7 +20,6 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
 import { colors } from '@/constants/brand'
 import { useReferralStats } from '@/lib/useReferralStats'
-import { useHandle } from '@/lib/useHandle'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -68,13 +67,11 @@ export default function HomeScreen() {
   const { user, signOut } = useAuth()
 
   const { handle, inviteCount, pendingGbp, loading: statsLoading, refetch: refetchStats } = useReferralStats()
-  const { refetch: refetchHandle } = useHandle()
 
   useFocusEffect(
     useCallback(() => {
       refetchStats()
-      refetchHandle()
-    }, [refetchStats, refetchHandle])
+    }, [refetchStats])
   )
   const [codeCopied, setCodeCopied] = useState(false)
 
@@ -200,7 +197,10 @@ export default function HomeScreen() {
     if (!handle) return
     const name = child?.name ?? 'my child'
     await Share.share({
-      message: `I'm saving for ${name}'s future with Amplifi. Join me — use my handle @${handle} when you sign up and we both get £5 into our kids' Junior ISAs: https://amplifi-marketing.netlify.app/?ref=${handle}`,
+      message:
+        `I've set up Amplifi for ${name} — helping to build a solid financial foundation for their future. ` +
+        `We'd be so grateful for any regular or one-off contribution you're able to make. ` +
+        `Tap here to join Amplifi — ${name} gets £5 when you make a qualifying contribution: https://amplifi-marketing.netlify.app/?ref=${handle}`,
     })
   }
 
@@ -322,9 +322,9 @@ export default function HomeScreen() {
 
         {/* ── S4.5: Referral card ──────────────────────────────────────── */}
         <View style={styles.referralCard}>
-          <Text style={styles.referralTitle}>Invite a friend, boost both your kids' futures</Text>
+          <Text style={styles.referralTitle}>Build {childName}'s future together</Text>
           <Text style={styles.referralSubtext}>
-            You and your friend each get £5 into your kids' Junior ISAs when they link a savings account
+            Grandparents, aunts and uncles can set up regular contributions to {childName}'s pot. They get a £5 credit when they join and make 3 qualifying contributions.
           </Text>
 
           {/* Handle pill */}

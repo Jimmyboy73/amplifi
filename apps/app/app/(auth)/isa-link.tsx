@@ -171,7 +171,7 @@ export default function IsaLinkScreen() {
           {isFormValid && (
             <View style={styles.confirmCard}>
               <Text style={styles.confirmText}>
-                We'll send cashback to account{' '}
+                We'll send cashback and contributions to account{' '}
                 <Text style={styles.confirmBold}>{sortCode} / {accountNumber}</Text>
                 {'\n'}with reference{' '}
                 <Text style={styles.confirmBold}>{reference.trim()}</Text>

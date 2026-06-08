@@ -131,21 +131,21 @@ export default function IsaStatusScreen() {
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>What is a JISA?</Text>
+            <Text style={styles.modalTitle}>JISA or ISA?</Text>
             <Text style={styles.modalBody}>
-              {`There are two types of tax-free accounts for children:\n\nA Junior ISA (JISA) is opened in your child's name. Money grows tax-free and is locked until they turn 18 — they cannot touch it before then. You can contribute up to £9,000 per year. This is what most Amplifi families use.\n\nA Stocks & Shares ISA is in your own name. You control it and can access the money anytime — but it counts toward your own £20,000 annual ISA allowance.\n\nFor building your child's long-term future, a JISA is usually the right choice. We'll help you set one up.`}
+              {`There are two types of tax-free savings accounts to consider:\n\nA Stocks & Shares ISA is in your own name. You control it, can top it up whenever you like, and decide if and when to pass the money to your child. It counts toward your £20,000 annual ISA allowance. We recommend this for most Amplifi families — you stay in control.\n\nA Junior ISA (JISA) is opened in your child's name. Money grows tax-free and is locked until they turn 18. You can contribute up to £9,000 per year.\n\n⚠️ Important: Your child takes full control of the funds at 18. Once money is in a JISA, you cannot get it back — it belongs to your child.`}
             </Text>
 
-            <TouchableOpacity style={styles.modalCta} onPress={goToChoose} activeOpacity={0.85}>
-              <Text style={styles.modalCtaText}>Help me set one up</Text>
+            <TouchableOpacity style={styles.modalCta} onPress={goToLink} activeOpacity={0.85}>
+              <Text style={styles.modalCtaText}>Help me link my ISA or JISA</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.modalSecondary}
-              onPress={goToLink}
+              onPress={goToChoose}
               activeOpacity={0.7}
             >
-              <Text style={styles.modalSecondaryText}>I have one already</Text>
+              <Text style={styles.modalSecondaryText}>I need to open a JISA</Text>
             </TouchableOpacity>
           </View>
         </View>

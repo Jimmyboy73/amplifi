@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   View,
   Text,
@@ -7,36 +6,35 @@ import {
   StyleSheet,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import * as Clipboard from 'expo-clipboard'
+import { useHandle } from '@/lib/useHandle'
 import { colors } from '@/constants/brand'
 
 export default function InviteScreen() {
   const router = useRouter()
   const { childName } = useLocalSearchParams<{ childName: string }>()
   const name = typeof childName === 'string' && childName.length > 0 ? childName : 'your child'
-  const possessive = name === 'your child' ? "your child's" : `${name}'s`
+  const possessive = name === 'your child' ? "Your child's" : `${name}'s`
 
-  const [copied, setCopied] = useState(false)
+  const { handle, loading: handleLoading } = useHandle()
+
+  const referralUrl = handle
+    ? `https://amplifi-marketing.netlify.app/?ref=${handle}`
+    : 'https://amplifi-marketing.netlify.app'
 
   const shareMessage =
-    `I've set up Amplifi so our everyday shopping builds ${possessive} future — ` +
-    `you can contribute too by buying gift cards. Tap here to join their gifting ` +
-    `network: https://letsamplifi.com`
+    `I've set up Amplifi for ${name} — helping to build a solid financial foundation for their future. ` +
+    `We'd be so grateful for any regular or one-off contribution you're able to make. ` +
+    `Tap here to join Amplifi — ${name} gets £5 when you make a qualifying contribution: ${referralUrl}`
 
   const shareWhatsApp = () => {
     const url = `whatsapp://send?text=${encodeURIComponent(shareMessage)}`
     Linking.openURL(url).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
     )
-  }
-
-  const copyLink = async () => {
-    await Clipboard.setStringAsync(shareMessage)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   const skip = () => router.replace('/(tabs)/home')
@@ -53,16 +51,24 @@ export default function InviteScreen() {
           <Text style={styles.progress}>8 of 8</Text>
         </View>
 
-        <Text style={styles.headline}>{possessive.charAt(0).toUpperCase() + possessive.slice(1)} future is a team effort.</Text>
+        <Text style={styles.headline}>{possessive} future is a team effort</Text>
         <Text style={styles.subheadline}>
-          Invite family to contribute — grandparents, aunts, uncles and friends can all earn
-          cashback for {possessive} JISA.
+          Grandparents can make a real difference by setting up a regular monthly contribution to {name}'s pot.
+          Friends, aunts and uncles can help too — whether that's a regular contribution or gifts for birthdays and special occasions.
         </Text>
 
-        {/* Illustration */}
-        <Text style={styles.emoji}>👨‍👩‍👧‍👦</Text>
+        {/* Icon */}
+        <Text style={styles.icon}>🫂</Text>
 
-        {/* Pre-written message */}
+        {/* Incentive */}
+        <View style={styles.incentiveBox}>
+          <Text style={styles.incentiveText}>
+            Whenever a new contributor opens an Amplifi account and makes 3 qualifying contributions, {name} gets a{' '}
+            <Text style={styles.incentiveBold}>£5 credit</Text>
+          </Text>
+        </View>
+
+        {/* Message preview */}
         <View style={styles.messageSection}>
           <Text style={styles.messageLabel}>Your invite message</Text>
           <View style={styles.messageBox}>
@@ -70,26 +76,25 @@ export default function InviteScreen() {
           </View>
         </View>
 
-        {/* Share buttons */}
-        <View style={styles.shareButtons}>
-          <TouchableOpacity style={styles.whatsappBtn} onPress={shareWhatsApp} activeOpacity={0.85}>
+        {/* WhatsApp button */}
+        <TouchableOpacity
+          style={[styles.whatsappBtn, handleLoading && styles.btnDisabled]}
+          onPress={shareWhatsApp}
+          disabled={handleLoading}
+          activeOpacity={0.85}
+        >
+          {handleLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
             <Text style={styles.whatsappText}>Share on WhatsApp</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.copyBtn, copied && styles.copyBtnActive]}
-            onPress={copyLink}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.copyText, copied && styles.copyTextActive]}>
-              {copied ? 'Copied ✓' : 'Copy link'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+          )}
+        </TouchableOpacity>
 
         {/* Skip */}
         <TouchableOpacity style={styles.skipBtn} onPress={skip} activeOpacity={0.7}>
           <Text style={styles.skipText}>Skip for now</Text>
         </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   )
@@ -113,19 +118,35 @@ const styles = StyleSheet.create({
     color: colors.midnight,
     letterSpacing: -0.5,
     marginTop: 8,
-    marginBottom: 8,
+    marginBottom: 12,
     lineHeight: 34,
   },
   subheadline: {
     fontSize: 15,
     color: '#64748b',
-    lineHeight: 22,
+    lineHeight: 23,
     marginBottom: 28,
   },
-  emoji: {
-    fontSize: 64,
+  icon: {
+    fontSize: 72,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
+  },
+  incentiveBox: {
+    backgroundColor: `${colors.sky}18`,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 24,
+  },
+  incentiveText: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  incentiveBold: {
+    fontWeight: '800',
+    color: colors.midnight,
   },
   messageSection: { marginBottom: 24 },
   messageLabel: {
@@ -148,24 +169,17 @@ const styles = StyleSheet.create({
     color: colors.midnight,
     lineHeight: 22,
   },
-  shareButtons: { gap: 12, marginBottom: 20 },
   whatsappBtn: {
     backgroundColor: '#25D366',
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: 16,
     alignItems: 'center',
+    marginBottom: 16,
+    minHeight: 52,
+    justifyContent: 'center',
   },
   whatsappText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
-  copyBtn: {
-    borderWidth: 1.5,
-    borderColor: colors.midnight,
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  copyBtnActive: { borderColor: colors.sky, backgroundColor: '#f0fbff' },
-  copyText: { color: colors.midnight, fontSize: 16, fontWeight: '700' },
-  copyTextActive: { color: colors.sky },
+  btnDisabled: { opacity: 0.5 },
   skipBtn: { alignItems: 'center', paddingVertical: 12 },
   skipText: { fontSize: 14, color: '#94a3b8', fontWeight: '600' },
 })
