@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amplifi Spark — Start building your child's future from birth</title>
+<meta name="description" content="Amplifi Spark turns everyday shopping into savings for your child's future. Earn cashback, receive family contributions, and watch it grow in your child's Junior ISA.">
+
+<!-- Open Graph — controls how the link looks when shared on WhatsApp, LinkedIn etc -->
+<meta property="og:title" content="Amplifi Spark — Start building your child's future from birth">
+<meta property="og:description" content="Most parents spend 18 years raising a child. Almost none spend 18 years saving for one. Amplifi Spark changes that.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://letsamplifi.com">
+
+<!-- Twitter/X card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Amplifi Spark — Start building your child's future from birth">
+<meta name="twitter:description" content="Most parents spend 18 years raising a child. Almost none spend 18 years saving for one. Amplifi Spark changes that.">
+
+<!-- Canonical URL — tells Google which is the definitive version -->
+<link rel="canonical" href="https://letsamplifi.com">
+
+<!-- Favicon — inline SVG as data URI so no extra file needed -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><defs><linearGradient id='g' x1='16' y1='2' x2='16' y2='30' gradientUnits='userSpaceOnUse'><stop offset='0%25' stop-color='%2372d4ef'/><stop offset='100%25' stop-color='%232a65b8'/></linearGradient></defs><path d='M2 29 L16 4 L30 29' fill='none' stroke='url(%23g)' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+
+<!-- Robots -->
+<meta name="robots" content="index, follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+:root{
+  --midnight:#101628;
+  --sky:#59C9E9;
+  --azure:#407BBF;
+  --azure-dk:#2d5f99;
+  --white:#ffffff;
+  --offwhite:#f7f9fc;
+  --offwhite2:#eef2f8;
+  --slate:#6b7fa3;
+  --text:#101628;
+  --text2:#4a5568;
+  --border:#e2e8f0;
+  --border-mid:#c8d6e8;
+}
+body{
+  font-family:'Plus Jakarta Sans',sans-serif;
+  background:var(--offwhite);
+  color:var(--text);
+  overflow-x:hidden;
+  line-height:1.6;
+}
+
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:500;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.1rem 3rem;
+  background:rgba(247,249,252,0.92);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo{display:flex;align-items:center;text-decoration:none}
+.nav-logo svg{height:36px;width:auto;display:block}
+.nav-links{display:flex;align-items:center;gap:2.5rem}
+.nav-links a{
+  color:var(--slate);text-decoration:none;
+  font-size:.875rem;font-weight:500;letter-spacing:.01em;transition:color .2s;
+}
+.nav-links a:hover{color:var(--azure)}
+.nav-cta{
+  background:#1e2d4a;color:var(--sky);
+  font-weight:700;font-size:.8rem;letter-spacing:.04em;
+  padding:.65rem 1.6rem;border:none;cursor:pointer;
+  text-decoration:none;transition:all .25s;
+  border-radius:100px;
+}
+.nav-cta:hover{background:var(--azure);color:var(--white);transform:translateY(-1px);box-shadow:0 4px 16px rgba(64,123,191,.3)}
+
+/* ── HERO ── */
+.hero{
+  min-height:100vh;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:9rem 3rem 5rem;
+  background:var(--white);
+  position:relative;overflow:hidden;
+}
+.hero-bg-circle{
+  position:absolute;
+  width:900px;height:900px;border-radius:50%;
+  background:radial-gradient(circle,rgba(89,201,233,0.07) 0%,transparent 70%);
+  top:-200px;right:-200px;pointer-events:none;
+}
+.hero-bg-circle2{
+  position:absolute;
+  width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(64,123,191,0.05) 0%,transparent 70%);
+  bottom:-100px;left:-100px;pointer-events:none;
+}
+.hero-content{
+  position:relative;z-index:1;
+  max-width:1200px;margin:0 auto;width:100%;
+  display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;
+}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:.6rem;
+  font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--azure);margin-bottom:1.8rem;
+  padding:.55rem 1.2rem;
+  border:1px solid rgba(64,123,191,0.25);
+  background:rgba(64,123,191,0.07);
+  border-radius:100px;
+}
+.hero-tag-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--sky);animation:blink 2s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.hero h1{
+  font-size:clamp(2rem,3.5vw,3rem);
+  font-weight:800;line-height:1.12;
+  letter-spacing:-.03em;
+  color:var(--midnight);
+  margin-bottom:.75rem;
+}
+.hero-h2{
+  font-size:clamp(1.5rem,2.6vw,2.1rem);
+  font-weight:800;line-height:1.2;
+  letter-spacing:-.025em;
+  color:var(--sky);
+  margin-bottom:1rem;
+}
+.hero-sub{
+  font-size:1rem;font-weight:400;
+  color:var(--text2);line-height:1.8;
+  max-width:480px;margin-bottom:2.5rem;
+}
+.btn-primary{
+  background:#1e2d4a;color:var(--sky);
+  font-weight:700;font-size:.9rem;letter-spacing:.02em;
+  padding:.9rem 2.2rem;border:none;cursor:pointer;
+  text-decoration:none;transition:all .25s;
+  border-radius:100px;display:inline-block;
+}
+.btn-primary:hover{background:var(--azure);color:var(--white);transform:translateY(-2px);box-shadow:0 8px 24px rgba(64,123,191,.3)}
+
+/* Hero inline CTA */
+.hero-cta-block{margin-top:1.75rem}
+.hero-question{
+  font-size:1rem;font-weight:700;
+  color:var(--midnight);line-height:1.5;
+  margin-bottom:.5rem;
+  max-width:440px;
+}
+.hero-question-cta{
+  font-size:.95rem;font-weight:500;
+  color:var(--slate);line-height:1.4;
+  margin-bottom:1rem;
+  max-width:440px;
+}
+.hero-form{
+  display:flex;gap:.6rem;
+  max-width:440px;
+}
+.hero-email{
+  flex:1;
+  padding:.75rem 1rem;
+  border:1.5px solid var(--border-mid);
+  border-radius:100px;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:.88rem;
+  background:var(--white);
+  color:var(--midnight);
+  outline:none;
+  transition:border-color .2s;
+}
+.hero-email::placeholder{color:var(--slate)}
+.hero-email:focus{border-color:var(--azure)}
+.hero-form-note{
+  font-size:.72rem;color:var(--slate);
+  margin-top:.6rem;
+}
+.hero-form .btn-primary{white-space:nowrap;flex-shrink:0}
+.hero-right{display:flex;flex-direction:column;gap:1rem}
+.stat-card{
+  background:#1e2d4a;
+  border:1px solid rgba(89,201,233,0.18);
+  border-radius:16px;
+  padding:1.6rem 1.8rem;
+  position:relative;overflow:hidden;
+  transition:transform .3s,box-shadow .3s,border-color .3s;
+  box-shadow:0 4px 20px rgba(16,22,40,0.15);
+}
+.stat-card:hover{
+  transform:translateY(-3px);
+  box-shadow:0 10px 32px rgba(16,22,40,0.2);
+  border-color:rgba(89,201,233,0.35);
+}
+.stat-card-label{
+  font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--white);margin-bottom:.6rem;
+}
+.stat-card-value{
+  font-size:2.6rem;font-weight:800;letter-spacing:-.04em;
+  line-height:1;margin-bottom:.4rem;
+  color:var(--sky);
+}
+.stat-card-sub{
+  font-size:.85rem;font-weight:500;color:rgba(255,255,255,0.7);line-height:1.55;
+}
+.stat-card-sub strong{color:rgba(255,255,255,0.7);font-weight:500}
+.stat-card::before{
+  content:'';position:absolute;left:0;top:20%;bottom:20%;
+  width:3px;border-radius:0 3px 3px 0;
+  background:linear-gradient(180deg,var(--sky),var(--azure));
+}
+
+/* ── SECTIONS ── */
+.section{padding:6rem 3rem;position:relative}
+.section-inner{max-width:1200px;margin:0 auto}
+.section-eyebrow{
+  font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--azure);margin-bottom:1rem;
+}
+.section-title{
+  font-size:clamp(1.9rem,3.2vw,2.6rem);font-weight:800;
+  line-height:1.15;letter-spacing:-.03em;
+  color:var(--midnight);margin-bottom:1.5rem;
+}
+.section-title em{
+  font-style:normal;
+  background:linear-gradient(135deg,var(--sky),var(--azure));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.section-title-em{
+  font-size:clamp(1.4rem,2.4vw,2rem);font-weight:800;
+  line-height:1.2;letter-spacing:-.03em;
+  margin-bottom:1.5rem;
+}
+}
+.section-body{
+  font-size:1rem;font-weight:400;
+  color:var(--text2);line-height:1.8;max-width:600px;
+}
+
+/* ── PROBLEM ── */
+.problem-bg{
+  background:var(--offwhite);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center}
+.split.reverse{direction:rtl}.split.reverse>*{direction:ltr}
+
+.stat-trio{display:grid;grid-template-columns:1fr;gap:1rem}
+.trio-card{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:12px;padding:1.5rem 1.75rem;
+  transition:all .3s;box-shadow:0 1px 6px rgba(16,22,40,0.04);
+}
+.trio-card:hover{transform:translateX(4px);border-color:var(--border-mid);box-shadow:0 4px 16px rgba(16,22,40,0.08)}
+.trio-number{
+  font-size:2.8rem;font-weight:800;letter-spacing:-.04em;line-height:1;margin-bottom:.4rem;
+  background:linear-gradient(135deg,var(--sky),var(--azure));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.trio-label{font-size:.875rem;font-weight:400;color:var(--text2);line-height:1.6}
+.trio-label strong{color:var(--midnight);font-weight:600}
+
+/* ── HOW IT WORKS ── */
+.how-bg{background:var(--white);border-top:1px solid var(--border)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:3rem}
+.step{
+  padding:2rem;background:var(--offwhite);
+  border:1px solid var(--border);border-radius:12px;
+  transition:all .3s;
+}
+.step:hover{background:var(--white);border-color:var(--border-mid);transform:translateY(-3px);box-shadow:0 8px 24px rgba(16,22,40,0.08)}
+.step-num{
+  font-size:2.8rem;font-weight:800;letter-spacing:-.04em;
+  color:rgba(64,123,191,0.2);line-height:1;margin-bottom:1rem;transition:color .3s;
+}
+.step:hover .step-num{color:rgba(64,123,191,.5)}
+.step-title{font-weight:700;font-size:1rem;margin-bottom:.6rem;color:var(--midnight)}
+.step-body{font-size:.875rem;font-weight:400;color:var(--text2);line-height:1.7}
+
+/* ── COMPOUND VISUAL ── */
+.compound-section{
+  background:var(--offwhite);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.compound-visual{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:16px;padding:2rem;
+  box-shadow:0 2px 12px rgba(16,22,40,0.04);
+}
+.compound-chart{display:flex;align-items:flex-end;gap:5px;height:150px;margin-bottom:1.2rem}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:.4rem}
+.bar{width:100%;border-radius:3px 3px 0 0}
+.bar-contrib{background:var(--offwhite2);border:1px solid var(--border)}
+.bar-growth{background:linear-gradient(180deg,var(--sky),var(--azure))}
+.bar-age{font-size:.6rem;color:var(--slate);text-align:center}
+.compound-legend{display:flex;gap:1.5rem;margin-top:.6rem}
+.legend-item{display:flex;align-items:center;gap:.5rem;font-size:.75rem;color:var(--slate)}
+.legend-dot{width:10px;height:10px;border-radius:2px}
+.compound-headline{
+  font-size:1.5rem;font-weight:800;letter-spacing:-.03em;
+  margin-bottom:.4rem;margin-top:1.25rem;padding-top:1.25rem;
+  border-top:1px solid var(--border);color:var(--midnight);
+}
+.compound-sub{font-size:.875rem;font-weight:400;color:var(--text2);line-height:1.7}
+
+/* ── FAMILY NETWORK ── */
+.net-cards-wrap{
+  position:relative;
+  margin-bottom:1.5rem;
+}
+.net-cards{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:1rem;
+  position:relative;
+  z-index:1;
+}
+.net-lines-svg{
+  position:absolute;
+  inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;
+  overflow:visible;
+}
+
+/* Contributor card */
+.nc-card{
+  background:var(--white);
+  border:2px solid var(--border);
+  border-radius:14px;
+  padding:1.4rem 1rem;
+  text-align:center;
+  cursor:pointer;
+  transition:all .3s;
+  user-select:none;
+  position:relative;
+  z-index:1;
+}
+.nc-card:hover{border-color:var(--azure);box-shadow:0 4px 16px rgba(64,123,191,.12)}
+.nc-card.active{
+  border-color:var(--azure);
+  background:var(--midnight);
+}
+.nc-card.locked{cursor:default}
+
+/* Depth darkening — active cards get darker as network grows */
+.nc-card.active.depth-1{background:#1e2d4a}
+.nc-card.active.depth-2{background:#19263f}
+.nc-card.active.depth-3{background:#141f34}
+.nc-card.active.depth-4{background:#0f1929}
+
+.nc-icon{
+  width:36px;height:36px;margin:0 auto .75rem;
+  color:var(--slate);transition:color .3s;
+}
+.nc-icon svg{width:100%;height:100%}
+.nc-card.active .nc-icon{color:var(--sky)}
+.nc-role{
+  font-size:.82rem;font-weight:700;
+  color:var(--midnight);margin-bottom:.25rem;
+  transition:color .3s;
+}
+.nc-card.active .nc-role{color:var(--sky)}
+.nc-amount{
+  font-size:1.2rem;font-weight:800;letter-spacing:-.03em;
+  color:var(--azure);line-height:1;margin-bottom:.2rem;
+  transition:color .3s;
+}
+.nc-card.active .nc-amount{color:var(--sky)}
+.nc-detail{
+  font-size:.68rem;font-weight:400;
+  color:var(--slate);transition:color .3s;
+}
+.nc-card.active .nc-detail{color:rgba(255,255,255,.45)}
+.nc-check{
+  position:absolute;top:.6rem;right:.6rem;
+  height:22px;border-radius:100px;
+  background:var(--offwhite);border:1px solid var(--border-mid);
+  display:flex;align-items:center;justify-content:center;
+  padding:0 .55rem;gap:.3rem;
+  transition:all .25s;
+  font-size:.65rem;font-weight:700;letter-spacing:.05em;
+  color:var(--slate);white-space:nowrap;
+}
+.nc-check::before{
+  content:'Add';
+}
+.nc-card:hover .nc-check{
+  background:var(--azure);border-color:var(--azure);color:var(--white);
+}
+.nc-card.active .nc-check{
+  background:var(--sky);border-color:var(--sky);color:var(--midnight);
+  padding:0 .4rem;
+}
+.nc-card.active .nc-check::before{content:''}
+.nc-check-tick{
+  display:none;width:12px;height:12px;
+}
+.nc-card.active .nc-check-tick{display:block}
+.nc-card.locked .nc-check{display:none}
+
+/* Total result card */
+.net-total-row{display:flex;justify-content:center}
+.net-total-card{
+  background:var(--midnight);
+  border-radius:16px;
+  padding:1.5rem 2rem;
+  display:flex;align-items:center;gap:3rem;
+  min-width:540px;
+  transition:all .4s;
+}
+.net-total-inner{}
+.ntc-label{
+  font-size:.65rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:rgba(255,255,255,.4);
+  margin-bottom:.35rem;
+}
+.ntc-value{
+  font-size:2.4rem;font-weight:800;letter-spacing:-.04em;
+  color:var(--sky);line-height:1;margin-bottom:.25rem;
+  transition:all .4s;
+}
+.ntc-sub{font-size:.8rem;font-weight:400;color:rgba(255,255,255,.45)}
+.ntc-vs{border-left:1px solid rgba(255,255,255,.1);padding-left:2rem}
+.ntc-vs-label{
+  font-size:.65rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:rgba(255,255,255,.4);
+  margin-bottom:.35rem;
+}
+.ntc-vs-value{
+  font-size:1.6rem;font-weight:800;letter-spacing:-.03em;
+  color:var(--white);transition:all .4s;
+}
+
+@media(max-width:900px){
+  .net-cards{grid-template-columns:repeat(2,1fr);gap:.75rem}
+  .net-total-card{flex-direction:column;gap:1rem;min-width:0;width:100%;align-items:flex-start}
+  .ntc-vs{border-left:none;border-top:1px solid rgba(255,255,255,.1);padding-left:0;padding-top:1rem;width:100%}
+}
+/* Question stat card */
+.stat-card-question{cursor:default}
+.stat-card-question-text{
+  font-size:1.05rem;font-weight:700;line-height:1.4;
+  color:var(--white);margin:0.5rem 0 1.2rem;
+  letter-spacing:-.02em;
+}
+.stat-card-cta{
+  display:inline-block;
+  background:var(--sky);color:var(--midnight);
+  font-size:.8rem;font-weight:700;
+  padding:.5rem 1.1rem;border-radius:100px;
+  text-decoration:none;transition:background .2s;
+}
+.stat-card-cta:hover{background:#407BBF;color:var(--white)}
+
+
+
+/* Updated 529 elements */
+.s529-bold-line{
+  font-size:1.15rem;font-weight:800;
+  color:var(--white);letter-spacing:-.02em;
+  line-height:1.35;
+}
+.s529-spark-name{
+  font-size:1.5rem;font-weight:800;
+  letter-spacing:-.04em;
+  background:linear-gradient(135deg,var(--white),var(--sky));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-top:.25rem;
+}
+.s529-source{
+  font-size:.72rem;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,.25);
+}
+/* ── COMBINED AMERICA + WAITLIST SECTION ── */
+.combined-section{background:var(--midnight)}
+
+/* Sky tint CTA band */
+.sky-cta-band{
+  background:#1e2d4a;
+  padding:4rem 3rem;
+  margin-top:4rem;
+  border-top:1px solid rgba(89,201,233,.15);
+}
+.combined-waitlist{text-align:center;max-width:600px;margin:0 auto}
+.combined-question{
+  font-size:clamp(1.4rem,2.5vw,2rem);
+  font-weight:800;letter-spacing:-.03em;
+  color:var(--white);line-height:1.25;
+  margin-bottom:.75rem;
+}
+.combined-body{
+  font-size:.95rem;color:rgba(255,255,255,.5);
+  margin-bottom:0;
+}
+
+/* Waitlist form colours inside navy band */
+.sky-cta-band .waitlist-input{
+  background:rgba(255,255,255,.07);
+  border-color:rgba(255,255,255,.15);
+  color:var(--white);
+}
+.sky-cta-band .waitlist-input::placeholder{color:rgba(255,255,255,.35)}
+.sky-cta-band .waitlist-input:focus{border-color:rgba(89,201,233,.5)}
+.sky-cta-band .waitlist-btn{
+  background:var(--sky);
+  color:var(--midnight);
+}
+.sky-cta-band .waitlist-btn:hover{background:var(--white);color:var(--midnight)}
+.sky-cta-band .waitlist-note{color:rgba(255,255,255,.25)}
+.sky-cta-band .success-msg{color:var(--sky)}
+.s529-eyebrow{
+  font-size:.7rem;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--sky);
+  margin-bottom:1.25rem;
+}
+.america-block{max-width:900px;margin:0 auto;}
+.america-cols{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4rem;
+  align-items:center;
+}
+.america-left{text-align:left;}
+.america-right{
+  border-left:1px solid rgba(255,255,255,.08);
+  padding-left:3rem;
+}
+.america-number{
+  font-size:clamp(4rem,8vw,7rem);
+  font-weight:800;letter-spacing:-.06em;line-height:1;
+  background:linear-gradient(135deg,var(--white) 40%,var(--sky));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:.4rem;
+}
+.america-label{
+  font-size:.95rem;font-weight:500;
+  color:rgba(255,255,255,.6);
+  line-height:1.5;
+}
+.america-body{
+  font-size:.95rem;font-weight:600;
+  color:var(--white);
+  line-height:1.85;
+}
+@media(max-width:700px){
+  .america-cols{grid-template-columns:1fr;gap:2rem}
+  .america-right{border-left:none;padding-left:0;border-top:1px solid rgba(255,255,255,.08);padding-top:2rem}
+  .america-left{text-align:center}
+}
+.combined-divider{
+  height:1px;background:rgba(255,255,255,.08);
+  margin:2.5rem 0;
+}
+.combined-waitlist{text-align:center;max-width:600px;margin:0 auto}
+.combined-question{
+  font-size:clamp(1.4rem,2.5vw,2rem);
+  font-weight:800;letter-spacing:-.03em;
+  color:var(--white);line-height:1.25;
+  margin-bottom:.75rem;
+}
+.combined-body{
+  font-size:.95rem;color:rgba(255,255,255,.45);
+  margin-bottom:0;
+}
+
+/* ── INVESTOR ── */
+.investor-section{
+  background:var(--offwhite);
+  border-top:1px solid var(--border);
+}
+.investor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:3rem}
+.inv-card{
+  padding:2rem;border:1px solid var(--border);border-radius:12px;
+  background:var(--white);transition:all .3s;
+  box-shadow:0 1px 6px rgba(16,22,40,0.04);
+}
+.inv-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(16,22,40,0.1);border-color:var(--border-mid)}
+.inv-number{
+  font-size:2.6rem;font-weight:800;letter-spacing:-.04em;
+  background:linear-gradient(135deg,var(--sky),var(--azure));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:.5rem;line-height:1;
+}
+.inv-label{font-weight:700;font-size:.9rem;margin-bottom:.5rem;color:var(--midnight)}
+.inv-detail{font-size:.8rem;font-weight:400;color:var(--text2);line-height:1.65}
+
+/* ── WAITLIST ── */
+.waitlist-section{
+  background:var(--midnight);
+  padding:7rem 3rem;position:relative;overflow:hidden;
+}
+.waitlist-section::before{
+  content:'';position:absolute;width:800px;height:800px;border-radius:50%;
+  background:radial-gradient(circle,rgba(89,201,233,0.07) 0%,transparent 70%);
+  top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;
+}
+.waitlist-inner{max-width:620px;margin:0 auto;text-align:center;position:relative;z-index:1}
+.waitlist-inner .section-title{color:var(--white)}
+.waitlist-inner .section-eyebrow{color:var(--sky)}
+.waitlist-question{
+  font-size:clamp(1.6rem,3.2vw,2.4rem);
+  font-weight:800;letter-spacing:-.03em;
+  line-height:1.2;color:var(--white);
+  margin-bottom:1rem;
+}
+.waitlist-body{
+  font-size:1rem;font-weight:400;color:rgba(255,255,255,.5);
+  line-height:1.75;margin:0 auto 2.5rem;
+}
+.waitlist-form{display:flex;gap:.75rem;margin-top:2rem}
+.waitlist-input{
+  flex:1;background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.12);
+  color:var(--white);font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:.9rem;font-weight:400;padding:.9rem 1.4rem;
+  outline:none;transition:border-color .2s;border-radius:100px;
+}
+.waitlist-input::placeholder{color:rgba(255,255,255,.3)}
+.waitlist-input:focus{border-color:rgba(89,201,233,.5);background:rgba(255,255,255,0.1)}
+.waitlist-btn{
+  background:var(--sky);color:var(--midnight);
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-weight:700;font-size:.85rem;letter-spacing:.03em;
+  padding:.9rem 1.8rem;border:none;cursor:pointer;
+  white-space:nowrap;transition:all .25s;border-radius:100px;
+}
+.waitlist-btn:hover{background:var(--white);transform:translateY(-1px);box-shadow:0 6px 20px rgba(89,201,233,.25)}
+.waitlist-note{font-size:.75rem;font-weight:400;color:rgba(255,255,255,.25);margin-top:.8rem}
+.success-msg{
+  display:none;background:rgba(89,201,233,0.12);
+  border:1px solid rgba(89,201,233,0.3);
+  color:var(--sky);padding:1rem 1.5rem;
+  font-size:.9rem;font-weight:500;margin-top:1rem;border-radius:8px;
+}
+
+/* ── FOOTER ── */
+footer{
+  padding:2.5rem 3rem;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:1.5rem;background:var(--white);
+}
+.footer-logo img{height:22px;width:auto}
+.footer-legal{font-size:.7rem;font-weight:400;color:var(--slate);line-height:1.65;max-width:560px}
+.footer-links{display:flex;gap:1.5rem}
+.footer-links a{font-size:.75rem;color:var(--slate);text-decoration:none;transition:color .2s}
+.footer-links a:hover{color:var(--azure)}
+
+/* ── REVEAL ── */
+.reveal{opacity:1;transform:none;transition:opacity .65s ease,transform .65s ease}
+.reveal.visible{opacity:1;transform:none}
+.reveal-delay-1{transition-delay:.1s}.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}.reveal-delay-4{transition-delay:.4s}
+
+@media(max-width:900px){
+  nav{padding:1rem 1.5rem}.nav-links{display:none}
+  .hero{padding:7rem 1.5rem 4rem}
+  .hero-content{grid-template-columns:1fr;gap:2.5rem}
+  .hero-right{display:none}
+  .section{padding:4rem 1.5rem}
+  .split{grid-template-columns:1fr;gap:2.5rem}.split.reverse{direction:ltr}
+  .steps{grid-template-columns:1fr;gap:1rem}
+  .gifting-grid{grid-template-columns:repeat(2,1fr)}
+  .investor-grid{grid-template-columns:1fr}
+  .waitlist-form{flex-direction:column}
+  footer{flex-direction:column;gap:1rem;padding:2rem 1.5rem}
+}
+
+/* ── TIMING SLIDER SECTION ── */
+.slider-section{display:flex;flex-direction:column;gap:1.5rem}
+
+/* Two column: chart left, boxes right */
+.slider-layout{
+  display:grid;
+  grid-template-columns:1fr 240px;
+  gap:1.25rem;
+  align-items:start;
+}
+
+/* Stat boxes — right column, stacked, slightly bigger */
+.stat-boxes{display:flex;flex-direction:column;gap:.75rem}
+.stat-box{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:12px;padding:1.4rem 1.5rem;
+  box-shadow:0 1px 6px rgba(16,22,40,0.04);
+  transition:border-color .3s;
+}
+.stat-box-total{border-left:3px solid var(--azure)}
+.stat-box-growth{border-left:3px solid var(--sky)}
+.stat-box-loss{border-left:3px solid #c0392b}
+.sb-label{
+  font-size:.62rem;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--slate);margin-bottom:.35rem;
+}
+.sb-value{
+  font-size:1.55rem;font-weight:800;letter-spacing:-.04em;
+  color:var(--midnight);line-height:1;margin-bottom:.2rem;
+  transition:all .3s;
+}
+.sb-value-loss{color:#c0392b}
+.sb-sub{font-size:.72rem;font-weight:400;color:var(--text2)}
+
+/* Right column wrapper */
+.slider-chart-wrap{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:16px;padding:1.25rem 1.4rem;
+  box-shadow:0 2px 12px rgba(16,22,40,0.05);
+  display:flex;flex-direction:column;gap:.9rem;
+}
+
+/* Controls row: slider + toggle on same line */
+.controls-row{
+  display:flex;align-items:center;gap:1.25rem;
+}
+.slider-control{flex:1;display:flex;flex-direction:column;gap:.35rem}
+.slider-label-row{
+  display:flex;align-items:baseline;gap:.5rem;
+}
+.slider-age-label{
+  font-size:.65rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--slate);
+}
+.slider-age-value{
+  font-size:1rem;font-weight:800;letter-spacing:-.02em;
+  color:var(--azure);
+}
+.age-slider{
+  width:100%;-webkit-appearance:none;appearance:none;
+  height:4px;border-radius:4px;outline:none;cursor:pointer;
+  background:linear-gradient(90deg,var(--azure) 0%,var(--azure) var(--pct,0%),var(--border-mid) var(--pct,0%),var(--border-mid) 100%);
+}
+.age-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--azure);cursor:pointer;
+  box-shadow:0 0 0 3px rgba(64,123,191,.2);transition:box-shadow .2s;
+}
+.age-slider::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(64,123,191,.25)}
+.age-slider::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;
+  background:var(--azure);cursor:pointer;border:none;
+}
+.slider-ticks{
+  display:flex;justify-content:space-between;
+  font-size:.6rem;color:var(--slate);font-weight:500;padding:0 1px;
+}
+.slider-horizon-toggle{
+  display:flex;gap:.3rem;background:var(--offwhite);
+  border-radius:100px;padding:.25rem;flex-shrink:0;
+}
+.sl-htoggle{
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:.75rem;font-weight:600;
+  padding:.4rem .85rem;border:none;cursor:pointer;
+  border-radius:100px;background:transparent;
+  color:var(--slate);transition:all .2s;
+}
+.sl-htoggle.active{
+  background:var(--white);color:var(--midnight);
+  box-shadow:0 1px 4px rgba(16,22,40,0.12);
+}
+.sl-htoggle:not(.active):hover{color:var(--azure)}
+
+/* Chart area — slightly compressed */
+.sc-chart-area{
+  position:relative;height:220px;
+  display:flex;align-items:flex-end;
+}
+.sc-bars{
+  display:flex;align-items:flex-end;gap:2px;
+  width:100%;height:100%;
+}
+.sc-bar-wrap{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;
+  height:100%;position:relative;cursor:pointer;gap:1px;
+}
+.sc-bar-wrap:hover .sc-bar-g,.sc-bar-wrap:hover .sc-bar-c{filter:brightness(1.1)}
+.sc-bar{
+  width:100%;border-radius:2px 2px 0 0;
+  transition:height .5s cubic-bezier(.34,1.05,.64,1);
+}
+.sc-bar-g{background:linear-gradient(180deg,var(--sky),var(--azure));position:relative;overflow:hidden}
+.sc-bar-contrib{
+  position:absolute;bottom:0;left:0;width:100%;
+  background:#c8d6e8;border-top:1px solid #b0c4d8;
+  opacity:0;transition:opacity .2s;
+}
+.sc-bar-wrap:hover .sc-bar-contrib{opacity:1}
+.sc-bar-c{background:var(--offwhite2);border:1px solid var(--border);border-bottom:none}
+.sc-bar-lbl{font-size:.5rem;color:var(--slate);text-align:center;margin-top:.2rem;white-space:nowrap}
+
+/* Tooltip */
+.sc-tooltip{
+  position:absolute;background:var(--midnight);color:var(--white);
+  border-radius:10px;padding:.65rem .85rem;font-size:.74rem;
+  pointer-events:none;opacity:0;transition:opacity .15s;
+  white-space:nowrap;z-index:10;
+  box-shadow:0 4px 20px rgba(16,22,40,.25);
+  transform:translateX(-50%);bottom:calc(100% + 8px);left:0;
+}
+.sc-tooltip.visible{opacity:1}
+.sct-age{font-size:.63rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.3rem}
+.sct-row{display:flex;align-items:center;gap:.4rem;margin-bottom:.15rem}
+.sct-total-row{margin-top:.3rem;padding-top:.3rem}
+.sct-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.sct-dot-g{background:var(--sky)}
+.sct-dot-c{background:rgba(255,255,255,.2)}
+.sct-lbl{color:rgba(255,255,255,.6);flex:1}
+.sct-val{font-weight:700}
+.sct-total{color:var(--sky)}
+.sct-divider{height:1px;background:rgba(255,255,255,.1);margin:.28rem 0}
+
+.sc-legend{display:flex;gap:1.25rem}
+.sc-footnote{font-size:.66rem;color:var(--slate)}
+
+@media(max-width:900px){
+  .slider-layout{grid-template-columns:1fr}
+  .stat-boxes{flex-direction:row;flex-wrap:wrap}
+  .stat-box{flex:1;min-width:140px}
+  .controls-row{flex-wrap:wrap;gap:.75rem}
+}
+
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <svg viewBox="0 0 180 60" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="agrad" x1="28" y1="4" x2="28" y2="54" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#72d4ef"/>
+          <stop offset="100%" stop-color="#2a65b8"/>
+        </linearGradient>
+      </defs>
+      <path d="M4 52 L28 8 L52 52" fill="none" stroke="url(#agrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="64" y="40" font-family="Plus Jakarta Sans, sans-serif" font-weight="700" font-size="26" fill="#101628" letter-spacing="-0.8">Amplifi</text>
+    </svg>
+  </a>
+  <div class="nav-links">
+    <a href="#how-it-works">How it works</a>
+    <a href="#the-numbers">The numbers</a>
+    <a href="#for-families">For families</a>
+    <a href="#waitlist">Join waitlist</a>
+  </div>
+  <a href="#waitlist" class="nav-cta">Start today</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg-circle"></div>
+  <div class="hero-bg-circle2"></div>
+  <div class="hero-content">
+    <div class="hero-left reveal">
+      <div class="hero-tag"><span class="hero-tag-dot"></span>Now building · UK launch 2026</div>
+      <h1>Time and compounding create wealth.</h1>
+      <div class="hero-h2">Your child's financial future starts the day they're born.</div>
+      <p class="hero-sub">Amplifi Spark helps families save through cashback and gifting from day one — so the money can grow and be there for when the moments that matter arrive.</p>
+      <div class="hero-cta-block">
+        <p class="hero-question">Most parents spend 18 years raising a child. Almost none spend 18 years saving for one.</p>
+        <p class="hero-question-cta">Start your child's financial future today.</p>
+        <form id="hero-form" class="hero-form" onsubmit="handleWaitlist(event, 'hero-success')">
+          <input type="email" name="email" class="hero-email" placeholder="Your email address" required>
+          <button type="submit" class="btn-primary" data-fs-submit-btn>Start today</button>
+        </form>
+        <div class="success-msg" id="hero-success">✓ You're on the list. We'll be in touch soon.</div>
+        <p class="hero-form-note">Join the waitlist · Early access · UK launch 2026</p>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="stat-card reveal reveal-delay-1">
+        <div class="stat-card-label">£50/month from birth builds to</div>
+        <div class="stat-card-value">£47,868</div>
+        <div class="stat-card-sub">by age 25 at 8% p.a.</div>
+      </div>
+      <div class="stat-card reveal reveal-delay-2">
+        <div class="stat-card-label">£50/month from birth builds to</div>
+        <div class="stat-card-value">£1,338,000</div>
+        <div class="stat-card-sub">by age 65 at 8% p.a. — <strong>97% of that is compounding. 3% is what you paid in.</strong></div>
+      </div>
+      <div class="stat-card reveal reveal-delay-3">
+        <div class="stat-card-label">America started 30 years ago</div>
+        <div class="stat-card-value">17m+</div>
+        <div class="stat-card-sub">Americans already saving for their children from birth.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section how-bg" id="how-it-works">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-eyebrow">How it works</div>
+      <h2 class="section-title">Two minutes to open. <em>A lifetime to compound.</em></h2>
+      <p class="section-body">Amplifi Spark is a cashback and family gifting platform built to help the whole family contribute to a child's Junior ISA.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal reveal-delay-1">
+        <div class="step-num">01</div>
+        <div class="step-title">Open in two minutes</div>
+        <div class="step-body">Create your child's Spark account from your phone. Link your child's Junior ISA. Start earning cashback from everyday shopping. Done.</div>
+      </div>
+      <div class="step reveal reveal-delay-2">
+        <div class="step-num">02</div>
+        <div class="step-title">Invite the whole family</div>
+        <div class="step-body">Share your child's gifting page with grandparents, aunts, uncles — anyone who would otherwise give cash for birthdays and Christmas. Every gift goes straight into the ISA and compounds.</div>
+      </div>
+      <div class="step reveal reveal-delay-3">
+        <div class="step-num">03</div>
+        <div class="step-title">Watch it grow</div>
+        <div class="step-body">The family dashboard shows every contributor, every pound contributed, and exactly what the pot is projected to reach. The earlier you start, the more dramatic the line.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMBINED: WHY TIMING MATTERS + POWER OF EARLY -->
+<section class="section problem-bg" id="the-numbers">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;max-width:720px;margin:0 auto 2.5rem">
+      <div class="section-eyebrow">Why timing matters</div>
+      <h2 class="section-title" style="font-size:clamp(1.5rem,2.8vw,2.2rem)">It's not how much, it's how soon you start.<br><span style="color:var(--sky);font-style:normal">Let time do the heavy lifting.</span></h2>
+      <p class="section-body" style="margin:0 auto">£50 a month is £1.64 a day — less than a coffee. Drag the slider to choose a starting age and see exactly what it builds — and what waiting costs.</p>
+    </div>
+
+    <div class="slider-section reveal reveal-delay-1">
+
+      <!-- TWO COLUMN: chart left, boxes right -->
+      <div class="slider-layout">
+
+        <!-- LEFT: controls + chart -->
+        <div class="slider-chart-wrap">
+
+          <!-- Controls row: slider + toggle on same line -->
+          <div class="controls-row">
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span class="slider-age-label">Starting age</span>
+                <span class="slider-age-value" id="sl-age-display">Birth</span>
+              </div>
+              <input type="range" id="start-slider" min="0" max="20" value="0" step="1"
+                oninput="onSlider(this.value)" class="age-slider">
+              <div class="slider-ticks">
+                <span>Birth</span><span>5</span><span>10</span><span>15</span><span>20</span>
+              </div>
+            </div>
+            <div class="slider-horizon-toggle">
+              <button class="sl-htoggle active" onclick="selectHorizon(25,this)">By 25</button>
+              <button class="sl-htoggle" onclick="selectHorizon(65,this)">By 65</button>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="sc-chart-area">
+            <div class="sc-bars" id="sc-bars"></div>
+            <div class="sc-tooltip" id="sc-tooltip">
+              <div class="sct-age" id="sct-age"></div>
+              <div class="sct-row"><span class="sct-dot sct-dot-g"></span><span class="sct-lbl">Growth</span><span class="sct-val" id="sct-g"></span></div>
+              <div class="sct-row"><span class="sct-dot sct-dot-c"></span><span class="sct-lbl">Contributions</span><span class="sct-val" id="sct-c"></span></div>
+              <div class="sct-divider"></div>
+              <div class="sct-row sct-total-row"><span class="sct-lbl">Total</span><span class="sct-val sct-total" id="sct-t"></span></div>
+            </div>
+          </div>
+          <div class="sc-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(var(--sky),var(--azure))"></div>Compounding growth</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--offwhite2);border:1px solid var(--border)"></div>Contributions</div>
+          </div>
+          <div class="sc-footnote">£50/month at 8% p.a. · <span id="sc-title"></span></div>
+        </div>
+
+        <!-- RIGHT: stat boxes -->
+        <div class="stat-boxes">
+          <div class="stat-box stat-box-total">
+            <div class="sb-label">Value of investment</div>
+            <div class="sb-value" id="sb-total">£47,868</div>
+            <div class="sb-sub" id="sb-total-sub">by age 25</div>
+          </div>
+          <div class="stat-box stat-box-growth">
+            <div class="sb-label">Gained from compounding</div>
+            <div class="sb-value" id="sb-growth">£32,551</div>
+            <div class="sb-sub" id="sb-growth-sub">68% of final value</div>
+          </div>
+          <div class="stat-box stat-box-loss">
+            <div class="sb-label">Lost by not starting at birth</div>
+            <div class="sb-value sb-value-loss" id="sb-loss">£0</div>
+            <div class="sb-sub" id="sb-loss-sub">no delay</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAMILY NETWORK -->
+<section class="section" id="for-families" style="background:var(--white);border-top:1px solid var(--border)">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;max-width:680px;margin:0 auto 2.5rem">
+      <div class="section-eyebrow">The family network</div>
+      <h2 class="section-title" style="font-size:clamp(1.4rem,2.2vw,1.9rem)">Compounding is powerful. <em>A whole family compounding together is extraordinary.</em></h2>
+      <p class="section-body" style="margin:0 auto">Most savings accounts have one contributor. Amplifi Spark can connect the whole family — for regular contributions or one-offs at birthdays and Christmas. Same account, more contributors. Bigger outcome.</p>
+    </div>
+
+    <div class="reveal reveal-delay-1">
+      <!-- Contributor cards row -->
+      <div class="net-cards-wrap" id="net-cards-wrap">
+        <div class="net-cards" id="net-cards">
+          <!-- Built by JS -->
+        </div>
+        <!-- Connecting lines drawn by JS as SVG overlay -->
+        <svg class="net-lines-svg" id="net-lines-svg" aria-hidden="true"></svg>
+      </div>
+
+      <!-- Total result -->
+      <div class="net-total-row">
+        <div class="net-total-card" id="net-total-card">
+          <div class="net-total-inner">
+            <div class="ntc-label">Combined pot by age 25</div>
+            <div class="ntc-value" id="ntc-value">£28,531</div>
+            <div class="ntc-sub" id="ntc-sub">£30/mo · 1 contributor · 8% p.a. from birth</div>
+          </div>
+          <div class="ntc-vs" id="ntc-vs" style="display:none">
+            <div class="ntc-vs-label">Extra vs parent alone</div>
+            <div class="ntc-vs-value" id="ntc-vs-value"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AMERICA / WAITLIST — COMBINED -->
+<section class="section combined-section" id="waitlist">
+  <div class="section-inner">
+
+    <!-- America stat block -->
+    <div class="america-block reveal">
+      <div class="america-cols">
+        <div class="america-left">
+          <div class="s529-eyebrow">America is leading the way</div>
+          <div class="america-number">17m+</div>
+          <div class="america-label">American families are saving for their children from birth</div>
+        </div>
+        <div class="america-right">
+          <div class="america-body">In the US, saving for your child from the day they are born is standard. The 529 plan has been running since 1996 — for millions of American families, it is simply what you do when a child arrives. The habit is built in. The compounding has already started. The wealth gap between those who start early and those who don't grows wider every year.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+  </div><!-- /section-inner -->
+
+  <!-- Sky tint CTA band -->
+  <div class="sky-cta-band">
+    <div class="section-inner">
+      <div class="combined-waitlist reveal">
+        <p class="combined-body" style="margin-bottom:1.5rem">Join the waitlist for early access when Amplifi Spark launches later in 2026.</p>
+        <form id="bottom-form" class="waitlist-form" onsubmit="handleWaitlist(event, 'bottom-success')">
+          <input type="email" name="email" class="waitlist-input" placeholder="Your email address" required>
+          <button type="submit" class="waitlist-btn">Start today</button>
+        </form>
+        <div class="success-msg" id="bottom-success" style="display:none">✓ You're on the list. We'll be in touch soon.</div>
+        <div class="waitlist-note">No spam. No commitments. Just early access when we launch.</div>
+      </div>
+    </div>
+  </div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <svg viewBox="0 0 180 60" xmlns="http://www.w3.org/2000/svg" style="height:26px;width:auto">
+      <defs>
+        <linearGradient id="fgrad" x1="28" y1="4" x2="28" y2="54" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#72d4ef"/>
+          <stop offset="100%" stop-color="#2a65b8"/>
+        </linearGradient>
+      </defs>
+      <path d="M4 52 L28 8 L52 52" fill="none" stroke="url(#fgrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="64" y="40" font-family="Plus Jakarta Sans, sans-serif" font-weight="700" font-size="26" fill="#6b7fa3" letter-spacing="-0.8">Amplifi</text>
+    </svg>
+  </div>
+  <div class="footer-legal">
+    Amplifi Group Holdings Ltd · Company No. 17094221 · letsamplifi.com<br>
+    Amplifi Spark is a cashback and family gifting platform. Contributions are directed to the parent's own Junior ISA at their chosen provider. Amplifi does not hold, manage, or invest funds. All projections are illustrative only — capital at risk. Past performance is not a guide to future returns. This website does not constitute financial advice.
+  </div>
+  <div class="footer-links">
+    <a href="privacy.html">Privacy</a><a href="mailto:hello@letsamplifi.com">Contact</a>
+  </div>
+</footer>
+
+<script>
+// Scroll reveal — with fallback for local file:// opening
+// Content always visible — animation via CSS when on real server
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+  // Init chart after a short delay to ensure layout is complete
+  setTimeout(updateSlider, 150);
+  // Init network cards
+  buildNetworkCards();
+});
+// ── TIMING SLIDER ────────────────────────────────────────────────────────────
+const SD = {
+  0:  {h25:{total:47868, contrib:15000,growth:32868,loss:0},      h65:{total:1337641,contrib:39000,growth:1298641,loss:0}},
+  1:  {h25:{total:43621, contrib:14400,growth:29221,loss:4247},   h65:{total:1234547,contrib:38400,growth:1196147,loss:103094}},
+  2:  {h25:{total:39700, contrib:13800,growth:25900,loss:8168},   h65:{total:1139354,contrib:37800,growth:1101554,loss:198287}},
+  3:  {h25:{total:36078, contrib:13200,growth:22878,loss:11790},  h65:{total:1051457,contrib:37200,growth:1014257,loss:286184}},
+  4:  {h25:{total:32735, contrib:12600,growth:20135,loss:15133},  h65:{total:970297, contrib:36600,growth:933697, loss:367344}},
+  5:  {h25:{total:29647, contrib:12000,growth:17647,loss:18221},  h65:{total:895356, contrib:36000,growth:859356, loss:442285}},
+  6:  {h25:{total:26796, contrib:11400,growth:15396,loss:21072},  h65:{total:826158, contrib:35400,growth:790758, loss:511483}},
+  7:  {h25:{total:24164, contrib:10800,growth:13364,loss:23704},  h65:{total:762264, contrib:34800,growth:727464, loss:575377}},
+  8:  {h25:{total:21734, contrib:10200,growth:11534,loss:26134},  h65:{total:703266, contrib:34200,growth:669066, loss:634375}},
+  9:  {h25:{total:19489, contrib:9600, growth:9889, loss:28379},  h65:{total:648791, contrib:33600,growth:615191, loss:688850}},
+  10: {h25:{total:17417, contrib:9000, growth:8417, loss:30451},  h65:{total:598490, contrib:33000,growth:565490, loss:739151}},
+  11: {h25:{total:15504, contrib:8400, growth:7104, loss:32364},  h65:{total:552044, contrib:32400,growth:519644, loss:785597}},
+  12: {h25:{total:13737, contrib:7800, growth:5937, loss:34131},  h65:{total:509157, contrib:31800,growth:477357, loss:828484}},
+  13: {h25:{total:12105, contrib:7200, growth:4905, loss:35763},  h65:{total:469558, contrib:31200,growth:438358, loss:868083}},
+  14: {h25:{total:10599, contrib:6600, growth:3999, loss:37269},  h65:{total:432993, contrib:30600,growth:402393, loss:904648}},
+  15: {h25:{total:9208,  contrib:6000, growth:3208, loss:38660},  h65:{total:399230, contrib:30000,growth:369230, loss:938411}},
+  16: {h25:{total:7923,  contrib:5400, growth:2523, loss:39945},  h65:{total:368055, contrib:29400,growth:338655, loss:969586}},
+  17: {h25:{total:6738,  contrib:4800, growth:1938, loss:41130},  h65:{total:339270, contrib:28800,growth:310470, loss:998371}},
+  18: {h25:{total:5643,  contrib:4200, growth:1443, loss:42225},  h65:{total:312690, contrib:28200,growth:284490, loss:1024951}},
+  19: {h25:{total:4632,  contrib:3600, growth:1032, loss:43236},  h65:{total:288147, contrib:27600,growth:260547, loss:1049494}},
+  20: {h25:{total:3698,  contrib:3000, growth:698,  loss:44170},  h65:{total:265485, contrib:27000,growth:238485, loss:1072156}},
+};
+
+// Chart bar data: clean fixed steps per horizon
+function getBarData(startAge, horizon) {
+  const r = 0.08/12;
+  function point(start, age) {
+    const months = (age - start) * 12;
+    if (months <= 0) return null;
+    const total  = Math.round(50 * ((Math.pow(1+r,months)-1)/r) * (1+r));
+    const contrib = 50 * months;
+    return {age, total, contrib:Math.round(contrib), growth:Math.round(total-contrib)};
+  }
+
+  let ages = [];
+  if (horizon === 25) {
+    // 2-year steps from startAge to 20, then every year 21-25
+    for (let a = startAge + 2; a <= 20; a += 2) ages.push(a);
+    for (let a = Math.max(startAge + 1, 21); a <= 25; a++) ages.push(a);
+  } else {
+    // 5-year steps from startAge to 65
+    const firstStep = Math.ceil((startAge + 1) / 5) * 5;
+    for (let a = firstStep; a <= 65; a += 5) ages.push(a);
+  }
+
+  return ages.map(a => point(startAge, a)).filter(Boolean);
+}
+
+function fmt(n){ return '£' + Math.round(n).toLocaleString('en-GB'); }
+function pct(a,b){ return b>0 ? Math.round(a/b*100)+'%' : '0%'; }
+
+let slAge = 0, slHorizon = 25;
+
+function updateSlider() {
+  const key = 'h' + slHorizon;
+  const d   = SD[slAge][key];
+  const horizonLabel = 'by age ' + slHorizon;
+
+  // Age display
+  const ageDisp = document.getElementById('sl-age-display');
+  if (ageDisp) ageDisp.textContent = slAge === 0 ? 'Birth' : slAge;
+
+  // Slider fill
+  const slider = document.getElementById('start-slider');
+  if (slider) {
+    const pctVal = (slAge / 20 * 100).toFixed(1);
+    slider.style.setProperty('--pct', pctVal + '%');
+  }
+
+  // Stat boxes
+  document.getElementById('sb-total').textContent    = fmt(d.total);
+  document.getElementById('sb-total-sub').textContent = horizonLabel;
+  document.getElementById('sb-growth').textContent   = fmt(d.growth);
+  document.getElementById('sb-growth-sub').textContent = pct(d.growth, d.total) + ' of final value';
+  document.getElementById('sb-loss').textContent     = d.loss > 0 ? fmt(d.loss) : '£0';
+  document.getElementById('sb-loss-sub').textContent = d.loss > 0
+    ? 'vs starting at birth'
+    : 'maximum possible';
+
+  // Chart title
+  const startLbl = slAge === 0 ? 'Starting at birth' : 'Starting at age ' + slAge;
+  document.getElementById('sc-title').textContent =
+    startLbl + ' · ' + horizonLabel;
+
+  // Build bars
+  const bars = getBarData(slAge, slHorizon);
+  const barsEl = document.getElementById('sc-bars');
+  if (!barsEl || bars.length === 0) return;
+  const max = bars[bars.length-1].total;
+
+  barsEl.innerHTML = bars.map((b, i) => {
+    const totalH = (b.total/max*100).toFixed(2);
+    const contribH = (b.contrib/b.total*100).toFixed(2);
+    return '<div class="sc-bar-wrap" onmouseenter="scTip(event,'+b.age+','+b.total+','+b.contrib+','+b.growth+')" onmouseleave="scHideTip()">'+
+      '<div class="sc-bar sc-bar-g" style="height:0%" data-h="'+totalH+'">' +
+        '<div class="sc-bar-contrib" style="height:'+contribH+'%"></div>' +
+      '</div>'+
+      '<div class="sc-bar-lbl">'+b.age+'</div>'+
+    '</div>';
+  }).join('');
+
+  setTimeout(() => {
+    barsEl.querySelectorAll('.sc-bar').forEach(b => { b.style.height = b.dataset.h + '%'; });
+  }, 80);
+
+  scHideTip();
+}
+
+function onSlider(val) {
+  slAge = parseInt(val);
+  updateSlider();
+}
+
+function selectHorizon(h, btn) {
+  slHorizon = h;
+  document.querySelectorAll('.sl-htoggle').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Reset bars then update
+  const barsEl = document.getElementById('sc-bars');
+  if (barsEl) barsEl.querySelectorAll('.sc-bar').forEach(b => { b.style.transition='none'; b.style.height='0%'; });
+  setTimeout(updateSlider, 60);
+}
+
+function scTip(e, age, total, contrib, growth) {
+  const tt = document.getElementById('sc-tooltip');
+  document.getElementById('sct-age').textContent = 'Age ' + age;
+  document.getElementById('sct-g').textContent   = fmt(growth);
+  document.getElementById('sct-c').textContent   = fmt(contrib);
+  document.getElementById('sct-t').textContent   = fmt(total);
+  tt.classList.add('visible');
+  const wrap  = e.currentTarget;
+  const chart = document.getElementById('sc-bars');
+  const wR = wrap.getBoundingClientRect();
+  const cR = chart.getBoundingClientRect();
+  tt.style.left = (wR.left - cR.left + wR.width/2) + 'px';
+}
+function scHideTip() {
+  const tt = document.getElementById('sc-tooltip');
+  if (tt) tt.classList.remove('visible');
+}
+
+// Init on DOM ready
+
+// ── FAMILY NETWORK ────────────────────────────────────────────────────────────
+const NET_R = 0.08/12;
+function netFV(monthly, months) {
+  if (!monthly || months <= 0) return 0;
+  return monthly * ((Math.pow(1+NET_R,months)-1)/NET_R);
+}
+function netFmt(n){ return '£' + Math.round(n).toLocaleString('en-GB'); }
+
+// SVG person icons — consistent style, no emojis
+const ICONS = {
+  parent: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="10" r="5.5" stroke="currentColor" stroke-width="1.8"/><path d="M5 28c0-6.075 4.925-11 11-11s11 4.925 11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  gp:     '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="10" r="5.5" stroke="currentColor" stroke-width="1.8"/><path d="M5 28c0-6.075 4.925-11 11-11s11 4.925 11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M22 18l2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  couple: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="10" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M2 27c0-5 4-9 9-9s9 4 9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="23" cy="10" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M18 27c0-5 4-9 9-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  gift:   '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="14" width="24" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="2" y="9" width="28" height="6" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 9v19M10 9c0-3 2-5 4-5 3 0 2 5 2 5H10zM22 9c0-3-2-5-4-5-3 0-2 5-2 5h6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+
+const NET_CONTRIBUTORS = [
+  {id:'parent',      label:'Parent',        icon:ICONS.parent, amount:30,     amtLabel:'£30/mo',   detail:'Monthly from birth',    locked:true,  active:true},
+  {id:'gp1',         label:'Grandparent 1', icon:ICONS.gp,     amount:25,     amtLabel:'£25/mo',   detail:'Monthly from birth',    locked:false, active:false},
+  {id:'gp2',         label:'Grandparent 2', icon:ICONS.gp,     amount:25,     amtLabel:'£25/mo',   detail:'Monthly from birth',    locked:false, active:false},
+  {id:'aunt',        label:'Aunt / Uncle',  icon:ICONS.couple, amount:100/12, amtLabel:'£100/yr',  detail:'Birthdays & Christmas', locked:false, active:false},
+  {id:'godparents',  label:'Godparents',    icon:ICONS.couple, amount:100/12, amtLabel:'£100/yr',  detail:'Annual gift',           locked:false, active:false},
+  {id:'friends',     label:'Friends',       icon:ICONS.gift,   amount:100/12, amtLabel:'£100/yr',  detail:'Occasional gifts',      locked:false, active:false},
+];
+
+const NET_MONTHS = 25 * 12;
+const NET_PARENT_ALONE = netFV(30, NET_MONTHS);
+
+function buildNetworkCards() {
+  const container = document.getElementById('net-cards');
+  if (!container) return;
+  container.innerHTML = NET_CONTRIBUTORS.map(c => {
+    const activeClass = c.active ? 'active depth-1' : '';
+    const lockedClass = c.locked ? 'locked' : '';
+    return '<div class="nc-card ' + activeClass + ' ' + lockedClass + '"' +
+      ' id="nc-' + c.id + '" onclick="netToggle(\'' + c.id + '\')">' +
+      '<div class="nc-check">' +
+      '<svg class="nc-check-tick" viewBox="0 0 12 12" fill="none"><polyline points="1.5,6 4.5,9 10.5,3" stroke="#101628" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</div>' +
+      '<div class="nc-icon">' + c.icon + '</div>' +      '<div class="nc-role">' + c.label + '</div>' +
+      '<div class="nc-amount">' + c.amtLabel + '</div>' +
+      '<div class="nc-detail">' + c.detail + '</div>' +
+      '</div>';
+  }).join('');
+  netUpdateAll();
+}
+
+function netToggle(id) {
+  const c = NET_CONTRIBUTORS.find(x => x.id === id);
+  if (!c || c.locked) return;
+  c.active = !c.active;
+  netUpdateAll();
+}
+
+function netUpdateAll() {
+  const active = NET_CONTRIBUTORS.filter(c => c.active);
+  const count  = active.length;
+
+  // Update card depths
+  NET_CONTRIBUTORS.forEach(c => {
+    const el = document.getElementById('nc-' + c.id);
+    if (!el) return;
+    el.className = 'nc-card' +
+      (c.active ? ' active depth-' + Math.min(count, 4) : '') +
+      (c.locked ? ' locked' : '');
+  });
+
+  // Draw connecting lines between active cards
+  drawNetLines(active);
+
+  // Calc total
+  const totalPot = active.reduce((s,c) => s + netFV(c.amount, NET_MONTHS), 0);
+  const totalMonthly = active.reduce((s,c) => s + c.amount, 0);
+  const extra = totalPot - NET_PARENT_ALONE;
+
+  const valEl = document.getElementById('ntc-value');
+  const subEl = document.getElementById('ntc-sub');
+  const vsEl  = document.getElementById('ntc-vs');
+  const vsValEl = document.getElementById('ntc-vs-value');
+
+  if (valEl) valEl.textContent = netFmt(totalPot);
+  if (subEl) subEl.textContent = '£' + Math.round(totalMonthly) + '/mo equivalent · ' + count + ' contributor' + (count!==1?'s':'') + ' · 8% p.a. from birth';
+
+  if (vsEl && vsValEl) {
+    if (extra > 1 && count > 1) {
+      vsEl.style.display = 'block';
+      vsValEl.textContent = netFmt(extra) + ' more';
+    } else {
+      vsEl.style.display = 'none';
+    }
+  }
+}
+
+function drawNetLines(active) {
+  const svg = document.getElementById('net-lines-svg');
+  const wrap = document.getElementById('net-cards-wrap');
+  if (!svg || !wrap) return;
+
+  if (active.length < 2) { svg.innerHTML = ''; return; }
+
+  const wrapRect = wrap.getBoundingClientRect();
+
+  // Get centre of each active card
+  const centres = active.map(c => {
+    const el = document.getElementById('nc-' + c.id);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.left - wrapRect.left + r.width/2,
+      y: r.top  - wrapRect.top  + r.height/2,
+    };
+  }).filter(Boolean);
+
+  // Draw lines connecting consecutive centres
+  svg.innerHTML = centres.slice(0,-1).map((pt, i) => {
+    const next = centres[i+1];
+    return `<line x1="${pt.x}" y1="${pt.y}" x2="${next.x}" y2="${next.y}"
+      stroke="#59C9E9" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.4"
+      style="transition:all .4s"/>`;
+  }).join('');
+}
+
+// Redraw lines on resize
+window.addEventListener('resize', () => {
+  const active = NET_CONTRIBUTORS.filter(c => c.active);
+  drawNetLines(active);
+});
+
+
+
+function revealCard(card) {
+  const isRevealed = card.classList.contains('revealed');
+  const question = card.querySelector('.rc-question');
+  const answer = card.querySelector('.rc-answer');
+  if (isRevealed) {
+    // Toggle back to question
+    card.classList.remove('revealed');
+    answer.style.opacity = '0';
+    setTimeout(() => { answer.style.display = 'none'; question.style.display = 'flex'; }, 300);
+  } else {
+    // Reveal answer
+    card.classList.add('revealed');
+    question.style.display = 'none';
+    answer.style.display = 'flex';
+    setTimeout(() => { answer.style.opacity = '1'; }, 20);
+  }
+}
+
+function handleWaitlist(e, successId) {
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector('button[type="submit"]');
+  const email = form.querySelector('input[type="email"]').value;
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  fetch('https://formspree.io/f/mkopkary', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email: email })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      form.style.display = 'none';
+      const el = document.getElementById(successId);
+      if (el) { el.style.display = 'block'; }
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Start today';
+      alert('Something went wrong — please try again or email us at hello@letsamplifi.com');
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = 'Start today';
+    alert('Something went wrong — please try again or email us at hello@letsamplifi.com');
+  });
+}
+</script>
+</body>
+</html>

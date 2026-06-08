@@ -1103,6 +1103,101 @@ export type Database = {
           { foreignKeyName: 'referral_credits_referral_event_id_fkey'; columns: ['referral_event_id']; referencedRelation: 'referral_events'; referencedColumns: ['id'] }
         ]
       }
+      gift_card_brands: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          category: string
+          logo_url: string | null
+          cashback_percentage: number
+          min_amount_gbp: number
+          max_amount_gbp: number
+          is_active: boolean
+          tillo_brand_slug: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          category: string
+          logo_url?: string | null
+          cashback_percentage: number
+          min_amount_gbp?: number
+          max_amount_gbp?: number
+          is_active?: boolean
+          tillo_brand_slug?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          category?: string
+          logo_url?: string | null
+          cashback_percentage?: number
+          min_amount_gbp?: number
+          max_amount_gbp?: number
+          is_active?: boolean
+          tillo_brand_slug?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      gift_card_orders: {
+        Row: {
+          id: string
+          user_id: string
+          child_id: string
+          brand_id: string
+          amount_gbp: number
+          cashback_gbp: number
+          status: 'pending' | 'completed' | 'refunded'
+          gift_card_code: string | null
+          gift_card_url: string | null
+          tillo_reference: string | null
+          stripe_payment_intent_id: string | null
+          cashback_event_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          child_id: string
+          brand_id: string
+          amount_gbp: number
+          cashback_gbp: number
+          status?: 'pending' | 'completed' | 'refunded'
+          gift_card_code?: string | null
+          gift_card_url?: string | null
+          tillo_reference?: string | null
+          stripe_payment_intent_id?: string | null
+          cashback_event_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          child_id?: string
+          brand_id?: string
+          amount_gbp?: number
+          cashback_gbp?: number
+          status?: 'pending' | 'completed' | 'refunded'
+          gift_card_code?: string | null
+          gift_card_url?: string | null
+          tillo_reference?: string | null
+          stripe_payment_intent_id?: string | null
+          cashback_event_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'gift_card_orders_user_id_fkey'; columns: ['user_id']; referencedRelation: 'users'; referencedColumns: ['id'] },
+          { foreignKeyName: 'gift_card_orders_child_id_fkey'; columns: ['child_id']; referencedRelation: 'children'; referencedColumns: ['id'] },
+          { foreignKeyName: 'gift_card_orders_brand_id_fkey'; columns: ['brand_id']; referencedRelation: 'gift_card_brands'; referencedColumns: ['id'] },
+          { foreignKeyName: 'gift_card_orders_cashback_event_id_fkey'; columns: ['cashback_event_id']; referencedRelation: 'cashback_events'; referencedColumns: ['id'] }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -1173,3 +1268,5 @@ export type LinkedAccount       = Tables['linked_accounts']['Row']
 export type CashbackEvent       = Tables['cashback_events']['Row']
 export type CashbackCredit      = Tables['cashback_credits']['Row']
 export type SpendInsight        = Tables['spend_insights']['Row']
+export type GiftCardBrand       = Tables['gift_card_brands']['Row']
+export type GiftCardOrder       = Tables['gift_card_orders']['Row']

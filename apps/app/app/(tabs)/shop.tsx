@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   View,
   Text,
@@ -8,172 +8,190 @@ import {
   TextInput,
   Modal,
   StyleSheet,
-  Alert,
+  ActivityIndicator,
   type ListRenderItemInfo,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
+import { useGiftCardBrands, type GiftCardBrand } from '@/lib/useGiftCardBrands'
+import { useGiftCardPurchase } from '@/lib/useGiftCardPurchase'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-interface GiftCard {
-  id: string
-  name: string
-  category: string
-  cashbackPercent: number
-  color: string
-  initial: string
-  denominations: number[]
-}
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const CATEGORIES = ['All', 'Groceries', 'Fashion', 'Home', 'Dining', 'Travel', 'Health']
-
-const GIFT_CARDS: GiftCard[] = [
-  { id: '1',  name: 'Tesco',         category: 'Groceries', cashbackPercent: 5,  color: '#00539F', initial: 'T',   denominations: [10, 25, 50, 100] },
-  { id: '2',  name: "Sainsbury's",   category: 'Groceries', cashbackPercent: 4,  color: '#F06C00', initial: 'S',   denominations: [10, 25, 50, 100] },
-  { id: '3',  name: 'M&S',           category: 'Groceries', cashbackPercent: 7,  color: '#000000', initial: 'M',   denominations: [10, 25, 50, 100] },
-  { id: '4',  name: 'ASOS',          category: 'Fashion',   cashbackPercent: 9,  color: '#1A1A1A', initial: 'A',   denominations: [10, 25, 50, 100] },
-  { id: '5',  name: 'Nike',          category: 'Fashion',   cashbackPercent: 8,  color: '#111111', initial: 'N',   denominations: [25, 50, 100] },
-  { id: '6',  name: 'Next',          category: 'Fashion',   cashbackPercent: 8,  color: '#333333', initial: 'N',   denominations: [10, 25, 50, 100] },
-  { id: '7',  name: 'John Lewis',    category: 'Home',      cashbackPercent: 7,  color: '#2C5F8A', initial: 'JL',  denominations: [25, 50, 100] },
-  { id: '8',  name: 'IKEA',          category: 'Home',      cashbackPercent: 6,  color: '#0058A3', initial: 'IK',  denominations: [25, 50, 100, 250] },
-  { id: '9',  name: "Nando's",       category: 'Dining',    cashbackPercent: 10, color: '#C8102E', initial: "N'",  denominations: [10, 25, 50] },
-  { id: '10', name: 'Pizza Express', category: 'Dining',    cashbackPercent: 9,  color: '#003087', initial: 'PE',  denominations: [10, 25, 50] },
-  { id: '11', name: 'Boots',         category: 'Health',    cashbackPercent: 7,  color: '#003DA5', initial: 'B',   denominations: [10, 25, 50, 100] },
-  { id: '12', name: 'Amazon',        category: 'All',       cashbackPercent: 4,  color: '#FF9900', initial: 'a',   denominations: [10, 25, 50, 100] },
-]
-
-const CHILD_NAME = 'Olivia'
+const AMOUNTS = [10, 25, 50, 100]
+const BRAND_COLOURS = ['#7C3AED', '#0891B2', '#059669', '#D97706', '#DC2626', '#9333EA', '#0EA5E9', '#10B981']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function gbp(n: number): string {
   return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    style: 'currency', currency: 'GBP',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(n)
 }
 
-function cashbackOn50(pct: number): string {
-  return gbp(50 * pct / 100)
+function brandColour(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return BRAND_COLOURS[Math.abs(hash) % BRAND_COLOURS.length]
 }
 
-// ── Purchase Modal ────────────────────────────────────────────────────────────
+// ── Purchase modal ────────────────────────────────────────────────────────────
+
+type ModalPhase = 'form' | 'purchasing' | 'success'
 
 interface PurchaseModalProps {
-  card: GiftCard | null
+  brand: GiftCardBrand | null
+  childName: string
+  childId: string | null
   onClose: () => void
 }
 
-function PurchaseModal({ card, onClose }: PurchaseModalProps) {
-  const [selectedDenom, setSelectedDenom] = useState<number | null>(null)
+function PurchaseModal({ brand, childName, childId, onClose }: PurchaseModalProps) {
+  const { purchase } = useGiftCardPurchase()
+  const [selectedAmount, setSelectedAmount] = useState(25)
+  const [phase, setPhase] = useState<ModalPhase>('form')
+  const [successData, setSuccessData] = useState<{ code: string; cashbackGbp: number } | null>(null)
 
-  const activeDenom = selectedDenom ?? (card?.denominations[0] ?? 0)
-  const cashbackAmount = card ? activeDenom * card.cashbackPercent / 100 : 0
+  const cashbackGbp = brand
+    ? Math.round(selectedAmount * brand.cashback_percentage / 100 * 100) / 100
+    : 0
 
-  const handlePurchase = () => {
-    if (!card) return
-    Alert.alert(
-      'Purchase confirmed! 🎉',
-      `Your ${gbp(activeDenom)} ${card.name} gift card is being processed. ${gbp(cashbackAmount)} will be added to ${CHILD_NAME}'s pot shortly. Check your email for delivery.`,
-      [{ text: 'Great!', onPress: onClose }],
-    )
+  const handleClose = () => {
+    setSelectedAmount(25)
+    setPhase('form')
+    setSuccessData(null)
+    onClose()
   }
+
+  const handlePurchase = async () => {
+    if (!brand || !childId) return
+    setPhase('purchasing')
+    const result = await purchase({ brand, amountGbp: selectedAmount, childId })
+    if (result.ok) {
+      setSuccessData({ code: result.giftCardCode, cashbackGbp: result.cashbackGbp })
+      setPhase('success')
+    } else {
+      setPhase('form')
+    }
+  }
+
+  const logoColour = brand ? brandColour(brand.name) : colors.sky
 
   return (
     <Modal
-      visible={card !== null}
+      visible={brand !== null}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={modal.overlay}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
+        <TouchableOpacity
+          style={{ flex: 1 }}
+          onPress={phase === 'purchasing' ? undefined : handleClose}
+          activeOpacity={1}
+        />
         <View style={modal.sheet}>
-          {/* Handle */}
           <View style={modal.handle} />
 
-          {/* Logo */}
-          <View style={[modal.logo, { backgroundColor: card?.color ?? colors.sky }]}>
-            <Text style={modal.logoText}>{card?.initial}</Text>
-          </View>
-
-          {/* Name + cashback headline */}
-          <Text style={modal.cardName}>{card?.name}</Text>
-          <Text style={modal.cashbackHeadline}>
-            {card?.cashbackPercent}% cashback for {CHILD_NAME}
-          </Text>
-
-          {/* Denomination selector */}
-          <Text style={modal.selectLabel}>Select amount:</Text>
-          <View style={modal.denomRow}>
-            {(card?.denominations ?? []).map((d) => {
-              const isActive = d === activeDenom
-              return (
-                <TouchableOpacity
-                  key={d}
-                  style={[modal.denomChip, isActive && modal.denomChipActive]}
-                  onPress={() => setSelectedDenom(d)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[modal.denomText, isActive && modal.denomTextActive]}>
-                    £{d}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-
-          {/* Cashback earned display */}
-          <View style={modal.earnBox}>
-            <Text style={modal.earnLabel}>{CHILD_NAME} earns</Text>
-            <Text style={modal.earnAmount}>{gbp(cashbackAmount)}</Text>
-            <Text style={modal.earnLabel}>from this purchase</Text>
-          </View>
-
-          {/* Purchase CTA */}
-          <TouchableOpacity style={modal.purchaseBtn} onPress={handlePurchase} activeOpacity={0.85}>
-            <Text style={modal.purchaseBtnText}>
-              Purchase {gbp(activeDenom)} gift card
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={modal.cancelBtn} onPress={onClose} activeOpacity={0.7}>
-            <Text style={modal.cancelText}>Cancel</Text>
-          </TouchableOpacity>
+          {phase === 'purchasing' ? (
+            <View style={modal.loadingWrap}>
+              <ActivityIndicator size="large" color={colors.azure} />
+              <Text style={modal.loadingText}>Processing your purchase…</Text>
+            </View>
+          ) : phase === 'success' && successData ? (
+            <>
+              <Text style={modal.successEmoji}>🎉</Text>
+              <Text style={modal.cardName}>Your {brand?.name} gift card</Text>
+              <View style={modal.codeBox}>
+                <Text style={modal.codeText}>{successData.code}</Text>
+              </View>
+              <Text style={modal.successSub}>
+                {gbp(successData.cashbackGbp)} cashback added to {childName}'s JISA
+              </Text>
+              <TouchableOpacity style={modal.purchaseBtn} onPress={handleClose} activeOpacity={0.85}>
+                <Text style={modal.purchaseBtnText}>Done</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={[modal.logo, { backgroundColor: logoColour }]}>
+                <Text style={modal.logoText}>{brand?.name.charAt(0).toUpperCase()}</Text>
+              </View>
+              <Text style={modal.cardName}>{brand?.name}</Text>
+              <Text style={modal.cashbackHeadline}>
+                {brand?.cashback_percentage}% cashback for {childName}
+              </Text>
+              <Text style={modal.selectLabel}>Select amount:</Text>
+              <View style={modal.amountRow}>
+                {AMOUNTS.map((amt) => {
+                  const isActive = amt === selectedAmount
+                  return (
+                    <TouchableOpacity
+                      key={amt}
+                      style={[modal.amountChip, isActive && modal.amountChipActive]}
+                      onPress={() => setSelectedAmount(amt)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[modal.amountText, isActive && modal.amountTextActive]}>
+                        £{amt}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+              <View style={modal.earnBox}>
+                <Text style={modal.earnLabel}>{childName} earns</Text>
+                <Text style={modal.earnAmount}>{gbp(cashbackGbp)}</Text>
+                <Text style={modal.earnLabel}>from this purchase</Text>
+              </View>
+              <TouchableOpacity
+                style={[modal.purchaseBtn, !childId && modal.purchaseBtnDisabled]}
+                onPress={handlePurchase}
+                activeOpacity={0.85}
+                disabled={!childId}
+              >
+                <Text style={modal.purchaseBtnText}>
+                  Pay with Stripe — {gbp(selectedAmount)}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={modal.cancelBtn} onPress={handleClose} activeOpacity={0.7}>
+                <Text style={modal.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </Modal>
   )
 }
 
-// ── Gift card item ────────────────────────────────────────────────────────────
+// ── Brand card ────────────────────────────────────────────────────────────────
 
-interface GiftCardItemProps {
-  card: GiftCard
-  onBuyNow: (card: GiftCard) => void
+interface BrandCardProps {
+  brand: GiftCardBrand
+  childName: string
+  onBuyNow: (brand: GiftCardBrand) => void
 }
 
-function GiftCardItem({ card, onBuyNow }: GiftCardItemProps) {
+function BrandCard({ brand, childName, onBuyNow }: BrandCardProps) {
+  const colour = brandColour(brand.name)
+  const earnOn50 = gbp(50 * brand.cashback_percentage / 100)
   return (
     <View style={item.card}>
       <View style={item.topRow}>
-        <View style={[item.logo, { backgroundColor: card.color }]}>
-          <Text style={item.logoText}>{card.initial}</Text>
+        <View style={[item.logo, { backgroundColor: colour }]}>
+          <Text style={item.logoText}>{brand.name.charAt(0).toUpperCase()}</Text>
         </View>
         <View style={item.badge}>
-          <Text style={item.badgeText}>{card.cashbackPercent}% cashback</Text>
+          <Text style={item.badgeText}>{brand.cashback_percentage}% back</Text>
         </View>
       </View>
-      <Text style={item.name}>{card.name}</Text>
-      <Text style={item.earnLine}>
-        Earns {cashbackOn50(card.cashbackPercent)} for {CHILD_NAME}'s JISA
-      </Text>
-      <TouchableOpacity style={item.buyBtn} onPress={() => onBuyNow(card)} activeOpacity={0.85}>
+      <Text style={item.name}>{brand.name}</Text>
+      <Text style={item.earnLine}>Earns {earnOn50} for {childName}'s JISA</Text>
+      <TouchableOpacity style={item.buyBtn} onPress={() => onBuyNow(brand)} activeOpacity={0.85}>
         <Text style={item.buyBtnText}>Buy now</Text>
       </TouchableOpacity>
     </View>
@@ -183,36 +201,48 @@ function GiftCardItem({ card, onBuyNow }: GiftCardItemProps) {
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function ShopScreen() {
+  const { user } = useAuth()
+  const { brands, loading: brandsLoading } = useGiftCardBrands()
+  const [childName, setChildName] = useState('your child')
+  const [childId, setChildId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [activeCategory, setActiveCategory] = useState('All')
-  const [selectedCard, setSelectedCard] = useState<GiftCard | null>(null)
+  const [selectedBrand, setSelectedBrand] = useState<GiftCardBrand | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('children')
+      .select('id, name')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setChildName(data.name)
+          setChildId(data.id)
+        }
+      })
+  }, [user?.id])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return GIFT_CARDS.filter((c) => {
-      const matchesCategory = activeCategory === 'All' || c.category === activeCategory
-      const matchesSearch = q.length === 0 || c.name.toLowerCase().includes(q)
-      return matchesCategory && matchesSearch
-    })
-  }, [search, activeCategory])
+    return q.length === 0 ? brands : brands.filter((b) => b.name.toLowerCase().includes(q))
+  }, [brands, search])
 
-  const renderCard = ({ item: card, index }: ListRenderItemInfo<GiftCard>) => (
+  const renderBrand = ({ item: brand, index }: ListRenderItemInfo<GiftCardBrand>) => (
     <View style={[grid.cell, index % 2 === 0 ? { marginRight: 6 } : { marginLeft: 6 }]}>
-      <GiftCardItem card={card} onBuyNow={setSelectedCard} />
+      <BrandCard brand={brand} childName={childName} onBuyNow={setSelectedBrand} />
     </View>
   )
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Gift Card Shop</Text>
-        <Text style={styles.subtitle}>
-          Every purchase earns cashback for {CHILD_NAME}'s JISA
-        </Text>
+        <Text style={styles.subtitle}>Every purchase earns cashback for {childName}'s JISA</Text>
       </View>
 
-      {/* Search bar */}
       <View style={styles.searchWrap}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
@@ -231,45 +261,33 @@ export default function ShopScreen() {
         )}
       </View>
 
-      {/* Category tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabsContent}
-        style={styles.tabsRow}
-      >
-        {CATEGORIES.map((cat) => {
-          const isActive = cat === activeCategory
-          return (
-            <TouchableOpacity
-              key={cat}
-              style={[styles.tab, isActive && styles.tabActive]}
-              onPress={() => setActiveCategory(cat)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{cat}</Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
 
-      {/* Grid */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(c) => c.id}
-        renderItem={renderCard}
-        numColumns={2}
-        contentContainerStyle={styles.gridContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No gift cards found</Text>
-          </View>
-        }
+      {brandsLoading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.sky} />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(b) => b.id}
+          renderItem={renderBrand}
+          numColumns={2}
+          contentContainerStyle={styles.gridContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>No gift cards found</Text>
+            </View>
+          }
+        />
+      )}
+
+      <PurchaseModal
+        brand={selectedBrand}
+        childName={childName}
+        childId={childId}
+        onClose={() => setSelectedBrand(null)}
       />
-
-      {/* Purchase modal */}
-      <PurchaseModal card={selectedCard} onClose={() => setSelectedCard(null)} />
     </SafeAreaView>
   )
 }
@@ -300,21 +318,8 @@ const styles = StyleSheet.create({
   clearBtn: { padding: 4 },
   clearText: { fontSize: 14, color: '#94a3b8', fontWeight: '600' },
 
-  tabsRow: { marginBottom: 16 },
-  tabsContent: { paddingHorizontal: 16, gap: 8, paddingVertical: 2 },
-  tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
-  },
-  tabActive: { backgroundColor: colors.midnight, borderColor: colors.midnight },
-  tabText: { fontSize: 14, color: '#94a3b8', fontWeight: '600' },
-  tabTextActive: { color: '#ffffff' },
-
   gridContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { flex: 1, alignItems: 'center', paddingTop: 48 },
   emptyText: { fontSize: 15, color: '#94a3b8' },
 })
@@ -338,11 +343,8 @@ const item = StyleSheet.create({
   },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center',
   },
   logoText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
   badge: {
@@ -356,13 +358,13 @@ const item = StyleSheet.create({
   name: { fontSize: 15, fontWeight: '700', color: colors.midnight, marginTop: 10 },
   earnLine: { fontSize: 12, color: colors.sky, marginTop: 3, lineHeight: 17 },
   buyBtn: {
-    backgroundColor: colors.sky,
+    backgroundColor: colors.azure,
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 10,
   },
-  buyBtnText: { color: colors.midnight, fontSize: 13, fontWeight: '700' },
+  buyBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
 })
 
 const modal = StyleSheet.create({
@@ -380,39 +382,68 @@ const modal = StyleSheet.create({
     alignItems: 'center',
   },
   handle: {
-    width: 40,
-    height: 4,
+    width: 40, height: 4,
     backgroundColor: '#e2e8f0',
     borderRadius: 2,
     marginBottom: 20,
   },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  loadingWrap: {
+    paddingVertical: 48,
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 15,
+    color: '#64748b',
+    marginTop: 16,
+  },
+  successEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  codeBox: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  codeText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.midnight,
+    letterSpacing: 2,
+  },
+  successSub: {
+    fontSize: 14,
+    color: '#059669',
+    textAlign: 'center',
+    fontWeight: '600',
+    marginBottom: 24,
+  },
+  logo: {
+    width: 64, height: 64, borderRadius: 32,
+    alignItems: 'center', justifyContent: 'center',
     marginBottom: 14,
   },
   logoText: { color: '#ffffff', fontSize: 20, fontWeight: '800' },
   cardName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.midnight,
-    textAlign: 'center',
-    marginBottom: 4,
-    letterSpacing: -0.3,
+    fontSize: 22, fontWeight: '800', color: colors.midnight,
+    textAlign: 'center', marginBottom: 4, letterSpacing: -0.3,
   },
   cashbackHeadline: {
-    fontSize: 16,
-    color: colors.sky,
-    textAlign: 'center',
-    fontWeight: '600',
-    marginBottom: 20,
+    fontSize: 16, color: colors.sky,
+    textAlign: 'center', fontWeight: '600', marginBottom: 20,
   },
   selectLabel: { fontSize: 14, color: '#64748b', alignSelf: 'flex-start', marginBottom: 10 },
-  denomRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20, alignSelf: 'stretch' },
-  denomChip: {
+  amountRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    marginBottom: 20, alignSelf: 'stretch',
+  },
+  amountChip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -420,9 +451,9 @@ const modal = StyleSheet.create({
     borderColor: '#e2e8f0',
     backgroundColor: '#ffffff',
   },
-  denomChipActive: { backgroundColor: colors.sky, borderColor: colors.sky },
-  denomText: { fontSize: 15, fontWeight: '600', color: '#94a3b8' },
-  denomTextActive: { color: colors.midnight },
+  amountChipActive: { backgroundColor: colors.azure, borderColor: colors.azure },
+  amountText: { fontSize: 15, fontWeight: '600', color: '#94a3b8' },
+  amountTextActive: { color: '#ffffff' },
   earnBox: {
     backgroundColor: colors.offwhite,
     borderRadius: 14,
@@ -434,21 +465,19 @@ const modal = StyleSheet.create({
   },
   earnLabel: { fontSize: 14, color: '#64748b' },
   earnAmount: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: colors.sky,
-    letterSpacing: -1,
-    marginVertical: 4,
+    fontSize: 36, fontWeight: '800', color: colors.sky,
+    letterSpacing: -1, marginVertical: 4,
   },
   purchaseBtn: {
-    backgroundColor: colors.sky,
+    backgroundColor: colors.azure,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     alignSelf: 'stretch',
     marginBottom: 12,
   },
-  purchaseBtnText: { color: colors.midnight, fontSize: 17, fontWeight: '700' },
+  purchaseBtnDisabled: { opacity: 0.5 },
+  purchaseBtnText: { color: '#ffffff', fontSize: 17, fontWeight: '700' },
   cancelBtn: { paddingVertical: 8 },
   cancelText: { fontSize: 14, color: '#94a3b8' },
 })

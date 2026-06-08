@@ -50,7 +50,7 @@ function Nav() {
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
 function Hero() {
-  const count = useCountUp(47551, 2000)
+  const count = useCountUp(47868, 2000)
   const scrollToWaitlist = () =>
     document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })
 
@@ -98,7 +98,7 @@ function Hero() {
             £{count.toLocaleString('en-GB')}
           </p>
           <p className="text-white/70 text-sm sm:text-base mb-1.5">
-            from £50/month from birth at 8% p.a. by age 21
+            from £50/month from birth at 8% p.a. by age 25
           </p>
           <p className="text-white/30 text-xs">
             Illustrative projection — not a guarantee
