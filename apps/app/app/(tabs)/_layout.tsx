@@ -40,9 +40,9 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="wishlists"
+        name="occasions"
         options={{
-          title: 'Wishlists',
+          title: 'Occasions',
           tabBarIcon: ({ color }) => <EmojiIcon emoji="🎁" color={color} />,
         }}
       />

@@ -242,8 +242,8 @@ export default function HomeScreen() {
           style={styles.actionsRow}
         >
           {([
-            { icon: '👨‍👩‍👧', label: 'Invite family', onPress: () => router.push('/(tabs)/family') },
-            { icon: '🎁', label: 'Wishlists',       onPress: () => router.push('/birthday') },
+            { icon: '👨‍👩‍👧', label: 'Family Network', onPress: () => router.push('/(tabs)/family') },
+            { icon: '🎁', label: 'Occasions',       onPress: () => router.push('/birthday') },
             { icon: '💳', label: 'Cashback',        onPress: () => router.push('/(tabs)/offers') },
             { icon: '🎯', label: 'Loyalty offers',  onPress: () => router.push('/(tabs)/shop') },
           ] as const).map((a) => (
