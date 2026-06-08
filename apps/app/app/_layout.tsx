@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { View } from 'react-native'
-import { Stack, useRouter } from 'expo-router'
+import { Stack, useRouter, useSegments } from 'expo-router'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts } from 'expo-font'
@@ -21,8 +21,15 @@ SplashScreen.preventAutoHideAsync()
 
 function AuthRedirect() {
   const router = useRouter()
+  const segments = useSegments()
+  const segmentsRef = useRef(segments)
   const { session, isLoading } = useAuth()
   const checkedForUser = useRef<string | null>(null)
+
+  // Keep segmentsRef current without making segments a dep of the main effect
+  useEffect(() => {
+    segmentsRef.current = segments
+  }, [segments])
 
   useEffect(() => {
     if (isLoading) return
@@ -37,6 +44,11 @@ function AuthRedirect() {
     // Only run the onboarding check once per user session
     if (checkedForUser.current === session.user.id) return
     checkedForUser.current = session.user.id
+
+    // User is actively navigating through auth screens (e.g. mid sign-up in details.tsx).
+    // Let the screen own its navigation — running checkOnboarding now would race the
+    // profile insert and redirect back to details before it completes.
+    if (segmentsRef.current[0] === '(auth)') return
 
     const checkOnboarding = async () => {
       const userId = session.user.id
