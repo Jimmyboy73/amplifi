@@ -12,8 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
 import { useAuth } from '@/lib/auth'
+import { useHandle } from '@/lib/useHandle'
 import { supabase } from '@/lib/supabase'
-import { useReferralCode } from '@/lib/useReferralCode'
 import { colors } from '@/constants/brand'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ function relativeDate(dateStr: string): string {
 
 export default function FamilyScreen() {
   const { user } = useAuth()
-  const { code: referralCode } = useReferralCode()
+  const { handle } = useHandle()
   const [child, setChild] = useState<{ id: string; name: string } | null>(null)
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
@@ -128,7 +128,7 @@ export default function FamilyScreen() {
   const networkTotal = contributors.reduce((sum, c) => sum + c.totalContributed, 0)
 
   const inviteUrl = child
-    ? `https://amplifi-plan.netlify.app/family/${child.id}${referralCode ? `?ref=${referralCode}` : ''}`
+    ? `https://amplifi-plan.netlify.app/family/${child.id}${handle ? `?ref=${handle}` : ''}`
     : 'https://amplifi-plan.netlify.app'
   const inviteMessage =
     `I've set up Amplifi to build ${childName}'s future. You can contribute too — support ${childName}'s Junior ISA here: ${inviteUrl}`
