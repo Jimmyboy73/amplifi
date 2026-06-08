@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
-import { redeemReferralCode } from '@/lib/redeemReferralCode'
+import { redeemReferral } from '@/lib/redeemReferral'
 import { colors } from '@/constants/brand'
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -67,6 +67,7 @@ export default function DetailsScreen() {
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [referralCode, setReferralCode] = useState('')
+  const [referralError, setReferralError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [authError, setAuthError] = useState('')
 
@@ -75,8 +76,8 @@ export default function DetailsScreen() {
   })
 
   useEffect(() => {
-    AsyncStorage.getItem('amplifi_ref_code').then((stored) => {
-      if (stored) setReferralCode(stored)
+    AsyncStorage.getItem('amplifi_ref_handle').then((stored) => {
+      if (stored) setReferralCode(stored.replace(/^@/, '').toLowerCase().slice(0, 20))
     })
   }, [])
 
@@ -91,8 +92,8 @@ export default function DetailsScreen() {
       ? 'Please enter a valid date of birth (must be 18+)' : '',
     password: touched.password && !isValidPassword(password)
       ? 'Password must be at least 8 characters' : '',
-    referral: touched.referral && referralCode.trim().length > 0 && referralCode.trim().length !== 5
-      ? 'Referral codes are 5 characters' : '',
+    referral: touched.referral && referralCode.trim().length > 0 && referralCode.trim().length < 3
+      ? 'Handle must be at least 3 characters' : '',
   }
 
   const isFormValid =
@@ -102,7 +103,7 @@ export default function DetailsScreen() {
     isValidDOB(dobDay, dobMonth, dobYear) &&
     isValidPassword(password) &&
     agreed &&
-    (referralCode.trim() === '' || referralCode.trim().length === 5)
+    (referralCode.trim() === '' || referralCode.trim().length >= 3)
 
   const handleContinue = async () => {
     if (!isFormValid || submitting) return
@@ -163,16 +164,21 @@ export default function DetailsScreen() {
       console.error(`[Profile Insert] Attempt ${attempt} FAILED:`, error.message)
     }
 
-    // Record referral event if a code was entered
-    const trimmedCode = referralCode.trim().toUpperCase()
-    if (trimmedCode) {
-      await redeemReferralCode(trimmedCode, data.user.id)
-      await AsyncStorage.removeItem('amplifi_ref_code')
+    // Record referral event if a handle was entered
+    const trimmedHandle = referralCode.trim()
+    if (trimmedHandle) {
+      const referralResult = await redeemReferral(trimmedHandle, data.user.id)
+      if (!referralResult.ok) {
+        setReferralError(referralResult.error)
+        setSubmitting(false)
+        return
+      }
+      await AsyncStorage.removeItem('amplifi_ref_handle')
     }
 
-    console.log('[Navigation] Navigating to child screen')
+    console.log('[Navigation] Navigating to handle screen')
     setSubmitting(false)
-    router.push('/(auth)/child')
+    router.push('/(auth)/handle')
   }
 
   return (
@@ -308,18 +314,24 @@ export default function DetailsScreen() {
             </View>
           </Field>
 
-          <Field label="Referral code (optional)" error={errors.referral}>
-            <TextInput
-              style={[styles.input, errors.referral ? styles.inputError : null]}
-              value={referralCode}
-              onChangeText={(v) => setReferralCode(v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5))}
-              onBlur={() => touch('referral')}
-              placeholder="Enter a friend's code"
-              placeholderTextColor="#94a3b8"
-              autoCapitalize="characters"
-              autoCorrect={false}
-              maxLength={5}
-            />
+          <Field label="Referred by someone? (optional)" error={referralError || errors.referral}>
+            <View style={[styles.atInputRow, (errors.referral || referralError) ? styles.inputError : null]}>
+              <Text style={styles.atPrefix}>@</Text>
+              <TextInput
+                style={styles.atInput}
+                value={referralCode}
+                onChangeText={(v) => {
+                  setReferralError('')
+                  setReferralCode(v.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase().slice(0, 20))
+                }}
+                onBlur={() => touch('referral')}
+                placeholder="their_handle"
+                placeholderTextColor="#94a3b8"
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={20}
+              />
+            </View>
           </Field>
 
           {/* Terms */}
@@ -386,6 +398,9 @@ const styles = StyleSheet.create({
   checkmark: { color: colors.midnight, fontSize: 13, fontWeight: '800' },
   termsText: { flex: 1, fontSize: 13, color: '#64748b', lineHeight: 20 },
   termsLink: { color: colors.sky, fontWeight: '600' },
+  atInputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, backgroundColor: '#ffffff' },
+  atPrefix: { fontSize: 18, fontWeight: '700', color: colors.azure, marginRight: 2 },
+  atInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: colors.midnight },
   authError: { fontSize: 13, color: '#ef4444', marginBottom: 12, lineHeight: 19 },
   cta: { backgroundColor: colors.sky, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
   ctaDisabled: { opacity: 0.4 },

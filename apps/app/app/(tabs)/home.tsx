@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   View,
   Text,
@@ -13,13 +13,14 @@ import {
 import * as Clipboard from 'expo-clipboard'
 import Slider from '@react-native-community/slider'
 import { useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
 import { colors } from '@/constants/brand'
-import { useReferralCode } from '@/lib/useReferralCode'
 import { useReferralStats } from '@/lib/useReferralStats'
+import { useHandle } from '@/lib/useHandle'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,8 +67,15 @@ export default function HomeScreen() {
   const router = useRouter()
   const { user, signOut } = useAuth()
 
-  const { code: referralCode, loading: codeLoading } = useReferralCode()
-  const { inviteCount, pendingGbp, loading: statsLoading } = useReferralStats()
+  const { handle, inviteCount, pendingGbp, loading: statsLoading, refetch: refetchStats } = useReferralStats()
+  const { refetch: refetchHandle } = useHandle()
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchStats()
+      refetchHandle()
+    }, [refetchStats, refetchHandle])
+  )
   const [codeCopied, setCodeCopied] = useState(false)
 
   const [child, setChild] = useState<{
@@ -182,17 +190,17 @@ export default function HomeScreen() {
   const proj65 = fv(sliderValue, monthsTo65)
 
   const handleCopyCode = async () => {
-    if (!referralCode) return
-    await Clipboard.setStringAsync(referralCode)
+    if (!handle) return
+    await Clipboard.setStringAsync(`@${handle}`)
     setCodeCopied(true)
     setTimeout(() => setCodeCopied(false), 2000)
   }
 
   const handleInvite = async () => {
-    if (!referralCode) return
+    if (!handle) return
     const name = child?.name ?? 'my child'
     await Share.share({
-      message: `I'm using Amplifi to invest in ${name}'s future. Join with my code ${referralCode} and we both get £5 into our kids' Junior ISAs: https://amplifi-marketing.netlify.app/?ref=${referralCode}`,
+      message: `I'm saving for ${name}'s future with Amplifi. Join me — use my handle @${handle} when you sign up and we both get £5 into our kids' Junior ISAs: https://amplifi-marketing.netlify.app/?ref=${handle}`,
     })
   }
 
@@ -212,7 +220,8 @@ export default function HomeScreen() {
               activeOpacity={0.8}
               onPress={() =>
                 Alert.alert('Your account', '', [
-                  { text: 'Profile', onPress: () => Alert.alert('Coming soon', 'Profile settings coming soon.') },
+                  { text: 'Profile', onPress: () => router.push('/settings/profile') },
+                  { text: handle ? `Your Handle (@${handle})` : 'Your Handle (Not set)', onPress: () => router.push('/settings/handle') },
                   { text: 'Payment settings', onPress: () => router.push('/settings/payment') },
                   { text: 'Referral code', onPress: () => router.push('/settings/referral') },
                   { text: 'Sign out', style: 'destructive', onPress: () => { void signOut() } },
@@ -318,22 +327,32 @@ export default function HomeScreen() {
             You and your friend each get £5 into your kids' Junior ISAs when they link a savings account
           </Text>
 
-          {/* Code pill */}
-          <TouchableOpacity
-            style={styles.codePill}
-            onPress={handleCopyCode}
-            activeOpacity={0.7}
-            disabled={codeLoading || !referralCode}
-          >
-            {codeLoading ? (
-              <ActivityIndicator size="small" color={colors.azure} />
-            ) : (
-              <>
-                <Text style={styles.codeText}>{referralCode ?? '—'}</Text>
-                <Text style={styles.codeCopyHint}>{codeCopied ? '✓ Copied!' : 'Tap to copy'}</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* Handle pill */}
+          {!statsLoading && !handle ? (
+            <TouchableOpacity
+              style={[styles.codePill, styles.codePillSetup]}
+              onPress={() => router.push('/settings/handle')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.setupHandleText}>Set up your handle first →</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.codePill}
+              onPress={handleCopyCode}
+              activeOpacity={0.7}
+              disabled={statsLoading}
+            >
+              {statsLoading ? (
+                <ActivityIndicator size="small" color={colors.azure} />
+              ) : (
+                <>
+                  <Text style={styles.codeText}>@{handle}</Text>
+                  <Text style={styles.codeCopyHint}>{codeCopied ? '✓ Copied!' : 'Tap to copy'}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* Stats */}
           {statsLoading ? (
@@ -360,10 +379,10 @@ export default function HomeScreen() {
 
           {/* CTA */}
           <TouchableOpacity
-            style={[styles.inviteBtn, (!referralCode || codeLoading) && styles.inviteBtnDisabled]}
+            style={[styles.inviteBtn, (!handle || statsLoading) && styles.inviteBtnDisabled]}
             onPress={handleInvite}
             activeOpacity={0.85}
-            disabled={!referralCode || codeLoading}
+            disabled={!handle || statsLoading}
           >
             <Text style={styles.inviteBtnText}>Invite friends</Text>
           </TouchableOpacity>
@@ -617,5 +636,8 @@ const styles = StyleSheet.create({
   },
   inviteBtnDisabled: { opacity: 0.4 },
   inviteBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+
+  codePillSetup: { backgroundColor: `${colors.midnight}0A` },
+  setupHandleText: { fontSize: 15, fontWeight: '600', color: colors.midnight },
 
 })

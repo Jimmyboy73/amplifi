@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { redeemReferralCode } from '@/lib/redeemReferralCode'
+import { redeemReferral } from '@/lib/redeemReferral'
 import { colors } from '@/constants/brand'
 
 export default function ReferralCodeScreen() {
@@ -44,7 +44,7 @@ export default function ReferralCodeScreen() {
     setFieldError('')
     setSubmitting(true)
 
-    const result = await redeemReferralCode(code, user.id)
+    const result = await redeemReferral(code, user.id)
     setSubmitting(false)
 
     if (!result.ok) {
@@ -82,15 +82,15 @@ export default function ReferralCodeScreen() {
         {alreadyReferred ? (
           <View style={styles.centreCard}>
             <Text style={styles.centreIcon}>✓</Text>
-            <Text style={styles.centreTitle}>Code already applied</Text>
+            <Text style={styles.centreTitle}>Already referred</Text>
             <Text style={styles.centreBody}>
-              You've already used a referral code. Your £5 credit will appear once you link a savings account.
+              You've already used a referral. Your £5 credit will appear once you link a savings account.
             </Text>
           </View>
         ) : success ? (
           <View style={styles.centreCard}>
             <Text style={styles.centreIcon}>🎉</Text>
-            <Text style={styles.centreTitle}>Code applied!</Text>
+            <Text style={styles.centreTitle}>Referral applied!</Text>
             <Text style={styles.centreBody}>
               You and your friend will each receive £5 into your kids' Junior ISAs once you link a savings account.
             </Text>
@@ -98,31 +98,34 @@ export default function ReferralCodeScreen() {
         ) : (
           <>
             <Text style={styles.intro}>
-              Got a friend's referral code? Enter it here and you'll both receive £5 credited to your kids' Junior ISAs when you link a savings account.
+              Got a friend's handle? Enter it here and you'll both receive £5 credited to your kids' Junior ISAs when you link a savings account.
             </Text>
 
             <View style={styles.fieldWrapper}>
-              <Text style={styles.fieldLabel}>Referral code</Text>
-              <TextInput
-                style={[styles.codeInput, fieldError ? styles.inputError : undefined]}
-                value={code}
-                onChangeText={(v) => {
-                  setFieldError('')
-                  setCode(v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5))
-                }}
-                placeholder="AB1C2"
-                placeholderTextColor="#94a3b8"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={5}
-              />
+              <Text style={styles.fieldLabel}>Their @handle</Text>
+              <View style={[styles.atInputRow, fieldError ? styles.inputError : undefined]}>
+                <Text style={styles.atPrefix}>@</Text>
+                <TextInput
+                  style={styles.atInput}
+                  value={code}
+                  onChangeText={(v) => {
+                    setFieldError('')
+                    setCode(v.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase().slice(0, 20))
+                  }}
+                  placeholder="their_handle"
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={20}
+                />
+              </View>
               {fieldError ? <Text style={styles.fieldError}>{fieldError}</Text> : null}
             </View>
 
             <TouchableOpacity
-              style={[styles.applyBtn, (submitting || code.length !== 5) && styles.applyBtnDisabled]}
+              style={[styles.applyBtn, (submitting || code.length < 3) && styles.applyBtnDisabled]}
               onPress={handleApply}
-              disabled={submitting || code.length !== 5}
+              disabled={submitting || code.length < 3}
               activeOpacity={0.85}
             >
               {submitting ? (
@@ -158,19 +161,17 @@ const styles = StyleSheet.create({
 
   fieldWrapper: { marginBottom: 24 },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.midnight, marginBottom: 8 },
-  codeInput: {
+  atInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 16,
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.midnight,
     backgroundColor: '#ffffff',
-    textAlign: 'center',
-    letterSpacing: 8,
   },
+  atPrefix: { fontSize: 20, fontWeight: '700', color: colors.azure, marginRight: 2 },
+  atInput: { flex: 1, paddingVertical: 14, fontSize: 18, fontWeight: '600', color: colors.midnight },
   inputError: { borderColor: '#ef4444' },
   fieldError: { fontSize: 12, color: '#ef4444', marginTop: 6, textAlign: 'center' },
 

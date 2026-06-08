@@ -61,7 +61,7 @@ export default function PledgeScreen() {
 
   useEffect(() => {
     if (refCode) {
-      AsyncStorage.setItem('amplifi_ref_code', refCode)
+      AsyncStorage.setItem('amplifi_ref_handle', refCode)
     }
   }, [refCode])
 
