@@ -189,11 +189,9 @@ export default function BirthdayHomeScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          {router.canGoBack() && (
-            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
-              <Text style={styles.backArrow}>←</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/home')} activeOpacity={0.7} style={styles.backBtn}>
+            <Text style={styles.backArrow}>←</Text>
+          </TouchableOpacity>
           <View>
             <Text style={styles.title}>Gift Registry</Text>
             <Text style={styles.subtitle}>Create wishlists for any occasion</Text>
