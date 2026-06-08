@@ -43,7 +43,7 @@ export default function TabsLayout() {
         name="wishlists"
         options={{
           title: 'Wishlists',
-          tabBarIcon: ({ color }) => <Ionicons name="gift-outline" size={22} color={color} />,
+          tabBarIcon: ({ color }) => <EmojiIcon emoji="🎁" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -56,8 +56,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="shop"
         options={{
-          title: 'Shop',
-          tabBarIcon: ({ color }) => <EmojiIcon emoji="🛍️" color={color} />,
+          title: 'Loyalty',
+          tabBarIcon: ({ color }) => <EmojiIcon emoji="🎯" color={color} />,
         }}
       />
       <Tabs.Screen name="pot" options={{ href: null }} />

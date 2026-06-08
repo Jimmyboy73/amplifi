@@ -244,8 +244,8 @@ export default function HomeScreen() {
           {([
             { icon: '👨‍👩‍👧', label: 'Invite family', onPress: () => router.push('/(tabs)/family') },
             { icon: '🎁', label: 'Wishlists',       onPress: () => router.push('/birthday') },
-            { icon: '💳', label: 'Cashback',       onPress: () => router.push('/(tabs)/shop') },
-            { icon: '🎯', label: 'Loyalty offers', onPress: () => router.push('/(tabs)/offers') },
+            { icon: '💳', label: 'Cashback',        onPress: () => router.push('/(tabs)/offers') },
+            { icon: '🎯', label: 'Loyalty offers',  onPress: () => router.push('/(tabs)/shop') },
           ] as const).map((a) => (
             <TouchableOpacity key={a.label} style={styles.actionChip} onPress={a.onPress} activeOpacity={0.8}>
               <Text style={styles.actionIcon}>{a.icon}</Text>
