@@ -18,7 +18,7 @@ const OPTIONS = [
     id: 'existing',
     icon: '✓',
     title: 'Yes, I have one',
-    subtitle: 'I have an existing JISA or ISA account',
+    subtitle: 'I have an existing ISA or JISA account',
   },
   {
     id: 'new',
@@ -84,7 +84,7 @@ export default function IsaStatusScreen() {
         </View>
 
         <Text style={styles.headline}>
-          Does {name} already have a JISA or ISA?
+          Does {name} already have an ISA or JISA?
         </Text>
         <Text style={styles.subheadline}>
           We need somewhere to send the cashback you earn.
@@ -131,7 +131,7 @@ export default function IsaStatusScreen() {
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>JISA or ISA?</Text>
+            <Text style={styles.modalTitle}>ISA or JISA?</Text>
             <Text style={styles.modalBody}>
               {`There are two types of tax-free savings accounts to consider:\n\nA Stocks & Shares ISA is in your own name. You control it, can top it up whenever you like, and decide if and when to pass the money to your child. It counts toward your £20,000 annual ISA allowance. We recommend this for most Amplifi families — you stay in control.\n\nA Junior ISA (JISA) is opened in your child's name. Money grows tax-free and is locked until they turn 18. You can contribute up to £9,000 per year.\n\n⚠️ Important: Your child takes full control of the funds at 18. Once money is in a JISA, you cannot get it back — it belongs to your child.`}
             </Text>
@@ -145,7 +145,7 @@ export default function IsaStatusScreen() {
               onPress={goToChoose}
               activeOpacity={0.7}
             >
-              <Text style={styles.modalSecondaryText}>I need to open a JISA</Text>
+              <Text style={styles.modalSecondaryText}>I need to open an ISA or JISA</Text>
             </TouchableOpacity>
           </View>
         </View>

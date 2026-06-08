@@ -10,11 +10,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors } from '@/constants/brand'
 
-const BULLETS = [
-  'Where you shop — supermarkets, retailers, restaurants',
-  'How much you spend at each merchant',
-  'Nothing else — we never see your balance or share your data',
-]
 
 export default function OpenBankingScreen() {
   const router = useRouter()
@@ -50,17 +45,6 @@ export default function OpenBankingScreen() {
           <Text style={styles.impactPre}>Parents like you are missing an average of</Text>
           <Text style={styles.impactNumber}>£340</Text>
           <Text style={styles.impactPost}>per year in cashback for their child</Text>
-        </View>
-
-        {/* What we access */}
-        <View style={styles.accessSection}>
-          <Text style={styles.accessTitle}>What we look at:</Text>
-          {BULLETS.map((b) => (
-            <View key={b} style={styles.bullet}>
-              <Text style={styles.bulletIcon}>✓</Text>
-              <Text style={styles.bulletText}>{b}</Text>
-            </View>
-          ))}
         </View>
 
         {/* CTAs */}
@@ -132,38 +116,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
-  },
-  accessSection: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 28,
-    gap: 12,
-  },
-  accessTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.midnight,
-    marginBottom: 4,
-  },
-  bullet: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'flex-start',
-  },
-  bulletIcon: {
-    fontSize: 14,
-    color: colors.sky,
-    fontWeight: '700',
-    marginTop: 1,
-    flexShrink: 0,
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#475569',
-    lineHeight: 21,
   },
   primaryCta: {
     backgroundColor: colors.sky,

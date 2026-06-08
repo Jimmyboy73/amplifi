@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router'
 import { Text } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { colors } from '@/constants/brand'
 
-function TabIcon({ emoji, color }: { emoji: string; color: string }) {
+function EmojiIcon({ emoji, color }: { emoji: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{emoji}</Text>
 }
 
@@ -28,28 +29,35 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <TabIcon emoji="🏠" color={color} />,
+          tabBarIcon: ({ color }) => <EmojiIcon emoji="🏠" color={color} />,
         }}
       />
       <Tabs.Screen
         name="family"
         options={{
-          title: 'Family',
-          tabBarIcon: ({ color }) => <TabIcon emoji="👨‍👩‍👧" color={color} />,
+          title: 'Network',
+          tabBarIcon: ({ color }) => <Ionicons name="people-outline" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="wishlists"
+        options={{
+          title: 'Wishlists',
+          tabBarIcon: ({ color }) => <Ionicons name="gift-outline" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="offers"
         options={{
           title: 'Cashback',
-          tabBarIcon: ({ color }) => <TabIcon emoji="💳" color={color} />,
+          tabBarIcon: ({ color }) => <EmojiIcon emoji="💳" color={color} />,
         }}
       />
       <Tabs.Screen
         name="shop"
         options={{
           title: 'Shop',
-          tabBarIcon: ({ color }) => <TabIcon emoji="🛍️" color={color} />,
+          tabBarIcon: ({ color }) => <EmojiIcon emoji="🛍️" color={color} />,
         }}
       />
       <Tabs.Screen name="pot" options={{ href: null }} />

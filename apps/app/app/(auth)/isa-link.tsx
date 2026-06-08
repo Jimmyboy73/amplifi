@@ -99,7 +99,7 @@ export default function IsaLinkScreen() {
             <Text style={styles.progress}>5 of 8</Text>
           </View>
 
-          <Text style={styles.headline}>Link your JISA or ISA</Text>
+          <Text style={styles.headline}>Link your ISA or JISA</Text>
           <Text style={styles.subheadline}>We'll send your cashback here automatically.</Text>
 
           {/* Sort code */}
