@@ -15,7 +15,6 @@ import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
-import { redeemReferral } from '@/lib/redeemReferral'
 import { colors } from '@/constants/brand'
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -109,8 +108,29 @@ export default function DetailsScreen() {
     if (!isFormValid || submitting) return
     setSubmitting(true)
     setAuthError('')
+    setReferralError('')
 
-    // 1. Sign up with Supabase Auth
+    // 1. Pre-validate referral handle before creating any auth user
+    const trimmedHandle = referralCode.trim()
+    let validatedReferrerId: string | null = null
+
+    if (trimmedHandle) {
+      const { data: referrerProfile, error: lookupErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('handle', trimmedHandle)
+        .maybeSingle()
+
+      if (lookupErr || !referrerProfile) {
+        setReferralError("We couldn't find that handle.")
+        setSubmitting(false)
+        return
+      }
+
+      validatedReferrerId = referrerProfile.id
+    }
+
+    // 2. Sign up with Supabase Auth
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
@@ -136,7 +156,7 @@ export default function DetailsScreen() {
     // Allow session to fully establish before writing to public schema
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    // 2. Insert profile row
+    // 3. Insert profile row
     const fullName = name.trim()
     const dobString = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
 
@@ -164,15 +184,14 @@ export default function DetailsScreen() {
       console.error(`[Profile Insert] Attempt ${attempt} FAILED:`, error.message)
     }
 
-    // Record referral event if a handle was entered
-    const trimmedHandle = referralCode.trim()
-    if (trimmedHandle) {
-      const referralResult = await redeemReferral(trimmedHandle, data.user.id)
-      if (!referralResult.ok) {
-        setReferralError(referralResult.error)
-        setSubmitting(false)
-        return
-      }
+    // Record referral event using the pre-validated referrer ID
+    if (validatedReferrerId) {
+      await supabase.from('referral_events').insert({
+        referrer_id: validatedReferrerId,
+        referred_id: data.user.id,
+        code_used: trimmedHandle,
+        status: 'pending',
+      })
       await AsyncStorage.removeItem('amplifi_ref_handle')
     }
 
