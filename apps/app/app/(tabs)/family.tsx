@@ -28,6 +28,12 @@ import { colors } from '@/constants/brand'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const RELATIONSHIPS = ['Grandparent', 'Aunt / Uncle', 'Friend', 'Other'] as const
+const RELATIONSHIP_DB: Record<string, string> = {
+  'Grandparent': 'grandparent',
+  'Aunt / Uncle': 'aunt_uncle',
+  'Friend': 'friend',
+  'Other': 'other',
+}
 const AVATAR_COLORS = ['#7C3AED', '#0891B2', '#059669', '#D97706', '#DC2626']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,6 +119,8 @@ export default function FamilyScreen() {
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null)
   const [approveRelationship, setApproveRelationship] = useState('')
   const [savingApproval, setSavingApproval] = useState(false)
+  const [approveChildSelections, setApproveChildSelections] = useState<Record<string, boolean>>({})
+  const hasScrolledToInvite = useRef(false)
 
   // Contributor connections (where this user is the requester)
   const { connections: myConnections, loading: myConnectionsLoading, refetch: refetchMyConnections } = useContributorConnections()
@@ -127,13 +135,17 @@ export default function FamilyScreen() {
       .eq('parent_id', user.id)
       .eq('status', 'pending')
     if (!conns?.length) { setPendingRequests([]); return }
-    const ids = conns.map(c => c.requester_id)
+    // Deduplicate — one row per requester even if they have multiple pending children
+    const seen = new Set<string>()
+    const deduped = (conns as Array<{ id: string; requester_id: string; created_at: string }>)
+      .filter(c => { if (seen.has(c.requester_id)) return false; seen.add(c.requester_id); return true })
+    const ids = deduped.map(c => c.requester_id)
     const { data: profiles } = await supabase
       .from('profiles').select('id, full_name, handle').in('id', ids)
     const pm = Object.fromEntries(
       (profiles ?? []).map(p => [p.id, p as { id: string; full_name: string; handle: string | null }])
     )
-    setPendingRequests(conns.map(c => ({
+    setPendingRequests(deduped.map(c => ({
       id: c.id,
       requester_id: c.requester_id,
       requester_name: pm[c.requester_id]?.full_name ?? 'Unknown',
@@ -232,16 +244,70 @@ export default function FamilyScreen() {
     )
   }
 
-  const approveRequest = async (requestId: string) => {
+  const openApprovePanel = (req: PendingRequest) => {
+    const selections: Record<string, boolean> = {}
+    children.forEach(c => { selections[c.id] = true })
+    setApproveChildSelections(selections)
+    setApprovingRequestId(req.id)
+    setApproveRelationship('')
+  }
+
+  const openInvite = () => {
+    setShowInvite(true)
+    hasScrolledToInvite.current = false
+  }
+
+  const approveRequest = async (requesterId: string) => {
     if (!approveRelationship || savingApproval) return
+    const dbRel = RELATIONSHIP_DB[approveRelationship] ?? approveRelationship.toLowerCase()
     setSavingApproval(true)
-    const { error } = await supabase.from('family_connections')
-      .update({ status: 'approved', relationship: approveRelationship }).eq('id', requestId)
+
+    const { data: existingConns } = await supabase
+      .from('family_connections')
+      .select('id, child_id, status')
+      .eq('requester_id', requesterId)
+      .eq('parent_id', user!.id)
+
+    const existingMap: Record<string, { id: string; status: string }> = {}
+    for (const conn of existingConns ?? []) {
+      const c = conn as { id: string; child_id: string; status: string }
+      existingMap[c.child_id] = { id: c.id, status: c.status }
+    }
+
+    const ops = children.map(child => {
+      const selected = approveChildSelections[child.id] ?? true
+      const existing = existingMap[child.id]
+      if (selected) {
+        if (existing) {
+          return supabase.from('family_connections')
+            .update({ status: 'approved', relationship: dbRel })
+            .eq('id', existing.id)
+        }
+        return supabase.from('family_connections').insert({
+          requester_id: requesterId,
+          parent_id: user!.id,
+          child_id: child.id,
+          status: 'approved',
+          relationship: dbRel,
+        })
+      } else if (existing && existing.status !== 'revoked') {
+        return supabase.from('family_connections')
+          .update({ status: 'revoked' })
+          .eq('id', existing.id)
+      }
+      return Promise.resolve({ error: null })
+    })
+
+    const results = await Promise.all(ops)
+    const failed = results.some(r => r && (r as { error: unknown }).error)
     setSavingApproval(false)
-    if (error) Alert.alert('Error', error.message)
-    else {
+
+    if (failed) {
+      Alert.alert('Something went wrong', 'Please try again.')
+    } else {
       setApprovingRequestId(null)
       setApproveRelationship('')
+      setApproveChildSelections({})
       await fetchPendingRequests()
       await refetchConnections()
     }
@@ -254,7 +320,7 @@ export default function FamilyScreen() {
         text: 'Decline', style: 'destructive', onPress: async () => {
           const { error } = await supabase.from('family_connections')
             .update({ status: 'revoked' }).eq('id', requestId)
-          if (error) Alert.alert('Error', error.message)
+          if (error) Alert.alert('Something went wrong', 'Please try again.')
           else await fetchPendingRequests()
         },
       },
@@ -459,9 +525,7 @@ export default function FamilyScreen() {
 
                         {approvingRequestId === req.id ? (
                           <View style={styles.approvePanel}>
-                            <Text style={styles.approvePanelLabel}>
-                              Their relationship to {selectedChild?.name ?? 'your child'}
-                            </Text>
+                            <Text style={styles.approvePanelLabel}>Their relationship to your children</Text>
                             <View style={styles.relRow}>
                               {RELATIONSHIPS.map(rel => (
                                 <TouchableOpacity
@@ -474,23 +538,41 @@ export default function FamilyScreen() {
                                 </TouchableOpacity>
                               ))}
                             </View>
+                            {children.length > 1 && (
+                              <>
+                                <Text style={styles.approvePanelLabel}>Which children can {req.requester_name} see?</Text>
+                                {children.map(child => (
+                                  <TouchableOpacity
+                                    key={child.id}
+                                    style={styles.childCheckRow}
+                                    onPress={() => setApproveChildSelections(prev => ({ ...prev, [child.id]: !(prev[child.id] ?? true) }))}
+                                    activeOpacity={0.7}
+                                  >
+                                    <View style={[styles.checkbox, (approveChildSelections[child.id] ?? true) && styles.checkboxChecked]}>
+                                      {(approveChildSelections[child.id] ?? true) && <Text style={styles.checkmark}>✓</Text>}
+                                    </View>
+                                    <Text style={styles.childCheckName}>{child.name}</Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </>
+                            )}
                             <View style={styles.inlineBtnRow}>
                               <TouchableOpacity
                                 style={[styles.primaryBtn, (!approveRelationship || savingApproval) && styles.btnDisabled]}
-                                onPress={() => void approveRequest(req.id)}
+                                onPress={() => void approveRequest(req.requester_id)}
                                 disabled={!approveRelationship || savingApproval}
                                 activeOpacity={0.85}
                               >
                                 {savingApproval ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.primaryBtnText}>Confirm</Text>}
                               </TouchableOpacity>
-                              <TouchableOpacity style={styles.ghostBtn} onPress={() => { setApprovingRequestId(null); setApproveRelationship('') }} activeOpacity={0.7}>
+                              <TouchableOpacity style={styles.ghostBtn} onPress={() => { setApprovingRequestId(null); setApproveRelationship(''); setApproveChildSelections({}) }} activeOpacity={0.7}>
                                 <Text style={styles.ghostBtnText}>Cancel</Text>
                               </TouchableOpacity>
                             </View>
                           </View>
                         ) : (
                           <View style={styles.requestActions}>
-                            <TouchableOpacity style={styles.approveBtn} onPress={() => { setApprovingRequestId(req.id); setApproveRelationship('') }} activeOpacity={0.85}>
+                            <TouchableOpacity style={styles.approveBtn} onPress={() => openApprovePanel(req)} activeOpacity={0.85}>
                               <Text style={styles.approveBtnText}>Approve</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.declineBtn} onPress={() => declineRequest(req.id)} activeOpacity={0.7}>
@@ -562,7 +644,15 @@ export default function FamilyScreen() {
 
               {/* Invite CTA */}
               {showInvite ? (
-                <View style={styles.inviteSheet}>
+                <View
+                  style={styles.inviteSheet}
+                  onLayout={(e) => {
+                    if (!hasScrolledToInvite.current) {
+                      hasScrolledToInvite.current = true
+                      scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - 20), animated: true })
+                    }
+                  }}
+                >
                   <Text style={styles.inviteSheetTitle}>Invite a family member</Text>
                   <Text style={styles.inviteSheetLabel}>Their relationship to {selectedChild?.name ?? 'your child'}</Text>
                   <View style={styles.relRow}>
@@ -587,7 +677,7 @@ export default function FamilyScreen() {
                   </TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowInvite(true)} activeOpacity={0.85}>
+                <TouchableOpacity style={styles.inviteBtn} onPress={openInvite} activeOpacity={0.85}>
                   <Ionicons name="person-add-outline" size={18} color="#ffffff" />
                   <Text style={styles.inviteBtnText}>Invite a family member</Text>
                 </TouchableOpacity>
@@ -907,4 +997,15 @@ const styles = StyleSheet.create({
   },
   relBadgeText: { fontSize: 11, fontWeight: '700', color: colors.azure },
   viewDetailsText: { fontSize: 13, fontWeight: '600', color: colors.azure },
+
+  // Multi-child approval checkboxes
+  childCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6,
+    borderWidth: 2, borderColor: '#e2e8f0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: colors.sky, borderColor: colors.sky },
+  checkmark: { color: colors.midnight, fontSize: 13, fontWeight: '800' },
+  childCheckName: { fontSize: 15, fontWeight: '600', color: colors.midnight },
 })
