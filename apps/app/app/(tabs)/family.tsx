@@ -331,10 +331,8 @@ export default function FamilyScreen() {
     if (!selectedChild || !handle) return
     const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}`
     const msg =
-      `I've set up an Amplifi savings account for ${selectedChild.name} to build a solid financial foundation for their future. ` +
-      `We'd love for you to be part of it by making a regular or one-off contribution.\n\n` +
-      `Sign up to Amplifi and use my handle @${handle} when you register so we get connected: ${url}\n\n` +
-      `${selectedChild.name} gets a £5 credit when you make 3 qualifying contributions!`
+      `I've started building a savings pot for ${selectedChild.name} — would you like to be part of it? 💙\n\n` +
+      `Tap here to see how you can help: ${url}`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
     )
