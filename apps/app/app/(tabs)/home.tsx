@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
+  Animated,
   View,
   Text,
   Image,
@@ -9,12 +10,14 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native'
+import * as Clipboard from 'expo-clipboard'
 import Slider from '@react-native-community/slider'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '@/lib/auth'
 import { useChildren } from '@/lib/useChildren'
-import { useContributorConnections } from '@/lib/useContributorConnections'
+import { useContributorConnections, type ContributorConnection } from '@/lib/useContributorConnections'
+import { useFamilyContributions, type FamilyContribution } from '@/lib/useFamilyContributions'
 import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
@@ -60,6 +63,341 @@ const ACTIVITY_ICON_BG: Record<ActivityType, string> = {
   gift_card: `${colors.sky}33`,
   sweep: `${colors.azure}33`,
   family: `${colors.amber}33`,
+}
+
+// ── Contributor sub-components ────────────────────────────────────────────────
+
+const FREQ_LABELS: Record<'weekly' | 'monthly' | 'one_off', string> = {
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  one_off: 'One-off',
+}
+
+function formatSC(raw: string): string {
+  const d = raw.replace(/\D/g, '')
+  if (d.length < 6) return raw
+  return `${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4, 6)}`
+}
+
+type JisaDetails = {
+  sort_code: string
+  account_number: string
+  payment_reference: string
+  provider_name: string | null
+}
+
+function AmountFreqPicker({
+  selectedAmount,
+  selectedFreq,
+  onSelectAmount,
+  onSelectFreq,
+}: {
+  selectedAmount: number | null
+  selectedFreq: 'weekly' | 'monthly' | 'one_off' | null
+  onSelectAmount: (n: number) => void
+  onSelectFreq: (f: 'weekly' | 'monthly' | 'one_off') => void
+}) {
+  return (
+    <View>
+      <View style={cStyles.pillRow}>
+        {([10, 25, 50, 100] as const).map(amt => (
+          <TouchableOpacity
+            key={amt}
+            style={[cStyles.pill, selectedAmount === amt && cStyles.pillActive]}
+            onPress={() => onSelectAmount(amt)}
+            activeOpacity={0.7}
+          >
+            <Text style={[cStyles.pillText, selectedAmount === amt && cStyles.pillTextActive]}>
+              £{amt}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={cStyles.pillRow}>
+        {(['weekly', 'monthly', 'one_off'] as const).map(freq => (
+          <TouchableOpacity
+            key={freq}
+            style={[cStyles.pill, cStyles.freqPill, selectedFreq === freq && cStyles.pillActive]}
+            onPress={() => onSelectFreq(freq)}
+            activeOpacity={0.7}
+          >
+            <Text style={[cStyles.pillText, selectedFreq === freq && cStyles.pillTextActive]}>
+              {FREQ_LABELS[freq]}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function PendingWaitingCard({ conn }: { conn: ContributorConnection }) {
+  const pulse = useRef(new Animated.Value(1)).current
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.3, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    )
+    animation.start()
+    return () => animation.stop()
+  }, [])
+
+  return (
+    <View style={cStyles.pendingCard}>
+      <Animated.Text style={[cStyles.pendingIcon, { opacity: pulse }]}>⏳</Animated.Text>
+      <Text style={cStyles.pendingTitle}>
+        Waiting for {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName} to approve your connection
+      </Text>
+      <Text style={cStyles.pendingSub}>
+        This usually happens quickly — we'll let you know when you're in.
+      </Text>
+    </View>
+  )
+}
+
+function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
+  const router = useRouter()
+  const { contributions, loading: contribLoading, logContribution, updateContribution, stopContribution } =
+    useFamilyContributions(conn.id)
+
+  const [jisa, setJisa] = useState<JisaDetails | null>(null)
+  const [jisaLoading, setJisaLoading] = useState(true)
+  const [showSetup, setShowSetup] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
+  const [selectedFreq, setSelectedFreq] = useState<'weekly' | 'monthly' | 'one_off' | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('jisa_accounts')
+      .select('sort_code, account_number, payment_reference, provider_name')
+      .eq('child_id', conn.childId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setJisa(data as JisaDetails | null)
+        setJisaLoading(false)
+      })
+  }, [conn.childId])
+
+  const activeContrib = contributions.find(c => c.status === 'active') ?? null
+  const inSetupMode = showSetup || !!editingId
+
+  const copy = async (value: string, field: string) => {
+    await Clipboard.setStringAsync(value)
+    setCopied(field)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const handleLog = async () => {
+    if (!selectedAmount || !selectedFreq || submitting) return
+    setSubmitting(true)
+    const { error } = await logContribution({ childId: conn.childId, amountGbp: selectedAmount, frequency: selectedFreq })
+    setSubmitting(false)
+    if (error) {
+      Alert.alert('Something went wrong', 'Please try again.')
+    } else {
+      setShowSetup(false)
+      setSelectedAmount(null)
+      setSelectedFreq(null)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editingId || !selectedAmount || !selectedFreq || submitting) return
+    setSubmitting(true)
+    const { error } = await updateContribution(editingId, { amountGbp: selectedAmount, frequency: selectedFreq })
+    setSubmitting(false)
+    if (error) {
+      Alert.alert('Something went wrong', 'Please try again.')
+    } else {
+      setEditingId(null)
+      setSelectedAmount(null)
+      setSelectedFreq(null)
+    }
+  }
+
+  const handleStop = (id: string) => {
+    Alert.alert(
+      'Stop contribution',
+      `Are you sure you want to stop your contribution to ${conn.childName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Stop',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await stopContribution(id)
+            if (error) Alert.alert('Something went wrong', 'Please try again.')
+          },
+        },
+      ]
+    )
+  }
+
+  const openEdit = (contrib: FamilyContribution) => {
+    setEditingId(contrib.id)
+    setSelectedAmount(contrib.amount_gbp)
+    setSelectedFreq(contrib.frequency)
+  }
+
+  return (
+    <View style={cStyles.card}>
+      {/* Hero */}
+      <View style={cStyles.heroSection}>
+        <View style={cStyles.heroRow}>
+          <View style={cStyles.heroAvatar}>
+            <Text style={cStyles.heroAvatarText}>{conn.childName[0]?.toUpperCase() ?? '?'}</Text>
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={cStyles.heroTitle}>You're part of {conn.childName}'s team 💙</Text>
+            <Text style={cStyles.heroSub}>
+              {conn.parentHandle ? `with @${conn.parentHandle}` : `with ${conn.parentName}`}
+            </Text>
+          </View>
+        </View>
+        <View style={cStyles.potRow}>
+          <Text style={cStyles.potLabel}>Pot total</Text>
+          <Text style={cStyles.potValue}>£0.00</Text>
+        </View>
+        <Text style={cStyles.potSub}>Together, the family is building {conn.childName}'s future</Text>
+      </View>
+
+      {/* Body */}
+      <View style={cStyles.bodySection}>
+        {contribLoading ? (
+          <ActivityIndicator size="small" color={colors.sky} style={{ marginVertical: 16 }} />
+        ) : editingId ? (
+          <View>
+            <Text style={cStyles.setupLabel}>Update your contribution</Text>
+            <AmountFreqPicker
+              selectedAmount={selectedAmount}
+              selectedFreq={selectedFreq}
+              onSelectAmount={setSelectedAmount}
+              onSelectFreq={setSelectedFreq}
+            />
+            <View style={cStyles.editBtnRow}>
+              <TouchableOpacity
+                style={[cStyles.logBtn, { flex: 1 }, (!selectedAmount || !selectedFreq || submitting) && cStyles.btnDisabled]}
+                onPress={handleUpdate}
+                disabled={!selectedAmount || !selectedFreq || submitting}
+                activeOpacity={0.85}
+              >
+                {submitting
+                  ? <ActivityIndicator size="small" color={colors.midnight} />
+                  : <Text style={cStyles.logBtnText}>Save</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[cStyles.cancelBtn, { flex: 1 }]}
+                onPress={() => { setEditingId(null); setSelectedAmount(null); setSelectedFreq(null) }}
+                activeOpacity={0.7}
+              >
+                <Text style={cStyles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : activeContrib ? (
+          <View>
+            <Text style={cStyles.setupLabel}>Your contribution</Text>
+            <View style={cStyles.activeContribRow}>
+              <Text style={cStyles.activeAmount}>£{activeContrib.amount_gbp}</Text>
+              <Text style={cStyles.activeFreq}>{FREQ_LABELS[activeContrib.frequency]}</Text>
+            </View>
+            <View style={cStyles.editStopRow}>
+              <TouchableOpacity style={cStyles.editBtn} onPress={() => openEdit(activeContrib)} activeOpacity={0.8}>
+                <Text style={cStyles.editBtnText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={cStyles.stopBtn} onPress={() => handleStop(activeContrib.id)} activeOpacity={0.8}>
+                <Text style={cStyles.stopBtnText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : showSetup ? (
+          <View>
+            {jisaLoading ? (
+              <ActivityIndicator size="small" color={colors.sky} style={{ marginVertical: 16 }} />
+            ) : jisa ? (
+              <>
+                <Text style={cStyles.setupLabel}>Set up a standing order</Text>
+                <Text style={cStyles.setupHint}>
+                  Add these details in your banking app to set up a standing order directly into {conn.childName}'s Junior ISA.
+                </Text>
+                <View style={cStyles.isaBlock}>
+                  {jisa.provider_name ? <Text style={cStyles.isaProvider}>{jisa.provider_name}</Text> : null}
+                  {([
+                    { key: 'sort_code', label: 'Sort code', display: formatSC(jisa.sort_code), raw: jisa.sort_code },
+                    { key: 'account', label: 'Account number', display: jisa.account_number, raw: jisa.account_number },
+                    { key: 'reference', label: 'Reference', display: jisa.payment_reference, raw: jisa.payment_reference },
+                  ] as const).map((f, i, arr) => (
+                    <View key={f.key}>
+                      <View style={cStyles.isaFieldRow}>
+                        <Text style={cStyles.isaKey}>{f.label}</Text>
+                        <Text style={cStyles.isaVal}>{f.display}</Text>
+                        <TouchableOpacity style={cStyles.copyBtn} onPress={() => copy(f.raw, f.key)} activeOpacity={0.7}>
+                          <Text style={cStyles.copyBtnText}>{copied === f.key ? '✓' : 'Copy'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {i < arr.length - 1 && <View style={cStyles.isaDivider} />}
+                    </View>
+                  ))}
+                </View>
+                <Text style={cStyles.amountLabel}>How much per payment?</Text>
+                <AmountFreqPicker
+                  selectedAmount={selectedAmount}
+                  selectedFreq={selectedFreq}
+                  onSelectAmount={setSelectedAmount}
+                  onSelectFreq={setSelectedFreq}
+                />
+                <TouchableOpacity
+                  style={[cStyles.logBtn, (!selectedAmount || !selectedFreq || submitting) && cStyles.btnDisabled]}
+                  onPress={handleLog}
+                  disabled={!selectedAmount || !selectedFreq || submitting}
+                  activeOpacity={0.85}
+                >
+                  {submitting
+                    ? <ActivityIndicator size="small" color={colors.midnight} />
+                    : <Text style={cStyles.logBtnText}>I've set it up ✓</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={cStyles.cancelBtn}
+                  onPress={() => { setShowSetup(false); setSelectedAmount(null); setSelectedFreq(null) }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={cStyles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={cStyles.noJisaMsg}>
+                <Text style={cStyles.noJisaText}>
+                  No ISA linked yet — {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName} is still setting up {conn.childName}'s account. Check back soon.
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <TouchableOpacity style={cStyles.setupCta} onPress={() => setShowSetup(true)} activeOpacity={0.85}>
+            <Ionicons name="add-circle-outline" size={20} color={colors.midnight} />
+            <Text style={cStyles.setupCtaText}>Set up your contribution</Text>
+            <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+          </TouchableOpacity>
+        )}
+
+        {!inSetupMode && (
+          <TouchableOpacity
+            style={cStyles.viewDetailsBtn}
+            onPress={() => router.push(`/connected-child/${conn.id}` as never)}
+            activeOpacity={0.7}
+          >
+            <Text style={cStyles.viewDetailsTxt}>View full details →</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  )
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -216,70 +554,14 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Welcome card */}
-          <View style={styles.heroCard}>
-            <View style={[styles.heroTopRow, { marginBottom: 8 }]}>
-              <View style={[styles.childAvatar, { backgroundColor: colors.sky }]}>
-                <Text style={{ color: colors.midnight, fontSize: 20, fontWeight: '800' }}>★</Text>
-              </View>
-              <Text style={styles.potTitle}>Welcome to Amplifi</Text>
-              <Text style={styles.potSub}>
-                {approvedConnections.length > 0
-                  ? `You're contributing to ${approvedConnections.length} child${approvedConnections.length > 1 ? 'ren' : ''}`
-                  : pendingConnections.length > 0
-                    ? 'Waiting to be connected to a savings account'
-                    : "Your savings journey starts here"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Connected children */}
-          {approvedConnections.length > 0 && (
-            <>
-              <Text style={styles.actionsTitle}>Children you're supporting</Text>
-              {approvedConnections.map(conn => (
-                <TouchableOpacity
-                  key={conn.id}
-                  style={styles.connCard}
-                  onPress={() => router.push(`/connected-child/${conn.id}` as never)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.connAvatar}>
-                    <Text style={styles.connAvatarText}>{conn.childName[0]?.toUpperCase() ?? '?'}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.connChildName}>{conn.childName}</Text>
-                    <Text style={styles.connParentName}>
-                      {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName}
-                    </Text>
-                  </View>
-                  {conn.relationship && (
-                    <View style={styles.connRelBadge}>
-                      <Text style={styles.connRelBadgeText}>{conn.relationship}</Text>
-                    </View>
-                  )}
-                  <Text style={styles.connChevron}>›</Text>
-                </TouchableOpacity>
+          {approvedConnections.length > 0
+            ? approvedConnections.map(conn => (
+                <ContributorChildCard key={conn.id} conn={conn} />
+              ))
+            : pendingConnections.map(conn => (
+                <PendingWaitingCard key={conn.id} conn={conn} />
               ))}
-            </>
-          )}
 
-          {/* Pending connections */}
-          {pendingConnections.length > 0 && (
-            <>
-              <Text style={styles.actionsTitle}>Pending connections</Text>
-              {pendingConnections.map(conn => (
-                <View key={conn.id} style={styles.pendingConnCard}>
-                  <Text style={styles.pendingConnIcon}>⏳</Text>
-                  <Text style={styles.pendingConnText}>
-                    Waiting for {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName} to approve your connection
-                  </Text>
-                </View>
-              ))}
-            </>
-          )}
-
-          {/* Setup CTA */}
           <View style={styles.setupCard}>
             <Text style={styles.setupCardTitle}>Build your own child's pot</Text>
             <Text style={styles.setupCardSub}>
@@ -791,4 +1073,103 @@ const styles = StyleSheet.create({
   gsLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.midnight },
   gsDoneText: { fontSize: 12, fontWeight: '700', color: '#16a34a' },
   gsDivider: { height: 1, backgroundColor: '#f1f5f9', marginLeft: 48 },
+})
+
+// ── Contributor card styles ────────────────────────────────────────────────────
+
+const cStyles = StyleSheet.create({
+  card: {
+    borderRadius: 20, marginHorizontal: 16, marginBottom: 16, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+  },
+  heroSection: {
+    backgroundColor: colors.midnight,
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
+  },
+  heroRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  heroAvatar: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: colors.sky, alignItems: 'center', justifyContent: 'center',
+  },
+  heroAvatarText: { color: colors.midnight, fontSize: 20, fontWeight: '800' },
+  heroTitle: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  heroSub: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2 },
+  potRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  potLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 13 },
+  potValue: { color: '#ffffff', fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  potSub: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 },
+
+  bodySection: { backgroundColor: '#ffffff', padding: 20 },
+  setupLabel: { fontSize: 14, fontWeight: '700', color: colors.midnight, marginBottom: 8 },
+  setupHint: { fontSize: 13, color: '#64748b', lineHeight: 19, marginBottom: 14 },
+
+  isaBlock: { backgroundColor: '#f8fafc', borderRadius: 14, padding: 14, marginBottom: 16 },
+  isaProvider: {
+    fontSize: 12, fontWeight: '700', color: colors.azure,
+    marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  isaFieldRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  isaKey: { fontSize: 12, color: '#64748b', width: 110 },
+  isaVal: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.midnight },
+  copyBtn: { backgroundColor: `${colors.sky}33`, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  copyBtnText: { fontSize: 12, fontWeight: '700', color: colors.azure },
+  isaDivider: { height: 1, backgroundColor: '#e2e8f0' },
+
+  amountLabel: { fontSize: 13, fontWeight: '600', color: colors.midnight, marginBottom: 8 },
+  pillRow: { flexDirection: 'row', gap: 8, marginBottom: 8, flexWrap: 'wrap' },
+  pill: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 100, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#ffffff',
+  },
+  freqPill: { paddingHorizontal: 14 },
+  pillActive: { backgroundColor: colors.midnight, borderColor: colors.midnight },
+  pillText: { fontSize: 14, fontWeight: '600', color: colors.midnight },
+  pillTextActive: { color: '#ffffff' },
+
+  logBtn: {
+    backgroundColor: colors.sky, borderRadius: 14,
+    paddingVertical: 14, alignItems: 'center', marginTop: 16, marginBottom: 8,
+  },
+  logBtnText: { color: colors.midnight, fontSize: 15, fontWeight: '700' },
+  btnDisabled: { opacity: 0.4 },
+  cancelBtn: { borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 4 },
+  cancelBtnText: { color: colors.azure, fontSize: 14, fontWeight: '600' },
+
+  activeContribRow: {
+    flexDirection: 'row', alignItems: 'baseline', gap: 8,
+    backgroundColor: `${colors.sky}18`, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 12, marginBottom: 12,
+  },
+  activeAmount: { fontSize: 28, fontWeight: '800', color: colors.midnight },
+  activeFreq: { fontSize: 15, color: '#64748b', fontWeight: '600' },
+  editStopRow: { flexDirection: 'row', gap: 10 },
+  editBtn: { flex: 1, backgroundColor: colors.azure, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  editBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  stopBtn: {
+    flex: 1, borderWidth: 1, borderColor: '#fca5a5',
+    borderRadius: 12, paddingVertical: 10, alignItems: 'center', backgroundColor: '#fff5f5',
+  },
+  stopBtnText: { color: '#dc2626', fontSize: 14, fontWeight: '700' },
+  editBtnRow: { flexDirection: 'row', gap: 10 },
+
+  setupCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1.5, borderColor: colors.midnight, borderRadius: 14, padding: 14,
+  },
+  setupCtaText: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.midnight },
+
+  viewDetailsBtn: { marginTop: 12, alignItems: 'center', paddingVertical: 4 },
+  viewDetailsTxt: { fontSize: 13, color: colors.azure, fontWeight: '600' },
+
+  noJisaMsg: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 16 },
+  noJisaText: { fontSize: 14, color: '#64748b', lineHeight: 20 },
+
+  pendingCard: {
+    backgroundColor: '#fef3c7', borderRadius: 20,
+    marginHorizontal: 16, marginBottom: 16, padding: 24, alignItems: 'center',
+  },
+  pendingIcon: { fontSize: 40, marginBottom: 12 },
+  pendingTitle: { fontSize: 16, fontWeight: '700', color: '#92400e', textAlign: 'center', lineHeight: 24, marginBottom: 8 },
+  pendingSub: { fontSize: 14, color: '#b45309', textAlign: 'center', lineHeight: 21 },
 })
