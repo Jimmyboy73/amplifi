@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
 import { colors } from '@/constants/brand'
 import { useHandle } from '@/lib/useHandle'
+import { Ionicons } from '@expo/vector-icons'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -198,7 +199,7 @@ export default function HomeScreen() {
               activeOpacity={0.8}
               onPress={() =>
                 Alert.alert('Your account', '', [
-                  { text: 'Profile', onPress: () => router.push('/settings/profile') },
+                  { text: 'Profile Settings', onPress: () => router.push('/settings/profile') },
                   { text: handle ? `Your Handle (@${handle})` : 'Your Handle (Not set)', onPress: () => router.push('/settings/handle') },
                   { text: 'Payment settings', onPress: () => router.push('/settings/payment') },
                   { text: 'Referral code', onPress: () => router.push('/settings/referral') },
@@ -207,9 +208,7 @@ export default function HomeScreen() {
                 ])
               }
             >
-              <View style={styles.profileCircle}>
-                <Text style={styles.profileInitial}>J</Text>
-              </View>
+              <Ionicons name="settings-outline" size={26} color={colors.midnight} />
             </TouchableOpacity>
           </View>
         </View>
@@ -388,13 +387,6 @@ const styles = StyleSheet.create({
   },
   logo: { fontSize: 20, fontWeight: '800', color: colors.midnight, letterSpacing: -0.5 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  profileCircle: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: colors.midnight,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  profileInitial: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-
   // Hero card
   heroCard: {
     backgroundColor: colors.midnight,
