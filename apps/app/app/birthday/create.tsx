@@ -10,12 +10,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Linking,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth'
+import { useHandle } from '@/lib/useHandle'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
+import CelebrationModal from '@/components/CelebrationModal'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -39,9 +42,11 @@ interface Item {
 export default function CreateWishlistScreen() {
   const router = useRouter()
   const { user } = useAuth()
+  const { handle } = useHandle()
 
   const [child, setChild] = useState<{ id: string; name: string } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [celebration, setCelebration] = useState<{ wishlistId: string } | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -197,11 +202,14 @@ export default function CreateWishlistScreen() {
       .eq('id', wlData.id)
 
     setSaving(false)
+    setCelebration({ wishlistId: wlData.id })
+  }
 
-    Alert.alert(
-      'Wishlist created! 🎉',
-      'Share it with family to start collecting pledges.',
-      [{ text: 'Done', onPress: () => router.replace('/birthday') }],
+  const shareWishlist = (wishlistId: string) => {
+    const shareUrl = `https://amplifi-plan.netlify.app/wishlist/${wishlistId}${handle ? `?ref=${handle}` : ''}`
+    const msg = `${childName}'s ${occasionType ?? 'occasion'} is coming up! 🎁 Here's their wishlist — tap to see what they'd love: ${shareUrl}`
+    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
+      Alert.alert('WhatsApp not found', 'Please install WhatsApp to share.')
     )
   }
 
@@ -367,6 +375,25 @@ export default function CreateWishlistScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+      <CelebrationModal
+        visible={!!celebration}
+        emoji="🎁"
+        title={`${childName}'s wishlist is ready to share!`}
+        subtitle="Share it with family and friends to start collecting pledges"
+        primaryButton={{
+          label: 'Share now',
+          onPress: () => {
+            if (celebration) shareWishlist(celebration.wishlistId)
+            setCelebration(null)
+            router.replace('/birthday')
+          },
+        }}
+        secondaryButton={{
+          label: 'Later',
+          onPress: () => { setCelebration(null); router.replace('/birthday') },
+        }}
+        onDismiss={() => { setCelebration(null); router.replace('/birthday') }}
+      />
     </SafeAreaView>
   )
 }

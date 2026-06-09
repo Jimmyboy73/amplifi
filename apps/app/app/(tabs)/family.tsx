@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import CelebrationModal from '@/components/CelebrationModal'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
@@ -120,6 +121,7 @@ export default function FamilyScreen() {
   const [approveRelationship, setApproveRelationship] = useState('')
   const [savingApproval, setSavingApproval] = useState(false)
   const [approveChildSelections, setApproveChildSelections] = useState<Record<string, boolean>>({})
+  const [connectionCelebration, setConnectionCelebration] = useState<{ name: string; childName: string } | null>(null)
   const hasScrolledToInvite = useRef(false)
 
   // Contributor connections (where this user is the requester)
@@ -305,6 +307,13 @@ export default function FamilyScreen() {
     if (failed) {
       Alert.alert('Something went wrong', 'Please try again.')
     } else {
+      // Capture celebration data before clearing state
+      const req = pendingRequests.find(r => r.requester_id === requesterId)
+      const approvedChild = children.find(c => approveChildSelections[c.id] !== false)
+      setConnectionCelebration({
+        name: req?.requester_name ?? 'They',
+        childName: approvedChild?.name ?? 'your child',
+      })
       setApprovingRequestId(null)
       setApproveRelationship('')
       setApproveChildSelections({})
@@ -775,6 +784,15 @@ export default function FamilyScreen() {
           <View style={{ height: 100 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <CelebrationModal
+        visible={!!connectionCelebration}
+        emoji="🎉"
+        title={`${connectionCelebration?.name} is now part of ${connectionCelebration?.childName}'s team!`}
+        subtitle={`They can now see ${connectionCelebration?.childName}'s pot and set up contributions`}
+        primaryButton={{ label: 'Great!', onPress: () => setConnectionCelebration(null) }}
+        onDismiss={() => setConnectionCelebration(null)}
+      />
     </SafeAreaView>
   )
 }

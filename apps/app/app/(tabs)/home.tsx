@@ -18,6 +18,7 @@ import { useAuth } from '@/lib/auth'
 import { useChildren } from '@/lib/useChildren'
 import { useContributorConnections, type ContributorConnection } from '@/lib/useContributorConnections'
 import { useFamilyContributions, type FamilyContribution } from '@/lib/useFamilyContributions'
+import CelebrationModal from '@/components/CelebrationModal'
 import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
@@ -66,6 +67,22 @@ const ACTIVITY_ICON_BG: Record<ActivityType, string> = {
 }
 
 // ── Contributor sub-components ────────────────────────────────────────────────
+
+const MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000] as const
+
+function monthlyEquiv(amount: number, freq: 'weekly' | 'monthly' | 'one_off'): number {
+  if (freq === 'monthly') return amount
+  if (freq === 'weekly') return Math.round(amount * 4.33)
+  return 0
+}
+
+function estimateContributed(contrib: FamilyContribution): number {
+  if (contrib.frequency === 'one_off') return contrib.amount_gbp
+  const months = Math.max(0, Math.floor(
+    (Date.now() - new Date(contrib.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+  ))
+  return Math.round(monthlyEquiv(contrib.amount_gbp, contrib.frequency) * months)
+}
 
 const FREQ_LABELS: Record<'weekly' | 'monthly' | 'one_off', string> = {
   weekly: 'Weekly',
@@ -171,6 +188,7 @@ function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
   const [selectedFreq, setSelectedFreq] = useState<'weekly' | 'monthly' | 'one_off' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [celebration, setCelebration] = useState<{ amount: number; freq: 'weekly' | 'monthly' | 'one_off'; annual: number } | null>(null)
 
   useEffect(() => {
     supabase
@@ -201,6 +219,10 @@ function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
     if (error) {
       Alert.alert('Something went wrong', 'Please try again.')
     } else {
+      const annual = selectedFreq === 'monthly' ? selectedAmount * 12
+                   : selectedFreq === 'weekly' ? selectedAmount * 52
+                   : selectedAmount
+      setCelebration({ amount: selectedAmount, freq: selectedFreq, annual })
       setShowSetup(false)
       setSelectedAmount(null)
       setSelectedFreq(null)
@@ -315,6 +337,52 @@ function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
                 <Text style={cStyles.stopBtnText}>Stop</Text>
               </TouchableOpacity>
             </View>
+            {(() => {
+              const totalEstimate = estimateContributed(activeContrib)
+              const monthsActive = activeContrib.frequency !== 'one_off'
+                ? Math.max(0, Math.floor((Date.now() - new Date(activeContrib.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
+                : 0
+              const nextMilestone = MILESTONES.find(m => m > totalEstimate) ?? MILESTONES[MILESTONES.length - 1]
+              const prevMilestone = [...MILESTONES].reverse().find(m => m <= totalEstimate) ?? 0
+              const milestoneProgress = Math.min(1, nextMilestone > prevMilestone
+                ? (totalEstimate - prevMilestone) / (nextMilestone - prevMilestone)
+                : 1)
+              const milestoneReached = totalEstimate > 0 && (MILESTONES as readonly number[]).includes(totalEstimate)
+              return (
+                <View style={cStyles.impactBlock}>
+                  <Text style={cStyles.impactTitle}>Your impact so far</Text>
+                  {totalEstimate > 0 ? (
+                    <>
+                      <Text style={cStyles.impactAmount}>
+                        ~£{totalEstimate.toLocaleString()} contributed to {conn.childName}'s pot
+                      </Text>
+                      {monthsActive > 0 && (
+                        <Text style={cStyles.impactMonths}>
+                          That's {monthsActive} month{monthsActive !== 1 ? 's' : ''} of building their future 💙
+                        </Text>
+                      )}
+                    </>
+                  ) : (
+                    <Text style={cStyles.impactMonths}>Your first payment will show your impact here</Text>
+                  )}
+                  {milestoneReached ? (
+                    <View style={cStyles.milestoneBadge}>
+                      <Text style={cStyles.milestoneBadgeText}>🏅 £{totalEstimate.toLocaleString()} milestone reached!</Text>
+                    </View>
+                  ) : (
+                    <View style={cStyles.milestoneBar}>
+                      <View style={cStyles.milestoneBarRow}>
+                        <Text style={cStyles.milestoneBarLabel}>Next milestone: £{nextMilestone.toLocaleString()}</Text>
+                        <Text style={cStyles.milestoneBarPct}>{Math.round(milestoneProgress * 100)}%</Text>
+                      </View>
+                      <View style={cStyles.milestoneTrack}>
+                        <View style={[cStyles.milestoneFill, { width: `${Math.round(milestoneProgress * 100)}%` as `${number}%` }]} />
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )
+            })()}
           </View>
         ) : showSetup ? (
           <View>
@@ -396,6 +464,16 @@ function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
           </TouchableOpacity>
         )}
       </View>
+      <CelebrationModal
+        visible={!!celebration}
+        emoji="💙"
+        title={`Thank you! You're helping build ${conn.childName}'s future`}
+        subtitle={celebration
+          ? `At £${celebration.amount} ${FREQ_LABELS[celebration.freq]}, you'll contribute £${celebration.annual} this year`
+          : ''}
+        primaryButton={{ label: 'Done', onPress: () => setCelebration(null) }}
+        onDismiss={() => setCelebration(null)}
+      />
     </View>
   )
 }
@@ -473,21 +551,41 @@ export default function HomeScreen() {
   const [approvedFamilyCount, setApprovedFamilyCount] = useState(0)
   const [hasWishlists, setHasWishlists] = useState(false)
   const [gettingStartedLoaded, setGettingStartedLoaded] = useState(false)
+  const [teamMonthlyTotal, setTeamMonthlyTotal] = useState(0)
 
   const refetchGettingStarted = useCallback(async () => {
     if (!user || !selectedChildId) return
-    const [jisaRes, connRes, wlRes] = await Promise.all([
+    const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+    const [jisaRes, connRes, wlRes, teamConnRes] = await Promise.all([
       supabase.from('jisa_accounts').select('id').eq('child_id', selectedChildId).maybeSingle(),
-      (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> })
-        .from('family_connections')
+      db.from('family_connections')
         .select('id', { count: 'exact', head: true })
         .eq('parent_id', user.id)
         .eq('status', 'approved'),
       supabase.from('wishlists').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
+      db.from('family_connections')
+        .select('id')
+        .eq('parent_id', user.id)
+        .eq('child_id', selectedChildId)
+        .eq('status', 'approved'),
     ])
     setHasJisa(!!jisaRes.data)
     setApprovedFamilyCount((connRes as { count: number | null }).count ?? 0)
     setHasWishlists(((wlRes as { count: number | null }).count ?? 0) > 0)
+
+    const teamConnIds = ((teamConnRes as { data: Array<{ id: string }> | null }).data ?? []).map(c => c.id)
+    if (teamConnIds.length > 0) {
+      const contribRes = await db.from('family_contributions')
+        .select('amount_gbp, frequency')
+        .in('connection_id', teamConnIds)
+        .eq('status', 'active')
+      const contribs = (contribRes as { data: Array<{ amount_gbp: number; frequency: string }> | null }).data ?? []
+      const total = contribs.reduce((sum, c) => sum + monthlyEquiv(c.amount_gbp, c.frequency as 'weekly' | 'monthly' | 'one_off'), 0)
+      setTeamMonthlyTotal(total)
+    } else {
+      setTeamMonthlyTotal(0)
+    }
+
     setGettingStartedLoaded(true)
   }, [user?.id, selectedChildId])
 
@@ -643,6 +741,24 @@ export default function HomeScreen() {
           <Text style={styles.heroBalance}>{gbp(wallet?.total_earned ?? 0)}</Text>
           <Text style={styles.heroBalanceSub}>total in {childName}'s JISA</Text>
         </View>
+
+        {/* ── Team stats card ──────────────────────────────────────────── */}
+        {approvedFamilyCount > 0 && (
+          <View style={styles.teamCard}>
+            <View style={styles.teamRow}>
+              <View style={styles.teamStat}>
+                <Text style={styles.teamStatValue}>{approvedFamilyCount}</Text>
+                <Text style={styles.teamStatLabel}>family members contributing</Text>
+              </View>
+              {teamMonthlyTotal > 0 && (
+                <View style={styles.teamStat}>
+                  <Text style={styles.teamStatValue}>£{teamMonthlyTotal}/mo</Text>
+                  <Text style={styles.teamStatLabel}>estimated from your team</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* ── Child switcher (multi-child only) ────────────────────────── */}
         {children.length > 1 && (
@@ -1073,6 +1189,23 @@ const styles = StyleSheet.create({
   gsLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.midnight },
   gsDoneText: { fontSize: 12, fontWeight: '700', color: '#16a34a' },
   gsDivider: { height: 1, backgroundColor: '#f1f5f9', marginLeft: 48 },
+
+  // Team stats card
+  teamCard: {
+    backgroundColor: `${colors.azure}14`,
+    borderWidth: 1,
+    borderColor: `${colors.azure}30`,
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  teamRow: { flexDirection: 'row', gap: 24 },
+  teamStat: { alignItems: 'center', flex: 1 },
+  teamStatValue: { fontSize: 20, fontWeight: '800', color: colors.midnight },
+  teamStatLabel: { fontSize: 12, color: '#64748b', marginTop: 2, textAlign: 'center' },
 })
 
 // ── Contributor card styles ────────────────────────────────────────────────────
@@ -1172,4 +1305,26 @@ const cStyles = StyleSheet.create({
   pendingIcon: { fontSize: 40, marginBottom: 12 },
   pendingTitle: { fontSize: 16, fontWeight: '700', color: '#92400e', textAlign: 'center', lineHeight: 24, marginBottom: 8 },
   pendingSub: { fontSize: 14, color: '#b45309', textAlign: 'center', lineHeight: 21 },
+
+  // Impact + milestone block
+  impactBlock: {
+    marginTop: 16, paddingTop: 16,
+    borderTopWidth: 1, borderTopColor: '#f1f5f9',
+  },
+  impactTitle: { fontSize: 13, fontWeight: '700', color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  impactAmount: { fontSize: 14, fontWeight: '700', color: colors.midnight, lineHeight: 21 },
+  impactMonths: { fontSize: 13, color: '#64748b', marginTop: 4, lineHeight: 19 },
+  milestoneBadge: {
+    marginTop: 12, backgroundColor: `${colors.sky}22`,
+    borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center',
+  },
+  milestoneBadgeText: { fontSize: 14, fontWeight: '700', color: colors.azure },
+  milestoneBar: { marginTop: 12 },
+  milestoneBarRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  milestoneBarLabel: { fontSize: 12, color: '#64748b', fontWeight: '600' },
+  milestoneBarPct: { fontSize: 12, color: colors.azure, fontWeight: '700' },
+  milestoneTrack: {
+    height: 6, backgroundColor: '#f1f5f9', borderRadius: 3, overflow: 'hidden',
+  },
+  milestoneFill: { height: 6, backgroundColor: colors.sky, borderRadius: 3 },
 })

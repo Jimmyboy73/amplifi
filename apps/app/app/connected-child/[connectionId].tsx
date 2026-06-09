@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 import { useFamilyContributions } from '@/lib/useFamilyContributions'
 import { fv } from '@/lib/projections'
+import CelebrationModal from '@/components/CelebrationModal'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ export default function ConnectedChildScreen() {
   const [logAmount, setLogAmount] = useState<number | null>(null)
   const [logFreq, setLogFreq] = useState<'weekly' | 'monthly' | 'one_off' | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [celebration, setCelebration] = useState<{ amount: number; annual: number } | null>(null)
 
   const { contributions, loading: contribLoading, logContribution } = useFamilyContributions(
     connectionId ?? null
@@ -141,6 +143,10 @@ export default function ConnectedChildScreen() {
     if (error) {
       Alert.alert('Something went wrong', 'Please try again.')
     } else {
+      const annual = logFreq === 'monthly' ? logAmount * 12
+                   : logFreq === 'weekly' ? logAmount * 52
+                   : logAmount
+      setCelebration({ amount: logAmount, annual })
       setShowForm(false)
       setLogAmount(null)
       setLogFreq(null)
@@ -360,6 +366,16 @@ export default function ConnectedChildScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      <CelebrationModal
+        visible={!!celebration}
+        emoji="💙"
+        title={`Thank you! You're helping build ${data?.child_name}'s future`}
+        subtitle={celebration
+          ? `At £${celebration.amount}/month, you'll contribute approximately £${celebration.annual} this year`
+          : ''}
+        primaryButton={{ label: 'Done', onPress: () => setCelebration(null) }}
+        onDismiss={() => setCelebration(null)}
+      />
     </SafeAreaView>
   )
 }
