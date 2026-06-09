@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Linking,
   ActivityIndicator,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -18,6 +20,7 @@ import { useAuth } from '@/lib/auth'
 import { useHandle } from '@/lib/useHandle'
 import { useChildren } from '@/lib/useChildren'
 import { useFamilyConnections } from '@/lib/useFamilyConnections'
+import { useSelectedChild } from '@/lib/SelectedChildContext'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
@@ -59,9 +62,15 @@ export default function FamilyScreen() {
   const { user } = useAuth()
   const { handle } = useHandle()
   const { children, loading: childrenLoading, refetch: refetchChildren } = useChildren()
+  const { selectedChildId, setSelectedChildId } = useSelectedChild()
 
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
+  // Scroll ref for keyboard avoidance
+  const scrollRef = useRef<ScrollView>(null)
+  // DOB field refs for auto-advance
+  const monthInputRef = useRef<TextInput>(null)
+  const yearInputRef = useRef<TextInput>(null)
 
+  // Initialise selection from first child if not already set
   useEffect(() => {
     if (children.length > 0 && selectedChildId === null) {
       setSelectedChildId(children[0].id)
@@ -97,10 +106,12 @@ export default function FamilyScreen() {
   const [editDob, setEditDob] = useState('')
   const [savingChild, setSavingChild] = useState(false)
 
-  // Add child
+  // Add child — 3-field DOB
   const [showAddChild, setShowAddChild] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newDob, setNewDob] = useState('')
+  const [newDobDay, setNewDobDay] = useState('')
+  const [newDobMonth, setNewDobMonth] = useState('')
+  const [newDobYear, setNewDobYear] = useState('')
   const [addingChild, setAddingChild] = useState(false)
 
   // Invite sheet
@@ -113,6 +124,19 @@ export default function FamilyScreen() {
       void refetchConnections()
     }, [refetchChildren, refetchConnections])
   )
+
+  const openAddChild = () => {
+    setShowAddChild(true)
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150)
+  }
+
+  const cancelAddChild = () => {
+    setShowAddChild(false)
+    setNewName('')
+    setNewDobDay('')
+    setNewDobMonth('')
+    setNewDobYear('')
+  }
 
   const startEdit = () => {
     if (!selectedChild) return
@@ -139,15 +163,17 @@ export default function FamilyScreen() {
     }
   }
 
+  const dobValid = newDobDay.length > 0 && newDobMonth.length > 0 && newDobYear.length === 4
+
   const addChild = async () => {
-    if (!user || addingChild) return
+    if (!user || addingChild || !dobValid) return
     const trimName = newName.trim()
-    const trimDob = newDob.trim()
-    if (!trimName || !trimDob) return
+    if (!trimName) return
+    const dob = `${newDobYear}-${newDobMonth.padStart(2, '0')}-${newDobDay.padStart(2, '0')}`
     setAddingChild(true)
     const { data, error } = await supabase
       .from('children')
-      .insert({ owner_id: user.id, name: trimName, date_of_birth: trimDob })
+      .insert({ owner_id: user.id, name: trimName, date_of_birth: dob })
       .select('id, name, date_of_birth, photo_url')
       .single()
     setAddingChild(false)
@@ -155,9 +181,7 @@ export default function FamilyScreen() {
       Alert.alert('Error', error.message)
     } else {
       await refetchChildren()
-      setNewName('')
-      setNewDob('')
-      setShowAddChild(false)
+      cancelAddChild()
       if (data) setSelectedChildId((data as { id: string }).id)
     }
   }
@@ -167,9 +191,9 @@ export default function FamilyScreen() {
     const ref = handle ? `?ref=${handle}` : ''
     const url = `https://amplifi-marketing.netlify.app${ref}`
     const msg =
-      `I've set up Amplifi for ${selectedChild.name} — helping to build a solid financial foundation for their future. ` +
-      `We'd be so grateful for any regular or one-off contribution you're able to make. ` +
-      `Tap here to join Amplifi — ${selectedChild.name} gets £5 when you make a qualifying contribution: ${url}`
+      `I've set up an Amplifi savings account for ${selectedChild.name} which will provide a solid financial foundation for the future. ` +
+      `Please join Amplifi where you can see the progress we are making together. ` +
+      `Use my handle @${handle ?? 'amplifi'} when you sign up so we get connected: ${url}`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
     )
@@ -185,303 +209,326 @@ export default function FamilyScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>My Family</Text>
-        </View>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>My Family</Text>
+          </View>
 
-        {/* Child selector pills */}
-        {children.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.selectorContent}
-            style={styles.selectorRow}
-          >
-            {children.map(c => (
-              <TouchableOpacity
-                key={c.id}
-                style={[styles.selectorPill, c.id === selectedChildId && styles.selectorPillActive]}
-                onPress={() => { setSelectedChildId(c.id); setEditingChild(false) }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.selectorPillText, c.id === selectedChildId && styles.selectorPillTextActive]}>
-                  {c.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+          {/* Child selector pills */}
+          {children.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.selectorContent}
+              style={styles.selectorRow}
+            >
+              {children.map(c => (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.selectorPill, c.id === selectedChildId && styles.selectorPillActive]}
+                  onPress={() => { setSelectedChildId(c.id); setEditingChild(false) }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.selectorPillText, c.id === selectedChildId && styles.selectorPillTextActive]}>
+                    {c.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
-        {/* Child card */}
-        {selectedChild ? (
-          <View style={styles.childCard}>
-            {editingChild ? (
-              <>
-                <Text style={styles.cardSectionLabel}>Edit child</Text>
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editName}
-                    onChangeText={setEditName}
-                    autoCapitalize="words"
-                    autoFocus
-                    placeholderTextColor="#94a3b8"
-                  />
-                </View>
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Date of birth</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editDob}
-                    onChangeText={setEditDob}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#94a3b8"
-                    keyboardType="numbers-and-punctuation"
-                  />
-                </View>
-                <View style={styles.inlineBtnRow}>
-                  <TouchableOpacity
-                    style={[styles.primaryBtn, (!editName.trim() || savingChild) && styles.btnDisabled]}
-                    onPress={() => void saveChild()}
-                    disabled={!editName.trim() || savingChild}
-                    activeOpacity={0.85}
-                  >
-                    {savingChild
-                      ? <ActivityIndicator size="small" color="#fff" />
-                      : <Text style={styles.primaryBtnText}>Save</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.ghostBtn} onPress={() => setEditingChild(false)} activeOpacity={0.7}>
-                    <Text style={styles.ghostBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                {/* Child identity row */}
-                <View style={styles.childIdentityRow}>
-                  <View style={styles.childAvatar}>
-                    <Text style={styles.childAvatarText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
+          {/* Child card */}
+          {selectedChild ? (
+            <View style={styles.childCard}>
+              {editingChild ? (
+                <>
+                  <Text style={styles.cardSectionLabel}>Edit child</Text>
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={editName}
+                      onChangeText={setEditName}
+                      autoCapitalize="words"
+                      autoFocus
+                      placeholderTextColor="#94a3b8"
+                    />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.childName}>{selectedChild.name}</Text>
-                    <Text style={styles.childDob}>Born {formatDob(selectedChild.date_of_birth)}</Text>
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>Date of birth</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={editDob}
+                      onChangeText={setEditDob}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="numbers-and-punctuation"
+                    />
                   </View>
-                  <TouchableOpacity style={styles.editChip} onPress={startEdit} activeOpacity={0.7}>
-                    <Text style={styles.editChipText}>Edit</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* JISA */}
-                <View style={styles.cardDivider} />
-                <Text style={styles.cardSectionLabel}>ISA / JISA</Text>
-
-                {jisaLoading ? (
-                  <ActivityIndicator size="small" color={colors.sky} style={{ marginTop: 8 }} />
-                ) : jisa ? (
-                  <View style={styles.jisaBlock}>
-                    {jisa.provider_name ? <Text style={styles.jisaProvider}>{jisa.provider_name}</Text> : null}
-                    <View style={styles.jisaRow}>
-                      <Text style={styles.jisaKey}>Sort code</Text>
-                      <Text style={styles.jisaVal}>{formatSortCode(jisa.sort_code)}</Text>
-                    </View>
-                    <View style={styles.jisaRow}>
-                      <Text style={styles.jisaKey}>Account</Text>
-                      <Text style={styles.jisaVal}>{jisa.account_number}</Text>
-                    </View>
-                    <View style={styles.jisaRow}>
-                      <Text style={styles.jisaKey}>Reference</Text>
-                      <Text style={styles.jisaVal}>{jisa.payment_reference}</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.noJisa}>
-                    <Text style={styles.noJisaText}>No ISA linked yet</Text>
+                  <View style={styles.inlineBtnRow}>
                     <TouchableOpacity
-                      style={styles.linkIsaBtn}
-                      onPress={() => router.push({
-                        pathname: '/(auth)/isa-link',
-                        params: { childId: selectedChild.id, childName: selectedChild.name },
-                      })}
+                      style={[styles.primaryBtn, (!editName.trim() || savingChild) && styles.btnDisabled]}
+                      onPress={() => void saveChild()}
+                      disabled={!editName.trim() || savingChild}
                       activeOpacity={0.85}
                     >
-                      <Text style={styles.linkIsaBtnText}>Link ISA →</Text>
+                      {savingChild
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <Text style={styles.primaryBtnText}>Save</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.ghostBtn} onPress={() => setEditingChild(false)} activeOpacity={0.7}>
+                      <Text style={styles.ghostBtnText}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.childIdentityRow}>
+                    <View style={styles.childAvatar}>
+                      <Text style={styles.childAvatarText}>{selectedChild.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.childName}>{selectedChild.name}</Text>
+                      <Text style={styles.childDob}>Born {formatDob(selectedChild.date_of_birth)}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.editChip} onPress={startEdit} activeOpacity={0.7}>
+                      <Text style={styles.editChipText}>Edit</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.cardDivider} />
+                  <Text style={styles.cardSectionLabel}>ISA / JISA</Text>
+
+                  {jisaLoading ? (
+                    <ActivityIndicator size="small" color={colors.sky} style={{ marginTop: 8 }} />
+                  ) : jisa ? (
+                    <View style={styles.jisaBlock}>
+                      {jisa.provider_name ? <Text style={styles.jisaProvider}>{jisa.provider_name}</Text> : null}
+                      <View style={styles.jisaRow}>
+                        <Text style={styles.jisaKey}>Sort code</Text>
+                        <Text style={styles.jisaVal}>{formatSortCode(jisa.sort_code)}</Text>
+                      </View>
+                      <View style={styles.jisaRow}>
+                        <Text style={styles.jisaKey}>Account</Text>
+                        <Text style={styles.jisaVal}>{jisa.account_number}</Text>
+                      </View>
+                      <View style={styles.jisaRow}>
+                        <Text style={styles.jisaKey}>Reference</Text>
+                        <Text style={styles.jisaVal}>{jisa.payment_reference}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.noJisa}>
+                      <Text style={styles.noJisaText}>No ISA linked yet</Text>
+                      <TouchableOpacity
+                        style={styles.linkIsaBtn}
+                        onPress={() => router.push({
+                          pathname: '/(auth)/isa-link',
+                          params: { childId: selectedChild.id, childName: selectedChild.name },
+                        })}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.linkIsaBtnText}>Link ISA →</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          ) : (
+            <View style={styles.childCard}>
+              <Text style={styles.emptyText}>No children added yet</Text>
+            </View>
+          )}
+
+          {/* Add another child */}
+          {showAddChild ? (
+            <View style={styles.addChildCard}>
+              <Text style={styles.cardSectionLabel}>Add a child</Text>
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Child's name"
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="words"
+                  autoFocus
+                />
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Date of birth</Text>
+                <View style={styles.dobRow}>
+                  <TextInput
+                    style={[styles.input, styles.dobDay]}
+                    value={newDobDay}
+                    onChangeText={(v) => {
+                      const d = v.replace(/\D/g, '').slice(0, 2)
+                      setNewDobDay(d)
+                      if (d.length === 2) monthInputRef.current?.focus()
+                    }}
+                    placeholder="DD"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    textAlign="center"
+                  />
+                  <TextInput
+                    ref={monthInputRef}
+                    style={[styles.input, styles.dobMonth]}
+                    value={newDobMonth}
+                    onChangeText={(v) => {
+                      const m = v.replace(/\D/g, '').slice(0, 2)
+                      setNewDobMonth(m)
+                      if (m.length === 2) yearInputRef.current?.focus()
+                    }}
+                    placeholder="MM"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    textAlign="center"
+                  />
+                  <TextInput
+                    ref={yearInputRef}
+                    style={[styles.input, styles.dobYear]}
+                    value={newDobYear}
+                    onChangeText={(v) => setNewDobYear(v.replace(/\D/g, '').slice(0, 4))}
+                    placeholder="YYYY"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    textAlign="center"
+                  />
+                </View>
+              </View>
+              <View style={styles.inlineBtnRow}>
+                <TouchableOpacity
+                  style={[styles.primaryBtn, (!newName.trim() || !dobValid || addingChild) && styles.btnDisabled]}
+                  onPress={() => void addChild()}
+                  disabled={!newName.trim() || !dobValid || addingChild}
+                  activeOpacity={0.85}
+                >
+                  {addingChild
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.primaryBtnText}>Add child</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.ghostBtn} onPress={cancelAddChild} activeOpacity={0.7}>
+                  <Text style={styles.ghostBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.addChildBtn} onPress={openAddChild} activeOpacity={0.7}>
+              <Ionicons name="add-circle-outline" size={18} color={colors.azure} />
+              <Text style={styles.addChildBtnText}>Add another child</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Family & Contributors */}
+          <Text style={styles.sectionTitle}>Family & Contributors</Text>
+
+          <View style={styles.card}>
+            {connectionsLoading ? (
+              <ActivityIndicator size="small" color={colors.sky} />
+            ) : contributors.length === 0 && pending.length === 0 ? (
+              <Text style={styles.emptyText}>No family members yet — invite someone below</Text>
+            ) : (
+              <>
+                {contributors.map((c, idx) => (
+                  <View key={c.id}>
+                    <View style={styles.contributorRow}>
+                      <View style={[styles.avatar, { backgroundColor: c.avatar_color || AVATAR_COLORS[idx % AVATAR_COLORS.length] }]}>
+                        <Text style={styles.avatarText}>{c.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.contributorName}>{c.name}</Text>
+                        <Text style={styles.contributorRel}>{c.relationship ?? 'Family'}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                        <Text style={styles.contributorAmount}>{gbp(c.total_contributed)}</Text>
+                        <View style={styles.activeChip}>
+                          <View style={styles.activeDot} />
+                          <Text style={styles.activeChipText}>Active</Text>
+                        </View>
+                      </View>
+                    </View>
+                    {idx < contributors.length - 1 && <View style={styles.rowDivider} />}
+                  </View>
+                ))}
+
+                {pending.length > 0 && (
+                  <>
+                    {contributors.length > 0 && <View style={styles.rowDivider} />}
+                    <Text style={styles.pendingLabel}>Pending invites</Text>
+                    {pending.map(p => (
+                      <View key={p.id} style={styles.contributorRow}>
+                        <View style={[styles.avatar, { backgroundColor: '#e2e8f0' }]}>
+                          <Text style={[styles.avatarText, { color: '#94a3b8' }]}>?</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.contributorName, { color: '#94a3b8' }]}>{p.invited_name}</Text>
+                          <Text style={styles.contributorRel}>{p.sent_to_email}</Text>
+                        </View>
+                        <View style={styles.pendingChip}>
+                          <Text style={styles.pendingChipText}>Pending</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </>
                 )}
               </>
             )}
           </View>
-        ) : (
-          <View style={styles.childCard}>
-            <Text style={styles.emptyText}>No children added yet</Text>
-          </View>
-        )}
 
-        {/* Add another child */}
-        {showAddChild ? (
-          <View style={styles.addChildCard}>
-            <Text style={styles.cardSectionLabel}>Add a child</Text>
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Name</Text>
-              <TextInput
-                style={styles.input}
-                value={newName}
-                onChangeText={setNewName}
-                placeholder="Child's name"
-                placeholderTextColor="#94a3b8"
-                autoCapitalize="words"
-                autoFocus
-              />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Date of birth</Text>
-              <TextInput
-                style={styles.input}
-                value={newDob}
-                onChangeText={setNewDob}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#94a3b8"
-                keyboardType="numbers-and-punctuation"
-              />
-            </View>
-            <View style={styles.inlineBtnRow}>
-              <TouchableOpacity
-                style={[styles.primaryBtn, (!newName.trim() || !newDob.trim() || addingChild) && styles.btnDisabled]}
-                onPress={() => void addChild()}
-                disabled={!newName.trim() || !newDob.trim() || addingChild}
-                activeOpacity={0.85}
-              >
-                {addingChild
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.primaryBtnText}>Add child</Text>}
+          {/* Invite CTA */}
+          {showInvite ? (
+            <View style={styles.inviteSheet}>
+              <Text style={styles.inviteSheetTitle}>Invite a family member</Text>
+              <Text style={styles.inviteSheetLabel}>Their relationship to {selectedChild?.name ?? 'your child'}</Text>
+              <View style={styles.relRow}>
+                {RELATIONSHIPS.map(rel => (
+                  <TouchableOpacity
+                    key={rel}
+                    style={[styles.relPill, relationship === rel && styles.relPillActive]}
+                    onPress={() => setRelationship(rel)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.relPillText, relationship === rel && styles.relPillTextActive]}>{rel}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity style={styles.whatsappBtn} onPress={shareWhatsApp} activeOpacity={0.85}>
+                <Text style={styles.whatsappText}>Share on WhatsApp</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.ghostBtn}
-                onPress={() => { setShowAddChild(false); setNewName(''); setNewDob('') }}
+                onPress={() => { setShowInvite(false); setRelationship('') }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.ghostBtnText}>Cancel</Text>
+                <Text style={[styles.ghostBtnText, { textAlign: 'center' }]}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.addChildBtn} onPress={() => setShowAddChild(true)} activeOpacity={0.7}>
-            <Ionicons name="add-circle-outline" size={18} color={colors.azure} />
-            <Text style={styles.addChildBtnText}>Add another child</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Family & Contributors */}
-        <Text style={styles.sectionTitle}>Family & Contributors</Text>
-
-        <View style={styles.card}>
-          {connectionsLoading ? (
-            <ActivityIndicator size="small" color={colors.sky} />
-          ) : contributors.length === 0 && pending.length === 0 ? (
-            <Text style={styles.emptyText}>No family members yet — invite someone below</Text>
           ) : (
-            <>
-              {contributors.map((c, idx) => (
-                <View key={c.id}>
-                  <View style={styles.contributorRow}>
-                    <View style={[styles.avatar, { backgroundColor: c.avatar_color || AVATAR_COLORS[idx % AVATAR_COLORS.length] }]}>
-                      <Text style={styles.avatarText}>{c.name.charAt(0).toUpperCase()}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.contributorName}>{c.name}</Text>
-                      <Text style={styles.contributorRel}>{c.relationship ?? 'Family'}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                      <Text style={styles.contributorAmount}>{gbp(c.total_contributed)}</Text>
-                      <View style={styles.activeChip}>
-                        <View style={styles.activeDot} />
-                        <Text style={styles.activeChipText}>Active</Text>
-                      </View>
-                    </View>
-                  </View>
-                  {idx < contributors.length - 1 && <View style={styles.rowDivider} />}
-                </View>
-              ))}
-
-              {pending.length > 0 && (
-                <>
-                  {contributors.length > 0 && <View style={styles.rowDivider} />}
-                  <Text style={styles.pendingLabel}>Pending invites</Text>
-                  {pending.map(p => (
-                    <View key={p.id} style={styles.contributorRow}>
-                      <View style={[styles.avatar, { backgroundColor: '#e2e8f0' }]}>
-                        <Text style={[styles.avatarText, { color: '#94a3b8' }]}>?</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.contributorName, { color: '#94a3b8' }]}>{p.invited_name}</Text>
-                        <Text style={styles.contributorRel}>{p.sent_to_email}</Text>
-                      </View>
-                      <View style={styles.pendingChip}>
-                        <Text style={styles.pendingChipText}>Pending</Text>
-                      </View>
-                    </View>
-                  ))}
-                </>
-              )}
-            </>
+            <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowInvite(true)} activeOpacity={0.85}>
+              <Ionicons name="person-add-outline" size={18} color="#ffffff" />
+              <Text style={styles.inviteBtnText}>Invite a family member</Text>
+            </TouchableOpacity>
           )}
-        </View>
 
-        {/* Invite CTA */}
-        {showInvite ? (
-          <View style={styles.inviteSheet}>
-            <Text style={styles.inviteSheetTitle}>Invite a family member</Text>
-            <Text style={styles.inviteSheetLabel}>Their relationship to {selectedChild?.name ?? 'your child'}</Text>
-            <View style={styles.relRow}>
-              {RELATIONSHIPS.map(rel => (
-                <TouchableOpacity
-                  key={rel}
-                  style={[styles.relPill, relationship === rel && styles.relPillActive]}
-                  onPress={() => setRelationship(rel)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.relPillText, relationship === rel && styles.relPillTextActive]}>{rel}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity style={styles.whatsappBtn} onPress={shareWhatsApp} activeOpacity={0.85}>
-              <Text style={styles.whatsappText}>Share on WhatsApp</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.ghostBtn}
-              onPress={() => { setShowInvite(false); setRelationship('') }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.ghostBtnText, { textAlign: 'center' }]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowInvite(true)} activeOpacity={0.85}>
-            <Ionicons name="person-add-outline" size={18} color="#ffffff" />
-            <Text style={styles.inviteBtnText}>Invite a family member</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Contributions */}
-        <Text style={styles.sectionTitle}>Contributions</Text>
-        <View style={styles.card}>
-          <View style={styles.contribTotalRow}>
-            <Text style={styles.contribTotalLabel}>Total for {selectedChild?.name ?? 'this child'}</Text>
-            <Text style={styles.contribTotalAmount}>{gbp(0)}</Text>
-          </View>
-          <View style={styles.rowDivider} />
-          <Text style={styles.emptyText}>No activity yet</Text>
-          <Text style={styles.emptySubText}>
-            Contributions will appear here when family members start contributing
-          </Text>
-        </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
@@ -535,7 +582,10 @@ const styles = StyleSheet.create({
   editChipText: { fontSize: 13, fontWeight: '600', color: colors.azure },
 
   cardDivider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 14 },
-  cardSectionLabel: { fontSize: 13, fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  cardSectionLabel: {
+    fontSize: 13, fontWeight: '700', color: '#64748b',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+  },
 
   // JISA
   jisaBlock: { gap: 6 },
@@ -559,6 +609,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, color: colors.midnight, backgroundColor: '#ffffff',
   },
+  // 3-field DOB
+  dobRow: { flexDirection: 'row', gap: 8 },
+  dobDay: { width: 60 },
+  dobMonth: { width: 60 },
+  dobYear: { flex: 1 },
+
   inlineBtnRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   primaryBtn: {
     flex: 1, backgroundColor: colors.azure, borderRadius: 12,
@@ -613,15 +669,20 @@ const styles = StyleSheet.create({
   contributorName: { fontSize: 15, fontWeight: '700', color: colors.midnight },
   contributorRel: { fontSize: 13, color: '#64748b', marginTop: 1 },
   contributorAmount: { fontSize: 15, fontWeight: '700', color: colors.midnight },
-  activeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#dcfce7', borderRadius: 100, paddingHorizontal: 8, paddingVertical: 3 },
+  activeChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#dcfce7', borderRadius: 100, paddingHorizontal: 8, paddingVertical: 3,
+  },
   activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16a34a' },
   activeChipText: { fontSize: 11, fontWeight: '600', color: '#16a34a' },
   rowDivider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 4 },
-  pendingLabel: { fontSize: 12, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginVertical: 8 },
+  pendingLabel: {
+    fontSize: 12, fontWeight: '700', color: '#94a3b8',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginVertical: 8,
+  },
   pendingChip: { backgroundColor: '#fef3c7', borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 },
   pendingChipText: { fontSize: 11, fontWeight: '600', color: '#d97706' },
   emptyText: { fontSize: 14, color: '#94a3b8', textAlign: 'center', paddingVertical: 8 },
-  emptySubText: { fontSize: 12, color: '#94a3b8', textAlign: 'center', lineHeight: 18, marginTop: 4 },
 
   // Invite sheet
   inviteSheet: {
@@ -655,9 +716,4 @@ const styles = StyleSheet.create({
     paddingVertical: 16, marginHorizontal: 16, marginBottom: 20,
   },
   inviteBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-
-  // Contributions
-  contribTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  contribTotalLabel: { fontSize: 14, fontWeight: '600', color: '#64748b' },
-  contribTotalAmount: { fontSize: 20, fontWeight: '800', color: colors.midnight },
 })

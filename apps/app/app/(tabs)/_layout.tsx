@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router'
 import { Text } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { colors } from '@/constants/brand'
+import { SelectedChildProvider } from '@/lib/SelectedChildContext'
 
 function EmojiIcon({ emoji, color }: { emoji: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{emoji}</Text>
@@ -9,6 +10,7 @@ function EmojiIcon({ emoji, color }: { emoji: string; color: string }) {
 
 export default function TabsLayout() {
   return (
+    <SelectedChildProvider>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -62,5 +64,6 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="pot" options={{ href: null }} />
     </Tabs>
+    </SelectedChildProvider>
   )
 }

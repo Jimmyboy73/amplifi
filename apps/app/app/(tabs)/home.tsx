@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
 import { colors } from '@/constants/brand'
 import { useHandle } from '@/lib/useHandle'
+import { useSelectedChild } from '@/lib/SelectedChildContext'
 import { Ionicons } from '@expo/vector-icons'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -75,8 +76,8 @@ export default function HomeScreen() {
     }, [refetchHandle])
   )
 
-  // Selected child
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
+  // Selected child (shared across tabs via context)
+  const { selectedChildId, setSelectedChildId } = useSelectedChild()
 
   useEffect(() => {
     if (children.length > 0 && selectedChildId === null) {
