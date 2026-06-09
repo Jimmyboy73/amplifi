@@ -35,7 +35,7 @@ const PROVIDERS = [
 
 export default function IsaLinkScreen() {
   const router = useRouter()
-  const { childName, childId } = useLocalSearchParams<{ childName: string; childId: string }>()
+  const { childName, childId, source } = useLocalSearchParams<{ childName: string; childId: string; source?: string }>()
   const name = typeof childName === 'string' && childName.length > 0 ? childName : 'your child'
   const cid = typeof childId === 'string' ? childId : ''
 
@@ -74,10 +74,11 @@ export default function IsaLinkScreen() {
     }
 
     setSubmitting(false)
-    router.push({
-      pathname: '/(auth)/card',
-      params: { childName: name, childId: cid },
-    })
+    if (source === 'family') {
+      router.replace('/(tabs)/family')
+    } else {
+      router.push({ pathname: '/(auth)/card', params: { childName: name, childId: cid } })
+    }
   }
 
   return (

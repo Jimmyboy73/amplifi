@@ -419,7 +419,7 @@ export default function FamilyScreen() {
                       ) : (
                         <View style={styles.noJisa}>
                           <Text style={styles.noJisaText}>No ISA linked yet</Text>
-                          <TouchableOpacity style={styles.linkIsaBtn} onPress={() => router.push({ pathname: '/(auth)/isa-link', params: { childId: selectedChild.id, childName: selectedChild.name } })} activeOpacity={0.85}>
+                          <TouchableOpacity style={styles.linkIsaBtn} onPress={() => router.push({ pathname: '/(auth)/isa-link', params: { childId: selectedChild.id, childName: selectedChild.name, source: 'family' } })} activeOpacity={0.85}>
                             <Text style={styles.linkIsaBtnText}>Link ISA →</Text>
                           </TouchableOpacity>
                         </View>
