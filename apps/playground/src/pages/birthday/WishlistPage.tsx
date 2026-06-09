@@ -8,10 +8,9 @@ interface Wishlist {
   id: string
   owner_id: string
   occasion: string
-  occasion_date: string
+  occasion_date: string | null
   total_target: number
   total_pledged: number
-  payment_method: string
   child_id: string
 }
 
@@ -21,14 +20,21 @@ interface WishlistItem {
   retailer: string | null
   target_amount: number
   pledged_amount: number
-  emoji: string
+  emoji: string | null
 }
 
-interface OwnerPayment {
-  pay_monzo: string | null
-  pay_paypal: string | null
-  pay_revolut: string | null
-  pay_bank: string | null
+interface Pledge {
+  id: string
+  wishlist_item_id: string
+  pledger_name: string | null
+  amount: number
+}
+
+interface OwnerData {
+  handle: string | null
+  jisa_sort_code: string | null
+  jisa_account_number: string | null
+  jisa_reference: string | null
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -37,12 +43,46 @@ function gbp(n: number): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'GBP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(n)
 }
 
-function CopyButton({ value }: { value: string }) {
+function daysUntil(dateStr: string | null): number {
+  if (!dateStr) return 0
+  const target = new Date(dateStr)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  target.setHours(0, 0, 0, 0)
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function countdownLabel(days: number): string {
+  if (days < 0) return 'Has passed'
+  if (days === 0) return 'Today! 🎉'
+  if (days === 1) return 'Tomorrow!'
+  return `${days} days to go`
+}
+
+function formatSortCode(raw: string): string {
+  const d = raw.replace(/\D/g, '')
+  if (d.length < 6) return raw
+  return `${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4, 6)}`
+}
+
+function setMetaTag(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('property', property)
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', content)
+}
+
+// ── CopyButton ─────────────────────────────────────────────────────────────────
+
+function CopyButton({ value, display }: { value: string; display?: string }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = async () => {
     await navigator.clipboard.writeText(value)
@@ -52,9 +92,10 @@ function CopyButton({ value }: { value: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="ml-auto shrink-0 text-xs font-bold text-azure hover:opacity-75 transition-opacity px-2 py-1 rounded-lg bg-azure/10"
+      className="shrink-0 text-xs font-bold text-azure hover:opacity-75 transition-opacity px-2.5 py-1 rounded-lg"
+      style={{ backgroundColor: 'rgba(64,123,191,0.12)' }}
     >
-      {copied ? '✓' : 'Copy'}
+      {copied ? '✓' : (display ?? 'Copy')}
     </button>
   )
 }
@@ -62,95 +103,140 @@ function CopyButton({ value }: { value: string }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function WishlistPage() {
-  const { id } = useParams<{ id: string }>()
+  // Support both /wishlist/:wishlistId and the legacy /birthday/:id route
+  const params = useParams<{ wishlistId?: string; id?: string }>()
+  const resolvedId = params.wishlistId ?? params.id
   const [searchParams] = useSearchParams()
-  const refCode = searchParams.get('ref')
+  const refHandle = searchParams.get('ref')
 
   const [wishlist, setWishlist] = useState<Wishlist | null>(null)
   const [items, setItems] = useState<WishlistItem[]>([])
+  const [pledges, setPledges] = useState<Pledge[]>([])
   const [childName, setChildName] = useState<string | null>(null)
-  const [ownerPayment, setOwnerPayment] = useState<OwnerPayment | null>(null)
+  const [ownerData, setOwnerData] = useState<OwnerData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [contributeOpen, setContributeOpen] = useState(false)
-  const [codeCopied, setCodeCopied] = useState(false)
 
-  // Persist ref code to localStorage immediately
-  useEffect(() => {
-    if (refCode) {
-      localStorage.setItem('amplifi_ref_code', refCode)
-    }
-  }, [refCode])
+  // Pledge flow
+  const [claimingItemId, setClaimingItemId] = useState<string | null>(null)
+  const [pledgerName, setPledgerName] = useState('')
+  const [pledging, setPledging] = useState(false)
+  const [claimedLocally, setClaimedLocally] = useState<Record<string, string>>({})
 
+  // Pot contribution
+  const [potAmount, setPotAmount] = useState<number | null>(null)
+  const [showIsaDetails, setShowIsaDetails] = useState(false)
+
+  // Persist ref code
   useEffect(() => {
-    if (!id) return
+    if (refHandle) localStorage.setItem('amplifi_ref_code', refHandle)
+  }, [refHandle])
+
+  // Fetch all data
+  useEffect(() => {
+    if (!resolvedId) return
 
     const fetchData = async () => {
       const { data: wl } = await supabase
         .from('wishlists')
-        .select('id, owner_id, occasion, occasion_date, total_target, total_pledged, payment_method, child_id')
-        .eq('id', id)
+        .select('id, owner_id, occasion, occasion_date, total_target, total_pledged, child_id')
+        .eq('id', resolvedId)
         .single()
 
-      if (!wl) {
-        setLoading(false)
-        return
-      }
-
+      if (!wl) { setLoading(false); return }
       setWishlist(wl)
 
-      // Fetch child name — silently skipped if RLS blocks it
-      const { data: child } = await supabase
-        .from('children')
-        .select('name')
-        .eq('id', wl.child_id)
-        .single()
+      // Parallel: child name, owner profile, wishlist items
+      const [{ data: child }, { data: profile }, { data: wlItems }] = await Promise.all([
+        supabase.from('children').select('name').eq('id', wl.child_id).single(),
+        supabase.from('profiles').select('handle').eq('id', wl.owner_id).single(),
+        supabase.from('wishlist_items')
+          .select('id, name, retailer, target_amount, pledged_amount, emoji')
+          .eq('wishlist_id', resolvedId),
+      ])
 
-      if (child?.name) setChildName(child.name)
+      const name = (child as { name: string } | null)?.name ?? null
+      const handle = (profile as { handle: string | null } | null)?.handle ?? null
+      if (name) setChildName(name)
 
-      // Fetch owner payment methods — silently skipped if RLS blocks it
-      if (wl.owner_id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('pay_monzo, pay_paypal, pay_revolut, pay_bank')
-          .eq('id', wl.owner_id)
-          .single()
+      const itemsList = (wlItems ?? []) as WishlistItem[]
+      setItems(itemsList)
 
-        if (profile) setOwnerPayment(profile)
+      // JISA details for pot contribution section
+      let jisaSortCode: string | null = null
+      let jisaAccountNumber: string | null = null
+      let jisaReference: string | null = null
+
+      const { data: jisa } = await supabase
+        .from('jisa_accounts')
+        .select('sort_code, account_number, payment_reference')
+        .eq('child_id', wl.child_id)
+        .maybeSingle()
+
+      if (jisa) {
+        const j = jisa as { sort_code: string; account_number: string; payment_reference: string }
+        jisaSortCode = j.sort_code
+        jisaAccountNumber = j.account_number
+        jisaReference = j.payment_reference
       }
 
-      const { data: wlItems } = await supabase
-        .from('wishlist_items')
-        .select('id, name, retailer, target_amount, pledged_amount, emoji')
-        .eq('wishlist_id', id)
+      setOwnerData({ handle, jisa_sort_code: jisaSortCode, jisa_account_number: jisaAccountNumber, jisa_reference: jisaReference })
 
-      if (wlItems) setItems(wlItems)
+      // Fetch pledges
+      if (itemsList.length > 0) {
+        const { data: pledgeData } = await supabase
+          .from('pledges')
+          .select('id, wishlist_item_id, pledger_name, amount')
+          .in('wishlist_item_id', itemsList.map(i => i.id))
+        if (pledgeData) setPledges(pledgeData as Pledge[])
+      }
+
       setLoading(false)
     }
 
-    fetchData()
-  }, [id])
+    void fetchData()
+  }, [resolvedId])
 
-  const handleCopyCode = async () => {
-    if (!refCode) return
-    await navigator.clipboard.writeText(refCode)
-    setCodeCopied(true)
-    setTimeout(() => setCodeCopied(false), 2000)
+  // OG meta tags (best-effort for social previews)
+  useEffect(() => {
+    if (!wishlist || !childName) return
+    const title = `${childName}'s ${wishlist.occasion} Wishlist`
+    const days = daysUntil(wishlist.occasion_date)
+    const description = days > 0
+      ? `${countdownLabel(days)} — see what ${childName} would love for their ${wishlist.occasion}.`
+      : `See what ${childName} would love for their ${wishlist.occasion}.`
+    document.title = title
+    setMetaTag('og:title', title)
+    setMetaTag('og:description', description)
+    setMetaTag('og:type', 'website')
+  }, [wishlist, childName])
+
+  // Claim an item
+  const handleClaim = async (item: WishlistItem) => {
+    if (!pledgerName.trim() || pledging) return
+    setPledging(true)
+    try {
+      await supabase.from('pledges').insert({
+        wishlist_item_id: item.id,
+        pledger_name: pledgerName.trim(),
+        amount: item.target_amount,
+      })
+    } catch {
+      // silently absorb — UI already updates optimistically
+    }
+    setClaimedLocally(prev => ({ ...prev, [item.id]: pledgerName.trim() }))
+    setClaimingItemId(null)
+    setPledgerName('')
+    setPledging(false)
   }
-
-  const hasMonzo   = !!ownerPayment?.pay_monzo
-  const hasPaypal  = !!ownerPayment?.pay_paypal
-  const hasRevolut = !!ownerPayment?.pay_revolut
-  const hasBank    = !!ownerPayment?.pay_bank
-  const hasAnyPayment = hasMonzo || hasPaypal || hasRevolut || hasBank
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-offwhite flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f8fafc' }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-sky border-t-transparent animate-spin" />
-          <p className="text-midnight/60 text-sm font-medium">Loading wishlist…</p>
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#59C9E9', borderTopColor: 'transparent' }} />
+          <p className="text-sm font-medium" style={{ color: 'rgba(16,22,40,0.5)' }}>Loading wishlist…</p>
         </div>
       </div>
     )
@@ -160,241 +246,311 @@ export default function WishlistPage() {
 
   if (!wishlist) {
     return (
-      <div className="min-h-screen bg-offwhite flex items-center justify-center px-6">
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ backgroundColor: '#f8fafc' }}>
         <div className="text-center">
-          <p className="text-4xl mb-4">🎁</p>
-          <h1 className="text-2xl font-extrabold text-midnight mb-2">Wishlist not found</h1>
-          <p className="text-slate-500 text-sm">This link may have expired or the wishlist was removed.</p>
+          <p className="text-5xl mb-4">🎁</p>
+          <h1 className="text-2xl font-extrabold mb-2" style={{ color: '#101628' }}>Wishlist not found</h1>
+          <p className="text-sm" style={{ color: '#64748b' }}>This link may have expired or the wishlist was removed.</p>
         </div>
       </div>
     )
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Derived ────────────────────────────────────────────────────────────────
 
   const name = childName ?? 'They'
   const occasion = wishlist.occasion
+  const days = daysUntil(wishlist.occasion_date)
+  const handle = ownerData?.handle ?? null
+  const hasJisa = !!(ownerData?.jisa_sort_code)
+  const signupUrl = `https://letsamplifi.com/signup${handle ? `?ref=${handle}` : ''}`
 
-  const bannerLabel = occasion.toLowerCase() === 'birthday'
-    ? 'BIRTHDAY WISHLIST'
-    : occasion.toLowerCase() === 'christmas'
-      ? 'CHRISTMAS WISHLIST'
-      : `${occasion.toUpperCase()} WISHLIST`
+  const getClaimedBy = (item: WishlistItem): string | null => {
+    if (claimedLocally[item.id]) return claimedLocally[item.id]
+    const pledge = pledges.find(p => p.wishlist_item_id === item.id)
+    if (pledge) return pledge.pledger_name ?? 'Someone'
+    return null
+  }
+
+  const isClaimed = (item: WishlistItem): boolean => {
+    return getClaimedBy(item) !== null || item.pledged_amount >= item.target_amount
+  }
 
   return (
-    <div className="min-h-screen bg-offwhite font-jakarta">
+    <div className="min-h-screen font-jakarta" style={{ backgroundColor: '#f8fafc' }}>
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="bg-midnight px-4 pt-10 pb-8 text-center">
-        <p className="text-sky text-xs font-bold uppercase tracking-widest mb-3">
-          {bannerLabel}
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <div
+        className="relative text-center px-6 pt-14 pb-12 overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #101628 0%, #1b2e50 100%)' }}
+      >
+        {/* Decorative accent blobs */}
+        <div
+          className="absolute -top-12 -right-12 w-56 h-56 rounded-full opacity-10"
+          style={{ backgroundColor: '#59C9E9' }}
+        />
+        <div
+          className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full opacity-10"
+          style={{ backgroundColor: '#407BBF' }}
+        />
+
+        <p
+          className="text-xs font-bold uppercase tracking-[0.22em] mb-4"
+          style={{ color: '#59C9E9' }}
+        >
+          {occasion.toUpperCase()} WISHLIST
         </p>
-        <h1 className="text-white text-3xl font-extrabold leading-tight">
-          You're invited to {name}'s {occasion}
+
+        <h1 className="text-white text-4xl font-extrabold leading-tight tracking-tight mb-5">
+          {name}'s<br />{occasion} Wishlist
         </h1>
-      </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-
-        {/* ── Intro copy ────────────────────────────────────────────────── */}
-        <div className="space-y-3 pt-1">
-          <p className="text-midnight text-sm leading-relaxed">
-            {name}'s having a {occasion} and it'd be great to see you there.
-            If you'd like to bring something, here's {name}'s wishlist — but
-            there's absolutely no obligation. Coming along is more than enough.
-          </p>
-        </div>
-
-        {/* ── Items ─────────────────────────────────────────────────────── */}
-        {items.length > 0 && (
-          <>
-            <h2 className="text-midnight font-bold text-base pt-1">What {name} is hoping for</h2>
-            {items.map((item) => {
-              const pct = item.target_amount > 0
-                ? Math.min(item.pledged_amount / item.target_amount, 1) * 100
-                : 0
-              return (
-                <div
-                  key={item.id}
-                  className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-midnight text-sm leading-snug">
-                        {item.emoji} {item.name}
-                      </p>
-                      {item.retailer && (
-                        <p className="text-slate-400 text-xs mt-0.5">{item.retailer}</p>
-                      )}
-                    </div>
-                    <p className="text-sm font-bold text-midnight ml-3 shrink-0">
-                      {gbp(item.target_amount)}
-                    </p>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-1.5 bg-sky rounded-full transition-all duration-500"
-                      style={{ width: `${pct.toFixed(0)}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </>
-        )}
-
-        {/* ── JISA note ─────────────────────────────────────────────────── */}
-        <p className="text-slate-500 text-sm leading-relaxed">
-          {name} is set up on Amplifi so that anything extra automatically goes
-          into {name}'s Junior ISA — a savings account that stays invested for{' '}
-          {name}'s future.
-        </p>
-
-        {/* ── Contribute now accordion ──────────────────────────────────── */}
-        <div>
-          <button
-            onClick={() => setContributeOpen((v) => !v)}
-            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm transition-opacity hover:opacity-90 active:opacity-75"
-            style={{ backgroundColor: '#407BBF' }}
+        {wishlist.occasion_date && (
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 border"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              borderColor: 'rgba(255,255,255,0.18)',
+            }}
           >
-            Contribute now
-          </button>
-
-          {contributeOpen && (
-            <div className="mt-2 bg-white rounded-2xl border border-slate-100 overflow-hidden">
-              {!hasAnyPayment ? (
-                <p className="text-slate-500 text-sm px-4 py-4">
-                  The family hasn't added payment details yet.
-                </p>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {hasBank && (() => {
-                    const raw = ownerPayment!.pay_bank!
-                    if (!raw.includes('|')) {
-                      // Old format — display raw string with a single copy button
-                      return (
-                        <div className="flex items-center gap-3 px-4 py-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                              🏦 Bank transfer
-                            </p>
-                            <p className="text-sm font-semibold text-midnight break-all">{raw}</p>
-                          </div>
-                          <CopyButton value={raw} />
-                        </div>
-                      )
-                    }
-                    const [bn, an, sc, acn] = raw.split('|')
-                    return (
-                      <div className="px-4 py-3 space-y-2">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                          🏦 Bank transfer
-                        </p>
-                        {bn && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400 w-28 shrink-0">Bank</span>
-                            <span className="text-sm font-semibold text-midnight flex-1">{bn}</span>
-                            <CopyButton value={bn} />
-                          </div>
-                        )}
-                        {an && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400 w-28 shrink-0">Account name</span>
-                            <span className="text-sm font-semibold text-midnight flex-1">{an}</span>
-                            <CopyButton value={an} />
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400 w-28 shrink-0">Sort code</span>
-                          <span className="text-sm font-semibold text-midnight flex-1">{sc}</span>
-                          <CopyButton value={sc} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400 w-28 shrink-0">Account number</span>
-                          <span className="text-sm font-semibold text-midnight flex-1">{acn}</span>
-                          <CopyButton value={acn} />
-                        </div>
-                      </div>
-                    )
-                  })()}
-                  {hasMonzo && (
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                          💸 Monzo
-                        </p>
-                        <p className="text-sm font-semibold text-midnight">
-                          {ownerPayment!.pay_monzo}
-                        </p>
-                      </div>
-                      <CopyButton value={ownerPayment!.pay_monzo!} />
-                    </div>
-                  )}
-                  {hasPaypal && (
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                          🅿️ PayPal
-                        </p>
-                        <p className="text-sm font-semibold text-midnight">
-                          {ownerPayment!.pay_paypal}
-                        </p>
-                      </div>
-                      <CopyButton value={ownerPayment!.pay_paypal!} />
-                    </div>
-                  )}
-                  {hasRevolut && (
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                          💜 Revolut
-                        </p>
-                        <p className="text-sm font-semibold text-midnight">
-                          {ownerPayment!.pay_revolut}
-                        </p>
-                      </div>
-                      <CopyButton value={ownerPayment!.pay_revolut!} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Divider ───────────────────────────────────────────────────── */}
-        {refCode && <hr className="border-slate-200" />}
-
-        {/* ── Referral callout ──────────────────────────────────────────── */}
-        {refCode && (
-          <div className="bg-midnight rounded-2xl p-5">
-            <p className="text-white font-bold text-base mb-2">
-              Here's £5 for your child's future
-            </p>
-            <p className="text-white/80 text-sm leading-relaxed mb-4">
-              Sign up to Amplifi and use this code when you create your account.
-              You'll get £5 credited to your child's Junior ISA when you link a
-              savings account.
-            </p>
-            <div className="bg-white/10 rounded-xl px-4 py-3 text-center mb-3">
-              <span className="text-sky font-extrabold text-3xl tracking-[0.25em]">
-                {refCode}
-              </span>
-            </div>
-            <button
-              onClick={handleCopyCode}
-              className="w-full bg-sky text-midnight font-bold py-3 rounded-xl text-sm hover:opacity-90 active:opacity-75 transition-opacity"
-            >
-              {codeCopied ? '✓ Copied!' : `Copy code: ${refCode}`}
-            </button>
+            <span className="text-base">🎂</span>
+            <span className="text-white font-bold text-sm">{countdownLabel(days)}</span>
           </div>
         )}
+      </div>
 
-        {/* ── Footer ────────────────────────────────────────────────────── */}
-        <div className="text-center pt-2 pb-10">
+      {/* ── Body ──────────────────────────────────────────────────────────── */}
+      <div className="max-w-lg mx-auto px-4 py-7 space-y-6">
+
+        {/* ── Wishes list ─────────────────────────────────────────────────── */}
+        {items.length > 0 && (
+          <section>
+            <h2 className="font-extrabold text-lg mb-4" style={{ color: '#101628' }}>
+              What {name} would love 🎁
+            </h2>
+            <div className="space-y-3">
+              {items.map((item) => {
+                const claimedBy = getClaimedBy(item)
+                const claimed = isClaimed(item)
+                const isClaiming = claimingItemId === item.id
+
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-2xl overflow-hidden"
+                    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.07)', border: '1px solid #f1f5f9' }}
+                  >
+                    <div className="p-4">
+                      {/* Item header */}
+                      <div className="flex items-start gap-3">
+                        <span className="text-3xl leading-none mt-0.5 shrink-0">
+                          {item.emoji || '🎁'}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-base leading-snug" style={{ color: '#101628' }}>
+                            {item.name}
+                          </p>
+                          {item.retailer && (
+                            <p className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>{item.retailer}</p>
+                          )}
+                        </div>
+                        <p className="font-extrabold text-lg shrink-0 ml-2" style={{ color: '#101628' }}>
+                          {gbp(item.target_amount)}
+                        </p>
+                      </div>
+
+                      {/* Claim state */}
+                      <div className="mt-3">
+                        {claimed ? (
+                          <div
+                            className="flex items-center gap-2.5 rounded-xl px-4 py-2.5"
+                            style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}
+                          >
+                            <span className="font-bold text-base" style={{ color: '#16a34a' }}>✓</span>
+                            <span className="text-sm font-semibold" style={{ color: '#15803d' }}>
+                              {claimedBy ? `Claimed by ${claimedBy}` : 'Claimed ✓'}
+                            </span>
+                          </div>
+                        ) : isClaiming ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              placeholder="Your name"
+                              value={pledgerName}
+                              onChange={e => setPledgerName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') void handleClaim(item) }}
+                              autoFocus
+                              className="w-full border rounded-xl px-4 py-2.5 text-sm placeholder-slate-400 focus:outline-none transition-colors"
+                              style={{
+                                borderColor: '#e2e8f0',
+                                color: '#101628',
+                              }}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => void handleClaim(item)}
+                                disabled={!pledgerName.trim() || pledging}
+                                className="flex-1 font-bold py-2.5 rounded-xl text-sm transition-opacity"
+                                style={{
+                                  backgroundColor: '#101628',
+                                  color: '#ffffff',
+                                  opacity: (!pledgerName.trim() || pledging) ? 0.4 : 1,
+                                }}
+                              >
+                                {pledging ? '…' : "I'll get this ✓"}
+                              </button>
+                              <button
+                                onClick={() => { setClaimingItemId(null); setPledgerName('') }}
+                                className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                                style={{ border: '1px solid #e2e8f0', color: '#64748b', backgroundColor: '#ffffff' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setClaimingItemId(item.id)}
+                            className="w-full font-bold py-2.5 rounded-xl text-sm transition-colors"
+                            style={{
+                              border: '2px solid #101628',
+                              color: '#101628',
+                              backgroundColor: 'transparent',
+                            }}
+                            onMouseEnter={e => {
+                              (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#101628'
+                              ;(e.currentTarget as HTMLButtonElement).style.color = '#ffffff'
+                            }}
+                            onMouseLeave={e => {
+                              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'
+                              ;(e.currentTarget as HTMLButtonElement).style.color = '#101628'
+                            }}
+                          >
+                            I'll get this 🎁
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Contribute to the pot ────────────────────────────────────────── */}
+        <section
+          className="rounded-2xl p-5"
+          style={{ backgroundColor: '#ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', border: '1px solid #f1f5f9' }}
+        >
+          <h2 className="font-extrabold text-base mb-1" style={{ color: '#101628' }}>
+            Rather give to {name}'s savings? 💙
+          </h2>
+          <p className="text-sm leading-relaxed mb-5" style={{ color: '#64748b' }}>
+            Any cash goes straight into {name}'s Junior ISA — building their future for when it matters most.
+          </p>
+
+          {/* Amount pills */}
+          <div className="flex gap-2 flex-wrap mb-5">
+            {[10, 25, 50].map(amt => (
+              <button
+                key={amt}
+                onClick={() => setPotAmount(potAmount === amt ? null : amt)}
+                className="px-5 py-2 rounded-full font-bold text-sm transition-colors"
+                style={{
+                  backgroundColor: potAmount === amt ? '#101628' : '#ffffff',
+                  color: potAmount === amt ? '#ffffff' : '#101628',
+                  border: potAmount === amt ? '1px solid #101628' : '1px solid #e2e8f0',
+                }}
+              >
+                £{amt}
+              </button>
+            ))}
+            <button
+              onClick={() => setPotAmount(null)}
+              className="px-5 py-2 rounded-full font-bold text-sm transition-colors"
+              style={{ border: '1px solid #e2e8f0', color: '#64748b', backgroundColor: '#ffffff' }}
+            >
+              Other
+            </button>
+          </div>
+
+          {/* ISA bank details */}
+          {hasJisa ? (
+            <>
+              {!showIsaDetails ? (
+                <button
+                  onClick={() => setShowIsaDetails(true)}
+                  className="w-full py-3 rounded-xl font-bold text-sm text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: '#407BBF' }}
+                >
+                  Show ISA details →
+                </button>
+              ) : (
+                <div className="rounded-xl p-4 space-y-2.5" style={{ backgroundColor: '#f8fafc' }}>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>
+                    Junior ISA — bank details
+                  </p>
+                  {([
+                    { label: 'Sort code', value: formatSortCode(ownerData!.jisa_sort_code!), raw: ownerData!.jisa_sort_code! },
+                    { label: 'Account number', value: ownerData!.jisa_account_number!, raw: ownerData!.jisa_account_number! },
+                    { label: 'Reference', value: ownerData!.jisa_reference!, raw: ownerData!.jisa_reference! },
+                  ]).map(f => (
+                    <div key={f.label} className="flex items-center gap-2">
+                      <span className="text-xs w-28 shrink-0" style={{ color: '#94a3b8' }}>{f.label}</span>
+                      <span className="text-sm font-bold flex-1" style={{ color: '#101628' }}>{f.value}</span>
+                      <CopyButton value={f.raw} />
+                    </div>
+                  ))}
+                  <p className="text-xs pt-1" style={{ color: '#94a3b8' }}>
+                    Set up a standing order in your banking app using the details above.
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div
+              className="rounded-xl p-4 text-sm text-center"
+              style={{ backgroundColor: '#f8fafc', color: '#94a3b8' }}
+            >
+              ISA details not yet added — check back soon or ask {name}'s parent for their bank details.
+            </div>
+          )}
+        </section>
+
+        {/* ── Join Amplifi ──────────────────────────────────────────────────── */}
+        <section
+          className="rounded-2xl p-6 text-center"
+          style={{ background: 'linear-gradient(135deg, #101628 0%, #1b3260 100%)' }}
+        >
+          <p className="text-3xl mb-3">✨</p>
+          <h2 className="font-extrabold text-base mb-2" style={{ color: '#ffffff' }}>
+            Want to be part of {name}'s journey?
+          </h2>
+          <p className="text-sm leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.65)' }}>
+            Join Amplifi and earn cashback on everything you buy — automatically
+            invested into your child's Junior ISA.
+          </p>
+          <a
+            href={signupUrl}
+            className="block w-full py-3.5 rounded-xl font-extrabold text-sm transition-opacity hover:opacity-90"
+            style={{ backgroundColor: '#59C9E9', color: '#101628' }}
+          >
+            Join Amplifi — it's free →
+          </a>
+          {handle && (
+            <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Already have Amplifi? Search for @{handle}
+            </p>
+          )}
+        </section>
+
+        {/* ── Footer ───────────────────────────────────────────────────────── */}
+        <div className="text-center pb-8">
           <a
             href="https://letsamplifi.com"
-            className="text-sm text-sky font-semibold hover:underline underline-offset-2"
+            className="text-sm transition-colors hover:opacity-80"
+            style={{ color: '#94a3b8' }}
           >
             Learn more about Amplifi →
           </a>

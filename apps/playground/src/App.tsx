@@ -13,6 +13,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/plan" element={<Plan />} />
       <Route path="/plan/report" element={<Report />} />
+      <Route path="/wishlist/:wishlistId" element={<WishlistPage />} />
       <Route path="/birthday/:id" element={<WishlistPage />} />
       <Route path="/family/:childId" element={<FamilyPage />} />
       {/* Operator tooling — not linked from public nav */}

@@ -171,13 +171,8 @@ export default function BirthdayHomeScreen() {
   }
 
   const shareWishlist = (w: Wishlist) => {
-    const itemList = w.items.map((i) => `• ${i.name} (${i.retailer})`).join('\n')
-    const shareUrl = `https://amplifi-plan.netlify.app/birthday/${w.id}${handle ? `?ref=${handle}` : ''}`
-    const msg =
-      `${w.childName}'s ${w.occasion} wishlist is live! 🎂\n\n` +
-      `She'd love:\n${itemList}\n\n` +
-      `Send contributions to ${w.paymentMethod}\n\n` +
-      `View her wishlist: ${shareUrl}`
+    const shareUrl = `https://amplifi-plan.netlify.app/wishlist/${w.id}${handle ? `?ref=${handle}` : ''}`
+    const msg = `${w.childName}'s ${w.occasion} is coming up! 🎁 Here's their wishlist — tap to see what they'd love: ${shareUrl}`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share.')
     )

@@ -283,12 +283,8 @@ export default function ManageWishlistScreen() {
   }
 
   const handleShareReminder = () => {
-    const itemNames = items.map((i) => i.name).join(' and ')
-    const msg =
-      `${childName}'s ${wishlist?.occasion ?? 'birthday'} wishlist is live! 🎂 ` +
-      `She'd love ${itemNames}. ` +
-      `Send your contribution to ${wishlist?.payment_method ?? ''} on Monzo. ` +
-      `View her wishlist here: https://amplifi-plan.netlify.app/birthday/${id}${handle ? `?ref=${handle}` : ''}`
+    const shareUrl = `https://amplifi-plan.netlify.app/wishlist/${id}${handle ? `?ref=${handle}` : ''}`
+    const msg = `${childName}'s ${wishlist?.occasion ?? 'birthday'} is coming up! 🎁 Here's their wishlist — tap to see what they'd love: ${shareUrl}`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share.')
     )
