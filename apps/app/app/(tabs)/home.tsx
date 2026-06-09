@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -129,15 +129,17 @@ export default function HomeScreen() {
       })
   }, [selectedChildId, childrenLoading])
 
-  // Slider animation
+  // Slider animation — runs once per session only
   const [sliderValue, setSliderValue] = useState(20)
+  const hasAnimatedSlider = useRef(false)
 
   useEffect(() => {
     if (wallet) setSliderValue(wallet.balance > 0 ? wallet.balance : 20)
   }, [wallet])
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || hasAnimatedSlider.current) return
+    hasAnimatedSlider.current = true
     let current = 10
     const target = 50
     const steps = 40
