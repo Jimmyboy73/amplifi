@@ -76,6 +76,8 @@ export default function IsaLinkScreen() {
     setSubmitting(false)
     if (source === 'family') {
       router.replace('/(tabs)/family')
+    } else if (source === 'home') {
+      router.replace('/(tabs)/home')
     } else {
       router.push({ pathname: '/(auth)/card', params: { childName: name, childId: cid } })
     }

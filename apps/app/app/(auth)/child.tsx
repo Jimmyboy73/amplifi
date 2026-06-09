@@ -118,16 +118,7 @@ export default function ChildScreen() {
     }
 
     setSubmitting(false)
-    router.push({
-      pathname: '/(auth)/isa-status',
-      params: {
-        childName: trimmedName,
-        childId: childData.id,
-        childDobDay: dobDay,
-        childDobMonth: dobMonth,
-        childDobYear: dobYear,
-      },
-    })
+    router.replace('/(tabs)/home')
   }
 
   return (
@@ -142,7 +133,7 @@ export default function ChildScreen() {
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
             <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.progress}>3 of 8</Text>
+          <Text style={styles.progress}>5 of 5</Text>
         </View>
 
         <Text style={styles.headline}>Who are we investing for?</Text>

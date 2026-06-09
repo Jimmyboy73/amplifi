@@ -74,7 +74,7 @@ export default function HandleOnboardingScreen() {
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
             <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.progress}>3 of 9</Text>
+          <Text style={styles.progress}>4 of 5</Text>
         </View>
 
         <Text style={styles.headline}>Choose your handle</Text>

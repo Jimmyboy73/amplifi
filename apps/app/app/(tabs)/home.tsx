@@ -77,7 +77,8 @@ export default function HomeScreen() {
       refetchHandle()
       void refetchChildren()
       void refetchConnections()
-    }, [refetchHandle, refetchChildren, refetchConnections])
+      void refetchGettingStarted()
+    }, [refetchHandle, refetchChildren, refetchConnections, refetchGettingStarted])
   )
 
   // Selected child (shared across tabs via context)
@@ -127,6 +128,33 @@ export default function HomeScreen() {
         setContributions((data ?? []) as typeof contributions)
         setIsLoading(false)
       })
+  }, [selectedChildId, childrenLoading])
+
+  // Getting Started card data
+  const [hasJisa, setHasJisa] = useState(false)
+  const [approvedFamilyCount, setApprovedFamilyCount] = useState(0)
+  const [hasWishlists, setHasWishlists] = useState(false)
+  const [gettingStartedLoaded, setGettingStartedLoaded] = useState(false)
+
+  const refetchGettingStarted = useCallback(async () => {
+    if (!user || !selectedChildId) return
+    const [jisaRes, connRes, wlRes] = await Promise.all([
+      supabase.from('jisa_accounts').select('id').eq('child_id', selectedChildId).maybeSingle(),
+      (supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> })
+        .from('family_connections')
+        .select('id', { count: 'exact', head: true })
+        .eq('parent_id', user.id)
+        .eq('status', 'approved'),
+      supabase.from('wishlists').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
+    ])
+    setHasJisa(!!jisaRes.data)
+    setApprovedFamilyCount((connRes as { count: number | null }).count ?? 0)
+    setHasWishlists(((wlRes as { count: number | null }).count ?? 0) > 0)
+    setGettingStartedLoaded(true)
+  }, [user?.id, selectedChildId])
+
+  useEffect(() => {
+    if (selectedChildId && !childrenLoading) void refetchGettingStarted()
   }, [selectedChildId, childrenLoading])
 
   // Slider animation — runs once per session only
@@ -355,6 +383,62 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        )}
+
+        {/* ── Getting Started card ─────────────────────────────────────── */}
+        {gettingStartedLoaded && !(hasJisa && approvedFamilyCount > 0 && hasWishlists) && (
+          <View style={styles.gettingStartedCard}>
+            <Text style={styles.gsTitle}>Get more from Amplifi</Text>
+
+            <TouchableOpacity
+              style={styles.gsRow}
+              onPress={hasJisa ? undefined : () => router.push({ pathname: '/(auth)/isa-link', params: { childId: child!.id, childName: childName, source: 'home' } })}
+              activeOpacity={hasJisa ? 1 : 0.75}
+              disabled={hasJisa}
+            >
+              <View style={[styles.gsIconWrap, hasJisa && styles.gsIconWrapDone]}>
+                <Ionicons name="business-outline" size={19} color={hasJisa ? '#16a34a' : colors.azure} />
+              </View>
+              <Text style={styles.gsLabel}>Link {childName}'s ISA</Text>
+              {hasJisa
+                ? <Text style={styles.gsDoneText}>Linked ✓</Text>
+                : <Ionicons name="chevron-forward" size={17} color="#94a3b8" />}
+            </TouchableOpacity>
+
+            <View style={styles.gsDivider} />
+
+            <TouchableOpacity
+              style={styles.gsRow}
+              onPress={approvedFamilyCount > 0 ? undefined : () => router.push('/(tabs)/family')}
+              activeOpacity={approvedFamilyCount > 0 ? 1 : 0.75}
+              disabled={approvedFamilyCount > 0}
+            >
+              <View style={[styles.gsIconWrap, approvedFamilyCount > 0 && styles.gsIconWrapDone]}>
+                <Ionicons name="people-outline" size={19} color={approvedFamilyCount > 0 ? '#16a34a' : colors.azure} />
+              </View>
+              <Text style={styles.gsLabel}>Invite family to contribute</Text>
+              {approvedFamilyCount > 0
+                ? <Text style={styles.gsDoneText}>{approvedFamilyCount} connected ✓</Text>
+                : <Ionicons name="chevron-forward" size={17} color="#94a3b8" />}
+            </TouchableOpacity>
+
+            <View style={styles.gsDivider} />
+
+            <TouchableOpacity
+              style={styles.gsRow}
+              onPress={hasWishlists ? undefined : () => router.push('/(tabs)/occasions')}
+              activeOpacity={hasWishlists ? 1 : 0.75}
+              disabled={hasWishlists}
+            >
+              <View style={[styles.gsIconWrap, hasWishlists && styles.gsIconWrapDone]}>
+                <Ionicons name="gift-outline" size={19} color={hasWishlists ? '#16a34a' : colors.azure} />
+              </View>
+              <Text style={styles.gsLabel}>Create a birthday wishlist</Text>
+              {hasWishlists
+                ? <Text style={styles.gsDoneText}>Done ✓</Text>
+                : <Ionicons name="chevron-forward" size={17} color="#94a3b8" />}
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* ── S3: Quick actions ────────────────────────────────────────── */}
@@ -688,4 +772,23 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   setupCardBtnText: { color: colors.midnight, fontSize: 15, fontWeight: '700' },
+
+  // Getting Started card
+  gettingStartedCard: {
+    backgroundColor: '#ffffff', borderRadius: 20,
+    marginHorizontal: 16, marginTop: 8, marginBottom: 8, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+  },
+  gsTitle: { fontSize: 15, fontWeight: '700', color: colors.midnight, marginBottom: 12 },
+  gsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  gsIconWrap: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: `${colors.azure}18`,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  gsIconWrapDone: { backgroundColor: '#dcfce7' },
+  gsLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.midnight },
+  gsDoneText: { fontSize: 12, fontWeight: '700', color: '#16a34a' },
+  gsDivider: { height: 1, backgroundColor: '#f1f5f9', marginLeft: 48 },
 })
