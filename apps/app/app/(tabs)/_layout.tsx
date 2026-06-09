@@ -38,7 +38,9 @@ export default function TabsLayout() {
         name="family"
         options={{
           title: 'My Family',
-          tabBarIcon: ({ color }) => <Ionicons name="people" size={22} color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={focused ? colors.sky : '#94a3b8'} />
+          ),
         }}
       />
       <Tabs.Screen

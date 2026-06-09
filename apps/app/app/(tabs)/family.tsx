@@ -69,6 +69,7 @@ export default function FamilyScreen() {
   const scrollRef = useRef<ScrollView>(null)
   const monthInputRef = useRef<TextInput>(null)
   const yearInputRef = useRef<TextInput>(null)
+  const hasScrolledToForm = useRef(false)
 
   // Init selection
   useEffect(() => {
@@ -104,6 +105,9 @@ export default function FamilyScreen() {
   const [newDobMonth, setNewDobMonth] = useState('')
   const [newDobYear, setNewDobYear] = useState('')
   const [addingChild, setAddingChild] = useState(false)
+
+  // Delete child
+  const [deletingChildId, setDeletingChildId] = useState<string | null>(null)
 
   // Invite sheet
   const [showInvite, setShowInvite] = useState(false)
@@ -189,7 +193,7 @@ export default function FamilyScreen() {
 
   const openAddChild = () => {
     setShowAddChild(true)
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150)
+    hasScrolledToForm.current = false
   }
 
   const cancelAddChild = () => {
@@ -216,7 +220,20 @@ export default function FamilyScreen() {
     else { await refetchChildren(); setEditingChild(false) }
   }
 
-  const dobValid = newDobDay.length > 0 && newDobMonth.length > 0 && newDobYear.length === 4
+  const dobError: string = (() => {
+    if (newDobYear.length < 4 || !newDobDay || !newDobMonth) return ''
+    const d = parseInt(newDobDay, 10), m = parseInt(newDobMonth, 10), y = parseInt(newDobYear, 10)
+    if (isNaN(d) || isNaN(m) || isNaN(y) || d < 1 || d > 31 || m < 1 || m > 12) return ''
+    const dob = new Date(y, m - 1, d)
+    const today = new Date()
+    const maxDate = new Date(today.getFullYear(), today.getMonth() + 9, today.getDate())
+    const minDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
+    if (dob > maxDate) return 'Date of birth cannot be more than 9 months in the future'
+    if (dob < minDate) return 'A JISA is only available for children under 18'
+    return ''
+  })()
+
+  const dobValid = newDobDay.length > 0 && newDobMonth.length > 0 && newDobYear.length === 4 && !dobError
 
   const addChild = async () => {
     if (!user || addingChild || !dobValid) return
@@ -230,6 +247,29 @@ export default function FamilyScreen() {
     setAddingChild(false)
     if (error) Alert.alert('Error', error.message)
     else { await refetchChildren(); cancelAddChild(); if (data) setSelectedChildId((data as { id: string }).id) }
+  }
+
+  const deleteChild = (childId: string, childName: string) => {
+    Alert.alert(
+      `Remove ${childName}?`,
+      `Are you sure you want to remove ${childName}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove', style: 'destructive', onPress: async () => {
+            setDeletingChildId(childId)
+            await Promise.all([
+              supabase.from('jisa_accounts').delete().eq('child_id', childId),
+              supabase.from('family_connections').delete().eq('child_id', childId),
+            ])
+            await supabase.from('children').delete().eq('id', childId).eq('owner_id', user!.id)
+            if (selectedChildId === childId) setSelectedChildId(null)
+            setDeletingChildId(null)
+            await refetchChildren()
+          },
+        },
+      ]
+    )
   }
 
   const approveRequest = async (requestId: string) => {
@@ -348,9 +388,22 @@ export default function FamilyScreen() {
                           <Text style={styles.childName}>{selectedChild.name}</Text>
                           <Text style={styles.childDob}>Born {formatDob(selectedChild.date_of_birth)}</Text>
                         </View>
-                        <TouchableOpacity style={styles.editChip} onPress={startEdit} activeOpacity={0.7}>
-                          <Text style={styles.editChipText}>Edit</Text>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <TouchableOpacity style={styles.editChip} onPress={startEdit} activeOpacity={0.7}>
+                            <Text style={styles.editChipText}>Edit</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.deleteChip}
+                            onPress={() => deleteChild(selectedChild.id, selectedChild.name)}
+                            disabled={deletingChildId === selectedChild.id}
+                            activeOpacity={0.7}
+                          >
+                            {deletingChildId === selectedChild.id
+                              ? <ActivityIndicator size="small" color="#ef4444" />
+                              : <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                            }
+                          </TouchableOpacity>
+                        </View>
                       </View>
                       <View style={styles.cardDivider} />
                       <Text style={styles.cardSectionLabel}>ISA / JISA</Text>
@@ -378,7 +431,15 @@ export default function FamilyScreen() {
 
               {/* Add another child */}
               {showAddChild ? (
-                <View style={styles.addChildCard}>
+                <View
+                  style={styles.addChildCard}
+                  onLayout={(e) => {
+                    if (!hasScrolledToForm.current) {
+                      hasScrolledToForm.current = true
+                      scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - 20), animated: true })
+                    }
+                  }}
+                >
                   <Text style={styles.cardSectionLabel}>Add a child</Text>
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>Name</Text>
@@ -391,6 +452,7 @@ export default function FamilyScreen() {
                       <TextInput ref={monthInputRef} style={[styles.input, styles.dobMonth]} value={newDobMonth} onChangeText={(v) => { const m = v.replace(/\D/g, '').slice(0, 2); setNewDobMonth(m); if (m.length === 2) yearInputRef.current?.focus() }} placeholder="MM" placeholderTextColor="#94a3b8" keyboardType="number-pad" maxLength={2} textAlign="center" />
                       <TextInput ref={yearInputRef} style={[styles.input, styles.dobYear]} value={newDobYear} onChangeText={(v) => setNewDobYear(v.replace(/\D/g, '').slice(0, 4))} placeholder="YYYY" placeholderTextColor="#94a3b8" keyboardType="number-pad" maxLength={4} textAlign="center" />
                     </View>
+                    {dobError ? <Text style={styles.dobErrorText}>{dobError}</Text> : null}
                   </View>
                   <View style={styles.inlineBtnRow}>
                     <TouchableOpacity style={[styles.primaryBtn, (!newName.trim() || !dobValid || addingChild) && styles.btnDisabled]} onPress={() => void addChild()} disabled={!newName.trim() || !dobValid || addingChild} activeOpacity={0.85}>
@@ -667,6 +729,11 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6,
   },
   editChipText: { fontSize: 13, fontWeight: '600', color: colors.azure },
+  deleteChip: {
+    borderWidth: 1, borderColor: '#fecaca',
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    alignItems: 'center', justifyContent: 'center',
+  },
   cardDivider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 14 },
   cardSectionLabel: {
     fontSize: 13, fontWeight: '700', color: '#64748b',
@@ -692,7 +759,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, color: colors.midnight, backgroundColor: '#ffffff',
   },
-  dobRow: { flexDirection: 'row', gap: 8 },
+  dobRow: { flexDirection: 'row', gap: 8, marginBottom: 2 },
+  dobErrorText: { fontSize: 12, color: '#ef4444', marginTop: 6 },
   dobDay: { width: 60 },
   dobMonth: { width: 60 },
   dobYear: { flex: 1 },

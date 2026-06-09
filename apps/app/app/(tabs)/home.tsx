@@ -249,13 +249,13 @@ export default function HomeScreen() {
           style={styles.actionsRow}
         >
           {([
-            { icon: '👨‍👩‍👧', label: 'My Family',      onPress: () => router.push('/(tabs)/family') },
-            { icon: '🎁', label: 'Occasions',       onPress: () => router.push('/birthday') },
-            { icon: '💳', label: 'Cashback',        onPress: () => router.push('/(tabs)/offers') },
-            { icon: '🎯', label: 'Loyalty offers',  onPress: () => router.push('/(tabs)/shop') },
+            { key: 'family',   label: 'My Family',     icon: <Ionicons name="people" size={18} color={colors.sky} />, onPress: () => router.push('/(tabs)/family') },
+            { key: 'occasions',label: 'Occasions',      icon: <Text style={styles.actionIcon}>🎁</Text>,              onPress: () => router.push('/birthday') },
+            { key: 'cashback', label: 'Cashback',       icon: <Text style={styles.actionIcon}>💳</Text>,              onPress: () => router.push('/(tabs)/offers') },
+            { key: 'loyalty',  label: 'Loyalty offers', icon: <Text style={styles.actionIcon}>🎯</Text>,              onPress: () => router.push('/(tabs)/shop') },
           ] as const).map((a) => (
-            <TouchableOpacity key={a.label} style={styles.actionChip} onPress={a.onPress} activeOpacity={0.8}>
-              <Text style={styles.actionIcon}>{a.icon}</Text>
+            <TouchableOpacity key={a.key} style={styles.actionChip} onPress={a.onPress} activeOpacity={0.8}>
+              {a.icon}
               <Text style={styles.actionLabel}>{a.label}</Text>
             </TouchableOpacity>
           ))}
@@ -274,7 +274,7 @@ export default function HomeScreen() {
           <Slider
             style={{ width: '100%', height: 40, marginBottom: 4 }}
             minimumValue={10}
-            maximumValue={500}
+            maximumValue={200}
             step={5}
             value={sliderValue}
             onValueChange={setSliderValue}
