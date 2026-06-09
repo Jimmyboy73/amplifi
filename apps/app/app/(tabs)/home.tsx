@@ -194,7 +194,6 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <Text style={styles.logo}>amplifi</Text>
           <View style={styles.topRight}>
-            <Text style={styles.bell}>🔔</Text>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() =>
@@ -389,7 +388,6 @@ const styles = StyleSheet.create({
   },
   logo: { fontSize: 20, fontWeight: '800', color: colors.midnight, letterSpacing: -0.5 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bell: { fontSize: 20 },
   profileCircle: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: colors.midnight,
