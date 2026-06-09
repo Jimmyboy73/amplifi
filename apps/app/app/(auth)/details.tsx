@@ -184,7 +184,7 @@ export default function DetailsScreen() {
       console.error(`[Profile Insert] Attempt ${attempt} FAILED:`, error.message)
     }
 
-    // Record referral event using the pre-validated referrer ID
+    // Record referral event and auto-create pending family connection
     if (validatedReferrerId) {
       await supabase.from('referral_events').insert({
         referrer_id: validatedReferrerId,
@@ -192,6 +192,26 @@ export default function DetailsScreen() {
         code_used: trimmedHandle,
         status: 'pending',
       })
+
+      // Find the referrer's first child to link the connection to
+      const { data: firstChild } = await supabase
+        .from('children')
+        .select('id')
+        .eq('owner_id', validatedReferrerId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (firstChild) {
+        await supabase.from('family_connections').insert({
+          requester_id: data.user.id,
+          parent_id: validatedReferrerId,
+          child_id: firstChild.id,
+          status: 'pending',
+          relationship: null,
+        })
+      }
+
       await AsyncStorage.removeItem('amplifi_ref_handle')
     }
 
