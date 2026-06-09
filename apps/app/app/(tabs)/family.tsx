@@ -262,13 +262,13 @@ export default function FamilyScreen() {
   }
 
   const shareWhatsApp = () => {
-    if (!selectedChild) return
-    const ref = handle ? `?ref=${handle}` : ''
-    const url = `https://amplifi-marketing.netlify.app${ref}`
+    if (!selectedChild || !handle) return
+    const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}`
     const msg =
-      `I've set up an Amplifi savings account for ${selectedChild.name} which will provide a solid financial foundation for the future. ` +
-      `Please join Amplifi where you can see the progress we are making together. ` +
-      `Use my handle @${handle ?? 'amplifi'} when you sign up so we get connected: ${url}`
+      `I've set up an Amplifi savings account for ${selectedChild.name} to build a solid financial foundation for their future. ` +
+      `We'd love for you to be part of it by making a regular or one-off contribution.\n\n` +
+      `Sign up to Amplifi and use my handle @${handle} when you register so we get connected: ${url}\n\n` +
+      `${selectedChild.name} gets a £5 credit when you make 3 qualifying contributions!`
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
       Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
     )
@@ -548,8 +548,15 @@ export default function FamilyScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <TouchableOpacity style={styles.whatsappBtn} onPress={shareWhatsApp} activeOpacity={0.85}>
-                    <Text style={styles.whatsappText}>Share on WhatsApp</Text>
+                  <TouchableOpacity
+                    style={[styles.whatsappBtn, !handle && styles.btnDisabled]}
+                    onPress={shareWhatsApp}
+                    disabled={!handle}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.whatsappText}>
+                      {handle ? 'Share on WhatsApp' : 'Loading handle…'}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.ghostBtn} onPress={() => { setShowInvite(false); setInviteRelationship('') }} activeOpacity={0.7}>
                     <Text style={[styles.ghostBtnText, { textAlign: 'center' }]}>Cancel</Text>

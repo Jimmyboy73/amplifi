@@ -68,12 +68,13 @@ export default function HomeScreen() {
   const { user, signOut } = useAuth()
 
   const { handle, refetch: refetchHandle } = useHandle()
-  const { children, loading: childrenLoading } = useChildren()
+  const { children, loading: childrenLoading, refetch: refetchChildren } = useChildren()
 
   useFocusEffect(
     useCallback(() => {
       refetchHandle()
-    }, [refetchHandle])
+      void refetchChildren()
+    }, [refetchHandle, refetchChildren])
   )
 
   // Selected child (shared across tabs via context)
