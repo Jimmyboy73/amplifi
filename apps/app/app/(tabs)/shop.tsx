@@ -12,9 +12,11 @@ import {
   type ListRenderItemInfo,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
+import { useChildren } from '@/lib/useChildren'
 import { useGiftCardBrands, type GiftCardBrand } from '@/lib/useGiftCardBrands'
 import { useGiftCardPurchase } from '@/lib/useGiftCardPurchase'
 
@@ -201,7 +203,9 @@ function BrandCard({ brand, childName, onBuyNow }: BrandCardProps) {
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function ShopScreen() {
+  const router = useRouter()
   const { user } = useAuth()
+  const { children: myChildren, loading: myChildrenLoading } = useChildren()
   const { brands, loading: brandsLoading } = useGiftCardBrands()
   const [childName, setChildName] = useState('your child')
   const [childId, setChildId] = useState<string | null>(null)
@@ -235,6 +239,26 @@ export default function ShopScreen() {
       <BrandCard brand={brand} childName={childName} onBuyNow={setSelectedBrand} />
     </View>
   )
+
+  if (!myChildrenLoading && myChildren.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Gift Card Shop</Text>
+          <Text style={styles.subtitle}>Buy gift cards and earn cashback for your child's JISA</Text>
+        </View>
+        <View style={styles.upgradeCard}>
+          <Text style={styles.upgradeTitle}>Unlock the Gift Card Shop</Text>
+          <Text style={styles.upgradeSub}>
+            Set up your child's savings account to buy gift cards and earn cashback on every purchase.
+          </Text>
+          <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(auth)/child')} activeOpacity={0.85}>
+            <Text style={styles.upgradeBtnText}>Set up now →</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -299,6 +323,19 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
   title: { fontSize: 24, fontWeight: '800', color: colors.midnight, letterSpacing: -0.5 },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 3 },
+
+  upgradeCard: {
+    backgroundColor: '#f8fafc', borderRadius: 20,
+    margin: 16, padding: 24,
+    borderWidth: 1, borderColor: '#e2e8f0',
+  },
+  upgradeTitle: { fontSize: 20, fontWeight: '800', color: colors.midnight, marginBottom: 8 },
+  upgradeSub: { fontSize: 14, color: '#64748b', lineHeight: 21, marginBottom: 20 },
+  upgradeBtn: {
+    backgroundColor: colors.sky, borderRadius: 14,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  upgradeBtnText: { color: colors.midnight, fontSize: 15, fontWeight: '700' },
 
   searchWrap: {
     flexDirection: 'row',

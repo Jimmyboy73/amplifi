@@ -8,13 +8,14 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useHandle } from '@/lib/useHandle'
 import { colors } from '@/constants/brand'
 
 export default function HandleOnboardingScreen() {
   const router = useRouter()
+  const { isContributor } = useLocalSearchParams<{ isContributor?: string }>()
   const { checkAvailability, saveHandle, saving } = useHandle()
 
   const [input, setInput] = useState('')
@@ -50,7 +51,13 @@ export default function HandleOnboardingScreen() {
   const handleContinue = async () => {
     if (availability !== 'available' || saving) return
     const ok = await saveHandle(input)
-    if (ok) router.push('/(auth)/child')
+    if (ok) {
+      if (isContributor === 'true') {
+        router.replace('/(tabs)/home')
+      } else {
+        router.push('/(auth)/child')
+      }
+    }
   }
 
   const canContinue = availability === 'available' && !saving

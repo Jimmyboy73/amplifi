@@ -4,11 +4,14 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { colors } from '@/constants/brand'
 import { useCashbackOffers } from '@/lib/useCashbackOffers'
 import { useCashbackBalance } from '@/lib/useCashbackBalance'
+import { useChildren } from '@/lib/useChildren'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -28,10 +31,32 @@ function rewardLabel(type: 'percentage' | 'fixed', value: number): string {
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function OffersScreen() {
+  const router = useRouter()
   const { offers, loading: offersLoading } = useCashbackOffers()
   const { pendingGbp, redeemableGbp, loading: balanceLoading } = useCashbackBalance()
+  const { children, loading: childrenLoading } = useChildren()
 
   const totalCashback = pendingGbp + redeemableGbp
+
+  if (!childrenLoading && children.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Cashback</Text>
+          <Text style={styles.subtitle}>Earn cashback for your child's JISA every time you spend</Text>
+        </View>
+        <View style={styles.upgradeCard}>
+          <Text style={styles.upgradeTitle}>Unlock Cashback</Text>
+          <Text style={styles.upgradeSub}>
+            Set up your child's savings account to start earning cashback automatically on your everyday spending.
+          </Text>
+          <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(auth)/child')} activeOpacity={0.85}>
+            <Text style={styles.upgradeBtnText}>Set up now →</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -219,6 +244,21 @@ const styles = StyleSheet.create({
   offerRight: { alignItems: 'flex-end', flexShrink: 0 },
   offerReward: { fontSize: 22, fontWeight: '800', color: colors.sky },
   offerRewardLabel: { fontSize: 11, color: '#94a3b8', marginTop: 1 },
+
+  // Contributor upgrade prompt
+  upgradeCard: {
+    backgroundColor: '#ffffff', borderRadius: 20,
+    margin: 16, padding: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+  },
+  upgradeTitle: { fontSize: 20, fontWeight: '800', color: colors.midnight, marginBottom: 8 },
+  upgradeSub: { fontSize: 14, color: '#64748b', lineHeight: 21, marginBottom: 20 },
+  upgradeBtn: {
+    backgroundColor: colors.sky, borderRadius: 14,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  upgradeBtnText: { color: colors.midnight, fontSize: 15, fontWeight: '700' },
 
   // Phase 2 teaser
   phaseCard: {

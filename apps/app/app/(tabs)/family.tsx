@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/auth'
 import { useHandle } from '@/lib/useHandle'
 import { useChildren } from '@/lib/useChildren'
 import { useFamilyConnections } from '@/lib/useFamilyConnections'
+import { useContributorConnections } from '@/lib/useContributorConnections'
 import { useSelectedChild } from '@/lib/SelectedChildContext'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
@@ -49,12 +50,6 @@ type JisaRow = {
 type PendingRequest = {
   id: string; requester_id: string; requester_name: string
   requester_handle: string | null; created_at: string
-}
-
-type ApprovedConnection = {
-  id: string; relationship: string | null
-  child_id: string; child_name: string; child_dob: string
-  parent_id: string; parent_name: string; parent_handle: string | null
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -119,9 +114,8 @@ export default function FamilyScreen() {
   const [approveRelationship, setApproveRelationship] = useState('')
   const [savingApproval, setSavingApproval] = useState(false)
 
-  // Approved connections (contributor view)
-  const [approvedConnections, setApprovedConnections] = useState<ApprovedConnection[]>([])
-  const [approvedConnectionsLoading, setApprovedConnectionsLoading] = useState(true)
+  // Contributor connections (where this user is the requester)
+  const { connections: myConnections, loading: myConnectionsLoading, refetch: refetchMyConnections } = useContributorConnections()
 
   // ── Data fetching ────────────────────────────────────────────────────────────
 
@@ -148,46 +142,12 @@ export default function FamilyScreen() {
     })))
   }, [user?.id])
 
-  const fetchApprovedConnections = useCallback(async () => {
-    if (!user) return
-    setApprovedConnectionsLoading(true)
-    const { data: conns } = await supabase
-      .from('family_connections')
-      .select('id, relationship, child_id, parent_id')
-      .eq('requester_id', user.id)
-      .eq('status', 'approved')
-    if (!conns?.length) { setApprovedConnections([]); setApprovedConnectionsLoading(false); return }
-    const childIds = conns.map(c => c.child_id)
-    const parentIds = [...new Set(conns.map(c => c.parent_id))]
-    const [{ data: childrenData }, { data: parentProfiles }] = await Promise.all([
-      supabase.from('children').select('id, name, date_of_birth').in('id', childIds),
-      supabase.from('profiles').select('id, full_name, handle').in('id', parentIds),
-    ])
-    const cm = Object.fromEntries(
-      (childrenData ?? []).map(c => [c.id, c as { id: string; name: string; date_of_birth: string }])
-    )
-    const pm = Object.fromEntries(
-      (parentProfiles ?? []).map(p => [p.id, p as { id: string; full_name: string; handle: string | null }])
-    )
-    setApprovedConnections(conns.map(c => ({
-      id: c.id,
-      relationship: c.relationship,
-      child_id: c.child_id,
-      child_name: cm[c.child_id]?.name ?? 'Unknown child',
-      child_dob: cm[c.child_id]?.date_of_birth ?? '',
-      parent_id: c.parent_id,
-      parent_name: pm[c.parent_id]?.full_name ?? 'Unknown',
-      parent_handle: pm[c.parent_id]?.handle ?? null,
-    })))
-    setApprovedConnectionsLoading(false)
-  }, [user?.id])
-
   useFocusEffect(useCallback(() => {
     void refetchChildren()
     void refetchConnections()
     void fetchPendingRequests()
-    void fetchApprovedConnections()
-  }, [refetchChildren, refetchConnections, fetchPendingRequests, fetchApprovedConnections]))
+    void refetchMyConnections()
+  }, [refetchChildren, refetchConnections, fetchPendingRequests, refetchMyConnections]))
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -317,7 +277,9 @@ export default function FamilyScreen() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   const isParent = children.length > 0
-  const isContributor = approvedConnections.length > 0
+  const myApproved = myConnections.filter(c => c.status === 'approved')
+  const myPending = myConnections.filter(c => c.status === 'pending')
+  const isContributor = myConnections.length > 0
 
   if (childrenLoading) {
     return (
@@ -634,48 +596,88 @@ export default function FamilyScreen() {
           )}
 
           {/* ── CONTRIBUTOR SECTION ────────────────────────────────────────── */}
-          {(isContributor || approvedConnectionsLoading) && (
+          {(isContributor || myConnectionsLoading) && (
             <>
               <Text style={[styles.sectionTitle, isParent && { marginTop: 24 }]}>Connected Children</Text>
               <View style={styles.card}>
-                {approvedConnectionsLoading ? (
+                {myConnectionsLoading ? (
                   <ActivityIndicator size="small" color={colors.sky} />
                 ) : (
-                  approvedConnections.map((conn, idx) => (
-                    <View key={conn.id}>
-                      <TouchableOpacity
-                        style={styles.connectedChildRow}
-                        onPress={() => router.push(`/connected-child/${conn.id}` as never)}
-                        activeOpacity={0.75}
-                      >
-                        <View style={styles.connectedChildAvatar}>
-                          <Text style={styles.connectedChildAvatarText}>{conn.child_name.charAt(0).toUpperCase()}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.childName}>{conn.child_name}</Text>
-                          <Text style={styles.contributorRel}>
-                            {conn.parent_handle ? `@${conn.parent_handle}` : conn.parent_name}
-                          </Text>
-                        </View>
-                        <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                          {conn.relationship && (
-                            <View style={styles.relBadge}>
-                              <Text style={styles.relBadgeText}>{conn.relationship}</Text>
+                  <>
+                    {myApproved.map((conn, idx) => (
+                      <View key={conn.id}>
+                        <TouchableOpacity
+                          style={styles.connectedChildRow}
+                          onPress={() => router.push(`/connected-child/${conn.id}` as never)}
+                          activeOpacity={0.75}
+                        >
+                          <View style={styles.connectedChildAvatar}>
+                            <Text style={styles.connectedChildAvatarText}>{conn.childName[0]?.toUpperCase() ?? '?'}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.childName}>{conn.childName}</Text>
+                            <Text style={styles.contributorRel}>
+                              {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                            {conn.relationship && (
+                              <View style={styles.relBadge}>
+                                <Text style={styles.relBadgeText}>{conn.relationship}</Text>
+                              </View>
+                            )}
+                            <Text style={styles.viewDetailsText}>View →</Text>
+                          </View>
+                        </TouchableOpacity>
+                        {idx < myApproved.length - 1 && <View style={styles.rowDivider} />}
+                      </View>
+                    ))}
+
+                    {myPending.length > 0 && (
+                      <>
+                        {myApproved.length > 0 && <View style={[styles.rowDivider, { marginVertical: 8 }]} />}
+                        <Text style={styles.pendingLabel}>Awaiting approval</Text>
+                        {myPending.map((conn, idx) => (
+                          <View key={conn.id}>
+                            <View style={styles.contributorRow}>
+                              <View style={[styles.avatar, { backgroundColor: '#f59e0b' }]}>
+                                <Text style={styles.avatarText}>⏳</Text>
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.contributorName}>
+                                  {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName}
+                                </Text>
+                                <Text style={styles.contributorRel}>Waiting for approval</Text>
+                              </View>
+                              <View style={styles.pendingChip}>
+                                <Text style={styles.pendingChipText}>Pending</Text>
+                              </View>
                             </View>
-                          )}
-                          <Text style={styles.viewDetailsText}>View →</Text>
-                        </View>
-                      </TouchableOpacity>
-                      {idx < approvedConnections.length - 1 && <View style={styles.rowDivider} />}
-                    </View>
-                  ))
+                            {idx < myPending.length - 1 && <View style={styles.rowDivider} />}
+                          </View>
+                        ))}
+                      </>
+                    )}
+                  </>
                 )}
               </View>
             </>
           )}
 
-          {/* Empty state — no children and no approved connections */}
-          {!isParent && !isContributor && !approvedConnectionsLoading && (
+          {/* Setup account CTA for contributor-only users */}
+          {!isParent && (
+            <TouchableOpacity
+              style={styles.setupAccountBtn}
+              onPress={() => router.push('/(auth)/child')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={colors.midnight} />
+              <Text style={styles.setupAccountBtnText}>Set up your own child's account</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Empty state — no children and no connections */}
+          {!isParent && !isContributor && !myConnectionsLoading && (
             <View style={[styles.card, { marginHorizontal: 16, paddingVertical: 32, alignItems: 'center' }]}>
               <Text style={[styles.emptyText, { marginBottom: 4 }]}>No family connections yet</Text>
               <Text style={styles.emptyText}>Sign up using someone's @handle to get connected</Text>
@@ -883,6 +885,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16, marginHorizontal: 16, marginBottom: 20,
   },
   inviteBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+
+  // Setup account CTA
+  setupAccountBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: colors.sky, borderRadius: 16,
+    paddingVertical: 16, marginHorizontal: 16, marginBottom: 20, marginTop: 8,
+  },
+  setupAccountBtnText: { color: colors.midnight, fontSize: 15, fontWeight: '700' },
 
   // Connected children
   connectedChildRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },

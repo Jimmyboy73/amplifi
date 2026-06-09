@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '@/lib/auth'
 import { useChildren } from '@/lib/useChildren'
+import { useContributorConnections } from '@/lib/useContributorConnections'
 import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
@@ -69,12 +70,14 @@ export default function HomeScreen() {
 
   const { handle, refetch: refetchHandle } = useHandle()
   const { children, loading: childrenLoading, refetch: refetchChildren } = useChildren()
+  const { connections, loading: connectionsLoading, refetch: refetchConnections } = useContributorConnections()
 
   useFocusEffect(
     useCallback(() => {
       refetchHandle()
       void refetchChildren()
-    }, [refetchHandle, refetchChildren])
+      void refetchConnections()
+    }, [refetchHandle, refetchChildren, refetchConnections])
   )
 
   // Selected child (shared across tabs via context)
@@ -147,11 +150,123 @@ export default function HomeScreen() {
     return () => clearInterval(timer)
   }, [isLoading])
 
-  if (childrenLoading || isLoading) {
+  if (childrenLoading || isLoading || connectionsLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={colors.sky} />
       </View>
+    )
+  }
+
+  const isParent = children.length > 0
+  const approvedConnections = connections.filter(c => c.status === 'approved')
+  const pendingConnections = connections.filter(c => c.status === 'pending')
+
+  // ── Contributor-only home ────────────────────────────────────────────────────
+  if (!isParent) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.topBar}>
+            <Text style={styles.logo}>amplifi</Text>
+            <View style={styles.topRight}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() =>
+                  Alert.alert('Your account', '', [
+                    { text: 'Profile Settings', onPress: () => router.push('/settings/profile') },
+                    { text: handle ? `Your Handle (@${handle})` : 'Your Handle (Not set)', onPress: () => router.push('/settings/handle') },
+                    { text: 'Sign out', style: 'destructive', onPress: () => { void signOut() } },
+                    { text: 'Cancel', style: 'cancel' },
+                  ])
+                }
+              >
+                <Ionicons name="settings-outline" size={26} color={colors.midnight} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Welcome card */}
+          <View style={styles.heroCard}>
+            <View style={[styles.heroTopRow, { marginBottom: 8 }]}>
+              <View style={[styles.childAvatar, { backgroundColor: colors.sky }]}>
+                <Text style={{ color: colors.midnight, fontSize: 20, fontWeight: '800' }}>★</Text>
+              </View>
+              <Text style={styles.potTitle}>Welcome to Amplifi</Text>
+              <Text style={styles.potSub}>
+                {approvedConnections.length > 0
+                  ? `You're contributing to ${approvedConnections.length} child${approvedConnections.length > 1 ? 'ren' : ''}`
+                  : pendingConnections.length > 0
+                    ? 'Waiting to be connected to a savings account'
+                    : "Your savings journey starts here"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Connected children */}
+          {approvedConnections.length > 0 && (
+            <>
+              <Text style={styles.actionsTitle}>Children you're supporting</Text>
+              {approvedConnections.map(conn => (
+                <TouchableOpacity
+                  key={conn.id}
+                  style={styles.connCard}
+                  onPress={() => router.push(`/connected-child/${conn.id}` as never)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.connAvatar}>
+                    <Text style={styles.connAvatarText}>{conn.childName[0]?.toUpperCase() ?? '?'}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.connChildName}>{conn.childName}</Text>
+                    <Text style={styles.connParentName}>
+                      {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName}
+                    </Text>
+                  </View>
+                  {conn.relationship && (
+                    <View style={styles.connRelBadge}>
+                      <Text style={styles.connRelBadgeText}>{conn.relationship}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.connChevron}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
+          {/* Pending connections */}
+          {pendingConnections.length > 0 && (
+            <>
+              <Text style={styles.actionsTitle}>Pending connections</Text>
+              {pendingConnections.map(conn => (
+                <View key={conn.id} style={styles.pendingConnCard}>
+                  <Text style={styles.pendingConnIcon}>⏳</Text>
+                  <Text style={styles.pendingConnText}>
+                    Waiting for {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName} to approve your connection
+                  </Text>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* Setup CTA */}
+          <View style={styles.setupCard}>
+            <Text style={styles.setupCardTitle}>Build your own child's pot</Text>
+            <Text style={styles.setupCardSub}>
+              Set up a JISA and start earning cashback every time you spend
+            </Text>
+            <TouchableOpacity
+              style={styles.setupCardBtn}
+              onPress={() => router.push('/(auth)/child')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.setupCardBtnText}>Set up your child's account →</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </SafeAreaView>
     )
   }
 
@@ -374,6 +489,37 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* ── Contributor section (if also connected to others) ────── */}
+        {approvedConnections.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Also contributing to</Text>
+            {approvedConnections.map(conn => (
+              <TouchableOpacity
+                key={conn.id}
+                style={styles.connCard}
+                onPress={() => router.push(`/connected-child/${conn.id}` as never)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.connAvatar}>
+                  <Text style={styles.connAvatarText}>{conn.childName[0]?.toUpperCase() ?? '?'}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.connChildName}>{conn.childName}</Text>
+                  <Text style={styles.connParentName}>
+                    {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName}
+                  </Text>
+                </View>
+                {conn.relationship && (
+                  <View style={styles.connRelBadge}>
+                    <Text style={styles.connRelBadgeText}>{conn.relationship}</Text>
+                  </View>
+                )}
+                <Text style={styles.connChevron}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
@@ -499,4 +645,45 @@ const styles = StyleSheet.create({
   activitySweep: { fontSize: 14, fontWeight: '700', color: colors.azure },
   ghostHeader: { fontSize: 13, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingTop: 12, paddingHorizontal: 16, marginBottom: 12 },
   ghostFooter: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 12, paddingBottom: 12, paddingHorizontal: 16 },
+
+  // Contributor elements
+  connCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#ffffff', borderRadius: 14,
+    marginHorizontal: 16, marginBottom: 8, padding: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+  },
+  connAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: colors.azure,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  connAvatarText: { color: '#ffffff', fontSize: 18, fontWeight: '800' },
+  connChildName: { fontSize: 15, fontWeight: '700', color: colors.midnight },
+  connParentName: { fontSize: 13, color: '#64748b', marginTop: 1 },
+  connRelBadge: {
+    backgroundColor: `${colors.sky}22`, borderRadius: 100,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  connRelBadgeText: { fontSize: 11, fontWeight: '700', color: colors.azure },
+  connChevron: { fontSize: 22, color: '#94a3b8' },
+  pendingConnCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fef3c7', borderRadius: 14,
+    marginHorizontal: 16, marginBottom: 8, padding: 14,
+  },
+  pendingConnIcon: { fontSize: 20 },
+  pendingConnText: { flex: 1, fontSize: 14, color: '#92400e', lineHeight: 20 },
+  setupCard: {
+    backgroundColor: '#ffffff', borderRadius: 20,
+    marginHorizontal: 16, marginTop: 16, padding: 20,
+  },
+  setupCardTitle: { fontSize: 17, fontWeight: '800', color: colors.midnight, marginBottom: 6 },
+  setupCardSub: { fontSize: 14, color: '#64748b', lineHeight: 21, marginBottom: 16 },
+  setupCardBtn: {
+    backgroundColor: colors.sky, borderRadius: 14,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  setupCardBtnText: { color: colors.midnight, fontSize: 15, fontWeight: '700' },
 })

@@ -217,7 +217,10 @@ export default function DetailsScreen() {
 
     console.log('[Navigation] Navigating to handle screen')
     setSubmitting(false)
-    router.push('/(auth)/handle')
+    router.push({
+      pathname: '/(auth)/handle',
+      params: { isContributor: validatedReferrerId ? 'true' : 'false' },
+    })
   }
 
   return (
