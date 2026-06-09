@@ -13,6 +13,7 @@ import Slider from '@react-native-community/slider'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '@/lib/auth'
+import { useChildren } from '@/lib/useChildren'
 import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { fv } from '@/lib/projections'
@@ -66,6 +67,7 @@ export default function HomeScreen() {
   const { user, signOut } = useAuth()
 
   const { handle, refetch: refetchHandle } = useHandle()
+  const { children, loading: childrenLoading } = useChildren()
 
   useFocusEffect(
     useCallback(() => {
@@ -73,75 +75,61 @@ export default function HomeScreen() {
     }, [refetchHandle])
   )
 
-  const [child, setChild] = useState<{
-    id: string
-    name: string
-    date_of_birth: string
-  } | null>(null)
+  // Selected child
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
 
-  const [wallet, setWallet] = useState<{
-    balance: number
-    total_earned: number
-  } | null>(null)
+  useEffect(() => {
+    if (children.length > 0 && selectedChildId === null) {
+      setSelectedChildId(children[0].id)
+    }
+  }, [children])
 
-  const [contributions, setContributions] = useState<Array<{
-    id: string
-    type: string
-    description: string
-    amount: number
-    created_at: string
-  }>>([])
+  const child = children.find(c => c.id === selectedChildId) ?? null
+  const childPhoto = child?.photo_url ?? null
 
-  const [childPhoto, setChildPhoto] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [sliderValue, setSliderValue] = useState(20)
+  // Wallet (owner-level, fetched once)
+  const [wallet, setWallet] = useState<{ balance: number; total_earned: number } | null>(null)
 
   useEffect(() => {
     if (!user) return
+    supabase
+      .from('wallets')
+      .select('balance, total_earned')
+      .eq('owner_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setWallet(data as { balance: number; total_earned: number })
+      })
+  }, [user?.id])
 
-    const fetchData = async () => {
-      setIsLoading(true)
+  // Contributions (child-level)
+  const [contributions, setContributions] = useState<Array<{
+    id: string; type: string; description: string; amount: number; created_at: string
+  }>>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-      const { data: childData } = await supabase
-        .from('children')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single()
+  useEffect(() => {
+    if (childrenLoading) return
+    if (!selectedChildId) { setIsLoading(false); return }
+    setIsLoading(true)
+    supabase
+      .from('contributions')
+      .select('id, type, description, amount, created_at')
+      .eq('child_id', selectedChildId)
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        setContributions((data ?? []) as typeof contributions)
+        setIsLoading(false)
+      })
+  }, [selectedChildId, childrenLoading])
 
-      if (childData) {
-        setChild(childData)
-        if (childData.photo_url) setChildPhoto(childData.photo_url)
-      }
+  // Slider animation
+  const [sliderValue, setSliderValue] = useState(20)
 
-      const { data: walletData } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
-
-      if (walletData) {
-        setWallet(walletData)
-        setSliderValue(walletData.balance ?? 20)
-      }
-
-      if (childData) {
-        const { data: contribData } = await supabase
-          .from('contributions')
-          .select('*')
-          .eq('child_id', childData.id)
-          .order('created_at', { ascending: false })
-          .limit(5)
-
-        if (contribData) setContributions(contribData)
-      }
-
-      setIsLoading(false)
-    }
-
-    fetchData()
-  }, [user])
+  useEffect(() => {
+    if (wallet) setSliderValue(wallet.balance > 0 ? wallet.balance : 20)
+  }, [wallet])
 
   useEffect(() => {
     if (isLoading) return
@@ -151,17 +139,13 @@ export default function HomeScreen() {
     const increment = (target - current) / steps
     const timer = setInterval(() => {
       current += increment
-      if (current >= target) {
-        setSliderValue(target)
-        clearInterval(timer)
-      } else {
-        setSliderValue(Math.round(current))
-      }
+      if (current >= target) { setSliderValue(target); clearInterval(timer) }
+      else { setSliderValue(Math.round(current)) }
     }, 2000 / steps)
     return () => clearInterval(timer)
   }, [isLoading])
 
-  if (isLoading) {
+  if (childrenLoading || isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={colors.sky} />
@@ -224,12 +208,35 @@ export default function HomeScreen() {
               )}
             </View>
             <Text style={styles.potTitle}>{childName}'s Pot</Text>
-            <Text style={styles.potSub}>Building {child?.name ?? 'her'}'s future</Text>
+            <Text style={styles.potSub}>Building {child?.name ?? 'their'}'s future</Text>
           </View>
 
           <Text style={styles.heroBalance}>{gbp(wallet?.total_earned ?? 0)}</Text>
           <Text style={styles.heroBalanceSub}>total in {childName}'s JISA</Text>
         </View>
+
+        {/* ── Child switcher (multi-child only) ────────────────────────── */}
+        {children.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.childSwitcherContent}
+            style={styles.childSwitcherRow}
+          >
+            {children.map(c => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.childPill, c.id === selectedChildId && styles.childPillActive]}
+                onPress={() => setSelectedChildId(c.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.childPillText, c.id === selectedChildId && styles.childPillTextActive]}>
+                  {c.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         {/* ── S3: Quick actions ────────────────────────────────────────── */}
         <Text style={styles.actionsTitle}>Ways to grow {child?.name ?? 'your child'}'s pot</Text>
@@ -240,7 +247,7 @@ export default function HomeScreen() {
           style={styles.actionsRow}
         >
           {([
-            { icon: '👨‍👩‍👧', label: 'Family Network', onPress: () => router.push('/(tabs)/family') },
+            { icon: '👨‍👩‍👧', label: 'My Family',      onPress: () => router.push('/(tabs)/family') },
             { icon: '🎁', label: 'Occasions',       onPress: () => router.push('/birthday') },
             { icon: '💳', label: 'Cashback',        onPress: () => router.push('/(tabs)/offers') },
             { icon: '🎯', label: 'Loyalty offers',  onPress: () => router.push('/(tabs)/shop') },
@@ -343,8 +350,7 @@ export default function HomeScreen() {
                 ? (item.type as ActivityType)
                 : 'gift_card'
               const formattedDate = new Date(item.created_at).toLocaleDateString('en-GB', {
-                day: 'numeric',
-                month: 'short',
+                day: 'numeric', month: 'short',
               })
               return (
                 <View key={item.id} style={styles.activityRow}>
@@ -387,6 +393,7 @@ const styles = StyleSheet.create({
   },
   logo: { fontSize: 20, fontWeight: '800', color: colors.midnight, letterSpacing: -0.5 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
   // Hero card
   heroCard: {
     backgroundColor: colors.midnight,
@@ -397,10 +404,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 8,
   },
-  heroTopRow: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
+  heroTopRow: { alignItems: 'center', marginBottom: 20 },
   childAvatar: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: colors.sky,
@@ -416,6 +420,18 @@ const styles = StyleSheet.create({
     textAlign: 'center', letterSpacing: -1, marginTop: 8,
   },
   heroBalanceSub: { color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', marginTop: 4 },
+
+  // Child switcher
+  childSwitcherRow: { marginBottom: 8 },
+  childSwitcherContent: { paddingHorizontal: 16, gap: 8, paddingVertical: 4 },
+  childPill: {
+    paddingHorizontal: 16, paddingVertical: 7,
+    borderRadius: 100, borderWidth: 1, borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+  },
+  childPillActive: { backgroundColor: colors.midnight, borderColor: colors.midnight },
+  childPillText: { fontSize: 13, fontWeight: '600', color: colors.midnight },
+  childPillTextActive: { color: '#ffffff' },
 
   // Quick actions
   actionsTitle: {
@@ -481,5 +497,4 @@ const styles = StyleSheet.create({
   activitySweep: { fontSize: 14, fontWeight: '700', color: colors.azure },
   ghostHeader: { fontSize: 13, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingTop: 12, paddingHorizontal: 16, marginBottom: 12 },
   ghostFooter: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 12, paddingBottom: 12, paddingHorizontal: 16 },
-
 })
