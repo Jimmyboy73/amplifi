@@ -790,9 +790,8 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={styles.gsRow}
-              onPress={hasJisa ? undefined : () => router.push({ pathname: '/(auth)/isa-link', params: { childId: child!.id, childName: childName, source: 'home' } })}
-              activeOpacity={hasJisa ? 1 : 0.75}
-              disabled={hasJisa}
+              onPress={() => router.push({ pathname: '/(auth)/isa-link', params: { childId: child!.id, childName: childName, source: 'home' } })}
+              activeOpacity={0.75}
             >
               <View style={[styles.gsIconWrap, hasJisa && styles.gsIconWrapDone]}>
                 <Ionicons name="business-outline" size={19} color={hasJisa ? '#16a34a' : colors.azure} />
@@ -838,6 +837,37 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* ── Coming soon teasers ──────────────────────────────────────── */}
+        <View style={styles.teaserCard}>
+          <View style={styles.teaserIconWrap}>
+            <Text style={styles.teaserIconText}>%</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.teaserTitle}>Cashback</Text>
+            <Text style={styles.teaserBody}>
+              Earn cashback on everyday spending — automatically added to {childName}'s pot
+            </Text>
+          </View>
+          <View style={styles.teaserBadge}>
+            <Text style={styles.teaserBadgeText}>Coming soon</Text>
+          </View>
+        </View>
+
+        <View style={styles.teaserCard}>
+          <View style={styles.teaserIconWrap}>
+            <Text style={styles.teaserIconText}>🎴</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.teaserTitle}>Loyalty offers</Text>
+            <Text style={styles.teaserBody}>
+              Buy gift cards from top brands and earn cashback for {childName}
+            </Text>
+          </View>
+          <View style={styles.teaserBadge}>
+            <Text style={styles.teaserBadgeText}>Coming soon</Text>
+          </View>
+        </View>
 
         {/* ── S3: Quick actions ────────────────────────────────────────── */}
         <Text style={styles.actionsTitle}>Ways to grow {child?.name ?? 'your child'}'s pot</Text>
@@ -1189,6 +1219,27 @@ const styles = StyleSheet.create({
   gsLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.midnight },
   gsDoneText: { fontSize: 12, fontWeight: '700', color: '#16a34a' },
   gsDivider: { height: 1, backgroundColor: '#f1f5f9', marginLeft: 48 },
+
+  // Coming soon teasers
+  teaserCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16, marginHorizontal: 16, marginBottom: 8, padding: 14,
+    borderWidth: 1, borderColor: '#e2e8f0',
+  },
+  teaserIconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  teaserIconText: { fontSize: 18 },
+  teaserTitle: { fontSize: 13, fontWeight: '700', color: '#94a3b8', marginBottom: 2 },
+  teaserBody: { fontSize: 12, color: '#94a3b8', lineHeight: 17 },
+  teaserBadge: {
+    backgroundColor: '#f1f5f9', borderRadius: 100,
+    paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', flexShrink: 0,
+  },
+  teaserBadgeText: { fontSize: 10, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.3 },
 
   // Team stats card
   teamCard: {

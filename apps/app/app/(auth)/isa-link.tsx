@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -45,6 +45,25 @@ export default function IsaLinkScreen() {
   const [showHelp, setShowHelp] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [insertError, setInsertError] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
+
+  useEffect(() => {
+    if (!cid) return
+    supabase
+      .from('jisa_accounts')
+      .select('sort_code, account_number, payment_reference')
+      .eq('child_id', cid)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const d = data as { sort_code: string; account_number: string; payment_reference: string }
+          setSortCode(formatSortCode(d.sort_code))
+          setAccountNumber(d.account_number)
+          setReference(d.payment_reference)
+          setIsEditing(true)
+        }
+      })
+  }, [cid])
 
   const rawSortDigits = sortCode.replace(/\D/g, '')
   const isFormValid =
@@ -60,12 +79,12 @@ export default function IsaLinkScreen() {
     setSubmitting(true)
     setInsertError('')
 
-    const { error } = await supabase.from('jisa_accounts').insert({
+    const { error } = await supabase.from('jisa_accounts').upsert({
       child_id: cid,
       sort_code: rawSortDigits,
       account_number: accountNumber,
       payment_reference: reference.trim(),
-    })
+    }, { onConflict: 'child_id' })
 
     if (error) {
       setInsertError(error.message)
@@ -99,11 +118,11 @@ export default function IsaLinkScreen() {
             <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
               <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.progress}>5 of 8</Text>
+            {!isEditing && <Text style={styles.progress}>5 of 8</Text>}
           </View>
 
-          <Text style={styles.headline}>Link your ISA or JISA</Text>
-          <Text style={styles.subheadline}>We'll send your cashback here automatically.</Text>
+          <Text style={styles.headline}>{isEditing ? 'ISA / JISA details' : 'Link your ISA or JISA'}</Text>
+          <Text style={styles.subheadline}>{isEditing ? 'View or update your ISA details below.' : "We'll send your cashback here automatically."}</Text>
 
           {/* Sort code */}
           <View style={styles.fieldWrapper}>
@@ -194,7 +213,7 @@ export default function IsaLinkScreen() {
             {submitting ? (
               <ActivityIndicator size="small" color={colors.midnight} />
             ) : (
-              <Text style={styles.ctaText}>Save and continue</Text>
+              <Text style={styles.ctaText}>{isEditing ? 'Save changes' : 'Save and continue'}</Text>
             )}
           </TouchableOpacity>
         </ScrollView>

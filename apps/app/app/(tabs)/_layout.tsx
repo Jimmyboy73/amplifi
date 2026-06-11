@@ -39,8 +39,8 @@ export default function TabsLayout() {
         options={{
           title: 'My Family',
           tabBarActiveTintColor: colors.sky,
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={focused ? colors.sky : '#94a3b8'} />
+          tabBarIcon: () => (
+            <Ionicons name="people" size={22} color={colors.sky} />
           ),
         }}
       />

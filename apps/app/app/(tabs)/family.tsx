@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   View,
   Text,
@@ -20,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/lib/auth'
 import { useHandle } from '@/lib/useHandle'
 import { useChildren } from '@/lib/useChildren'
-import { useFamilyConnections } from '@/lib/useFamilyConnections'
+import { useFamilyConnections, type ContributorRow } from '@/lib/useFamilyConnections'
 import { useContributorConnections } from '@/lib/useContributorConnections'
 import { useSelectedChild } from '@/lib/SelectedChildContext'
 import { supabase } from '@/lib/supabase'
@@ -59,6 +60,14 @@ type PendingRequest = {
   requester_handle: string | null; created_at: string
 }
 
+type LocalInvite = {
+  id: string
+  relationship: string
+  dbRelationship: string
+  childId: string
+  timestamp: number
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function FamilyScreen() {
@@ -91,9 +100,6 @@ export default function FamilyScreen() {
       .then(({ data }) => { setJisa(data as JisaRow | null); setJisaLoading(false) })
   }, [selectedChildId])
 
-  // Existing family connections (contributors + pending invites from family_contributors/family_invites)
-  const { contributors, pending: pendingInvites, loading: connectionsLoading, refetch: refetchConnections } = useFamilyConnections(selectedChildId)
-
   // Edit child
   const [editingChild, setEditingChild] = useState(false)
   const [editName, setEditName] = useState('')
@@ -121,11 +127,42 @@ export default function FamilyScreen() {
   const [approveRelationship, setApproveRelationship] = useState('')
   const [savingApproval, setSavingApproval] = useState(false)
   const [approveChildSelections, setApproveChildSelections] = useState<Record<string, boolean>>({})
-  const [connectionCelebration, setConnectionCelebration] = useState<{ name: string; childName: string } | null>(null)
+  const [connectionCelebration, setConnectionCelebration] = useState<{ name: string; childName: string; referralCredit?: boolean } | null>(null)
   const hasScrolledToInvite = useRef(false)
+
+  // Locally-tracked WhatsApp invites (pre-signup)
+  const [localInvites, setLocalInvites] = useState<LocalInvite[]>([])
 
   // Contributor connections (where this user is the requester)
   const { connections: myConnections, loading: myConnectionsLoading, refetch: refetchMyConnections } = useContributorConnections()
+
+  // ── Local invite tracking ────────────────────────────────────────────────────
+
+  const loadLocalInvites = useCallback(async (currentContributors: ContributorRow[]) => {
+    if (!user || !selectedChildId) return
+    const raw = await AsyncStorage.getItem(`@amplifi/pending_invites/${user.id}`)
+    if (!raw) { setLocalInvites([]); return }
+    const all: LocalInvite[] = JSON.parse(raw)
+    const relevant = all.filter(inv => {
+      if (inv.childId !== selectedChildId) return false
+      return !currentContributors.some(c => c.relationship === inv.dbRelationship)
+    })
+    setLocalInvites(relevant)
+    // Prune fulfilled invites from storage
+    const fulfilled = all.filter(inv =>
+      inv.childId === selectedChildId && !relevant.some(r => r.id === inv.id)
+    )
+    if (fulfilled.length > 0) {
+      const remaining = all.filter(inv => !fulfilled.some(f => f.id === inv.id))
+      await AsyncStorage.setItem(`@amplifi/pending_invites/${user.id}`, JSON.stringify(remaining))
+    }
+  }, [user?.id, selectedChildId])
+
+  // Re-filter whenever contributors load or child changes
+  const { contributors, pending: pendingInvites, loading: connectionsLoading, refetch: refetchConnections } = useFamilyConnections(selectedChildId)
+  useEffect(() => {
+    if (!connectionsLoading) void loadLocalInvites(contributors)
+  }, [contributors, selectedChildId, connectionsLoading])
 
   // ── Data fetching ────────────────────────────────────────────────────────────
 
@@ -307,12 +344,31 @@ export default function FamilyScreen() {
     if (failed) {
       Alert.alert('Something went wrong', 'Please try again.')
     } else {
+      // Check/create referral credit
+      let referralCredit = false
+      const { data: existingReferral } = await supabase
+        .from('referral_events')
+        .select('id')
+        .eq('referrer_id', user!.id)
+        .eq('referred_id', requesterId)
+        .maybeSingle()
+      if (!existingReferral) {
+        const { error: refErr } = await supabase.from('referral_events').insert({
+          referrer_id: user!.id,
+          referred_id: requesterId,
+        })
+        if (!refErr) referralCredit = true
+      } else {
+        referralCredit = true
+      }
+
       // Capture celebration data before clearing state
       const req = pendingRequests.find(r => r.requester_id === requesterId)
       const approvedChild = children.find(c => approveChildSelections[c.id] !== false)
       setConnectionCelebration({
         name: req?.requester_name ?? 'They',
         childName: approvedChild?.name ?? 'your child',
+        referralCredit,
       })
       setApprovingRequestId(null)
       setApproveRelationship('')
@@ -336,7 +392,34 @@ export default function FamilyScreen() {
     ])
   }
 
-  const shareWhatsApp = () => {
+  const shareWhatsApp = async () => {
+    if (!selectedChild || !handle) return
+    if (inviteRelationship && user) {
+      const dbRel = RELATIONSHIP_DB[inviteRelationship] ?? inviteRelationship.toLowerCase()
+      const newInvite: LocalInvite = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        relationship: inviteRelationship,
+        dbRelationship: dbRel,
+        childId: selectedChild.id,
+        timestamp: Date.now(),
+      }
+      const raw = await AsyncStorage.getItem(`@amplifi/pending_invites/${user.id}`)
+      const existing: LocalInvite[] = raw ? JSON.parse(raw) : []
+      await AsyncStorage.setItem(`@amplifi/pending_invites/${user.id}`, JSON.stringify([...existing, newInvite]))
+      setLocalInvites(prev => [...prev, newInvite])
+    }
+    const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}`
+    const msg =
+      `I've started building a savings pot for ${selectedChild.name} — would you like to be part of it? 💙\n\n` +
+      `Tap here to see how you can help: ${url}`
+    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
+      Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
+    )
+    setShowInvite(false)
+    setInviteRelationship('')
+  }
+
+  const resendInvite = (invite: LocalInvite) => {
     if (!selectedChild || !handle) return
     const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}`
     const msg =
@@ -599,7 +682,7 @@ export default function FamilyScreen() {
 
                 {connectionsLoading && contributors.length === 0 && pendingInvites.length === 0 ? (
                   <ActivityIndicator size="small" color={colors.sky} />
-                ) : contributors.length === 0 && pendingInvites.length === 0 && pendingRequests.length === 0 ? (
+                ) : contributors.length === 0 && pendingInvites.length === 0 && pendingRequests.length === 0 && localInvites.length === 0 ? (
                   <Text style={styles.emptyText}>No family members yet — invite someone below</Text>
                 ) : (
                   <>
@@ -640,6 +723,34 @@ export default function FamilyScreen() {
                             </View>
                             <View style={styles.pendingChip}>
                               <Text style={styles.pendingChipText}>Pending</Text>
+                            </View>
+                          </View>
+                        ))}
+                      </>
+                    )}
+
+                    {localInvites.length > 0 && (
+                      <>
+                        {(contributors.length > 0 || pendingInvites.length > 0) && <View style={styles.rowDivider} />}
+                        <Text style={styles.pendingLabel}>Invite sent</Text>
+                        {localInvites.map(inv => (
+                          <View key={inv.id} style={styles.contributorRow}>
+                            <View style={[styles.avatar, { backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' }]}>
+                              <Ionicons name="time-outline" size={20} color="#d97706" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.contributorName}>{inv.relationship} invite sent</Text>
+                              <Text style={styles.contributorRel}>
+                                Sent {new Date(inv.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                              </Text>
+                            </View>
+                            <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                              <View style={styles.pendingChip}>
+                                <Text style={styles.pendingChipText}>Pending</Text>
+                              </View>
+                              <TouchableOpacity onPress={() => resendInvite(inv)} activeOpacity={0.7}>
+                                <Text style={styles.resendText}>Resend</Text>
+                              </TouchableOpacity>
                             </View>
                           </View>
                         ))}
@@ -789,7 +900,7 @@ export default function FamilyScreen() {
         visible={!!connectionCelebration}
         emoji="🎉"
         title={`${connectionCelebration?.name} is now part of ${connectionCelebration?.childName}'s team!`}
-        subtitle={`They can now see ${connectionCelebration?.childName}'s pot and set up contributions`}
+        subtitle={`They can now see ${connectionCelebration?.childName}'s pot and set up contributions${connectionCelebration?.referralCredit ? `\n\nYou earned a £5 credit for ${connectionCelebration?.childName}'s pot 🎉` : ''}`}
         primaryButton={{ label: 'Great!', onPress: () => setConnectionCelebration(null) }}
         onDismiss={() => setConnectionCelebration(null)}
       />
@@ -937,6 +1048,7 @@ const styles = StyleSheet.create({
   },
   pendingChip: { backgroundColor: '#fef3c7', borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 },
   pendingChipText: { fontSize: 11, fontWeight: '600', color: '#d97706' },
+  resendText: { fontSize: 12, fontWeight: '600', color: colors.azure },
   emptyText: { fontSize: 14, color: '#94a3b8', textAlign: 'center', paddingVertical: 4 },
 
   // Pending requests

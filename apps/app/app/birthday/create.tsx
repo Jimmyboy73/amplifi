@@ -74,6 +74,7 @@ export default function CreateWishlistScreen() {
   const [items, setItems] = useState<Item[]>([])
   const [itemName, setItemName] = useState('')
   const [itemAmount, setItemAmount] = useState('')
+  const [isAdding, setIsAdding] = useState(false)
 
   // Closing date — auto 7 days before
   const closingLabel = (() => {
@@ -106,13 +107,15 @@ export default function CreateWishlistScreen() {
   }
 
   const addItem = () => {
-    if (!itemName.trim() || !itemAmount.trim()) return
+    if (!itemName.trim() || !itemAmount.trim() || isAdding) return
+    setIsAdding(true)
     setItems((prev) => [
       ...prev,
       { id: Date.now().toString(), name: itemName.trim(), amount: itemAmount.trim(), emoji: '🎁' },
     ])
     setItemName('')
     setItemAmount('')
+    setTimeout(() => setIsAdding(false), 300)
   }
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id))
@@ -313,6 +316,21 @@ export default function CreateWishlistScreen() {
             Add items to {childName}'s wishlist
           </Text>
 
+          {items.length > 0 && (
+            <View style={styles.addedItems}>
+              {items.map((item) => (
+                <View key={item.id} style={styles.addedItem}>
+                  <Text style={styles.addedItemText}>
+                    {item.emoji} {item.name} — £{item.amount}
+                  </Text>
+                  <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7}>
+                    <Text style={styles.removeItem}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
           <View style={styles.itemCard}>
             <TextInput
               style={styles.input}
@@ -334,29 +352,16 @@ export default function CreateWishlistScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.addItemBtn, (!itemName.trim() || !itemAmount.trim()) && styles.addItemBtnDisabled]}
+              style={[styles.addItemBtn, (isAdding || !itemName.trim() || !itemAmount.trim()) && styles.addItemBtnDisabled]}
               onPress={addItem}
-              disabled={!itemName.trim() || !itemAmount.trim()}
+              disabled={isAdding || !itemName.trim() || !itemAmount.trim()}
               activeOpacity={0.85}
             >
-              <Text style={styles.addItemBtnText}>Add item</Text>
+              {isAdding
+                ? <ActivityIndicator size="small" color={colors.midnight} />
+                : <Text style={styles.addItemBtnText}>Add item</Text>}
             </TouchableOpacity>
           </View>
-
-          {items.length > 0 && (
-            <View style={styles.addedItems}>
-              {items.map((item) => (
-                <View key={item.id} style={styles.addedItem}>
-                  <Text style={styles.addedItemText}>
-                    {item.emoji} {item.name} — £{item.amount}
-                  </Text>
-                  <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7}>
-                    <Text style={styles.removeItem}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
 
           {/* S3 — Create button */}
           <TouchableOpacity
