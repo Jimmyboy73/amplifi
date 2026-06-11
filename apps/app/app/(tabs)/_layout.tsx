@@ -51,20 +51,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <EmojiIcon emoji="🎁" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="offers"
-        options={{
-          title: 'Cashback',
-          tabBarIcon: ({ color }) => <EmojiIcon emoji="💳" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="shop"
-        options={{
-          title: 'Loyalty',
-          tabBarIcon: ({ color }) => <EmojiIcon emoji="🎯" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="offers" options={{ href: null }} />
+      <Tabs.Screen name="shop" options={{ href: null }} />
       <Tabs.Screen name="pot" options={{ href: null }} />
     </Tabs>
     </SelectedChildProvider>
