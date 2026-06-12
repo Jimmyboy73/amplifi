@@ -99,6 +99,39 @@ function StatusPill({ status }: { status: string }) {
 // ── Admin page ─────────────────────────────────────────────────────────────────
 
 export default function Admin() {
+  // ── Auth state ─────────────────────────────────────────────────────────────
+  const [authChecked, setAuthChecked] = useState(false)
+  const [authed, setAuthed] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthed(!!data.session)
+      setAuthChecked(true)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginLoading(true)
+    setLoginError('')
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword })
+    setLoginLoading(false)
+    if (error) setLoginError(error.message)
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+  }
+
+  // ── Admin panel state (always declared — hooks must not be conditional) ────
   const [tab, setTab] = useState<Tab>('merchants')
   const [merchants, setMerchants] = useState<Merchant[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -159,11 +192,12 @@ export default function Admin() {
   }
 
   useEffect(() => {
+    if (!authed) return
     loadMerchants()
     loadProfiles()
     loadEvents()
     loadOffers()
-  }, [])
+  }, [authed])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -266,12 +300,65 @@ export default function Admin() {
     { key: 'settle',    label: 'Settle / reverse' },
   ]
 
+  if (!authChecked) {
+    return (
+      <div style={{ minHeight: '100vh', background: C.offwhite, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: '#64748b', fontSize: 14 }}>Checking access…</span>
+      </div>
+    )
+  }
+
+  if (!authed) {
+    return (
+      <div style={{ minHeight: '100vh', background: C.offwhite, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: '#ffffff', borderRadius: 16, padding: 32, width: 340, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+          <div style={{ fontWeight: 800, fontSize: 20, color: C.midnight, marginBottom: 4 }}>amplifi admin</div>
+          <div style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>Sign in to continue</div>
+          <form onSubmit={handleLogin}>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Email</label>
+              <input
+                style={{ ...inputStyle, display: 'block', width: '100%', boxSizing: 'border-box' }}
+                type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+                placeholder="you@example.com" required autoFocus
+              />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Password</label>
+              <input
+                style={{ ...inputStyle, display: 'block', width: '100%', boxSizing: 'border-box' }}
+                type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                placeholder="••••••••" required
+              />
+            </div>
+            {loginError && (
+              <div style={{ fontSize: 13, color: C.red, marginBottom: 14, fontWeight: 600 }}>{loginError}</div>
+            )}
+            <button type="submit" disabled={loginLoading} style={{
+              width: '100%', background: C.azure, color: '#fff', border: 'none',
+              borderRadius: 10, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+              opacity: loginLoading ? 0.6 : 1,
+            }}>
+              {loginLoading ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: C.offwhite, fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
       <div style={{ background: C.midnight, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
         <span style={{ color: '#ffffff', fontWeight: 800, fontSize: 18, letterSpacing: -0.5 }}>amplifi</span>
-        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>operator admin — not publicly linked</span>
+        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>operator admin</span>
+        <button onClick={handleSignOut} style={{
+          marginLeft: 'auto', background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)',
+          border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>
+          Sign out
+        </button>
       </div>
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px' }}>

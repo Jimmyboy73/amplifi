@@ -5,7 +5,7 @@ import posthog from 'posthog-js'
 import './index.css'
 import App from './App.tsx'
 
-posthog.init('phc_BNNKk2gQ2KAn4sD38eHtGb9kH7jj2LWn3aJf4wQeZxGj', {
+posthog.init(import.meta.env.VITE_POSTHOG_KEY as string, {
   api_host: 'https://eu.i.posthog.com',
   defaults: '2026-05-30',
   person_profiles: 'identified_only',

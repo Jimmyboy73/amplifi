@@ -160,12 +160,8 @@ export default function DetailsScreen() {
     const fullName = name.trim()
     const dobString = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
 
-    console.log('[Profile Insert] Attempting insert for user:', data.user.id)
-    console.log('[Profile Insert] Fields:', { fullName, email, phone, dobString })
-
     let profileError = null
     for (let attempt = 1; attempt <= 3; attempt++) {
-      console.log(`[Profile Insert] Attempt ${attempt}/3`)
       await new Promise(resolve => setTimeout(resolve, 1000))
       const { error } = await supabase
         .from('profiles')
@@ -177,10 +173,7 @@ export default function DetailsScreen() {
           date_of_birth: dobString,
         })
       profileError = error
-      if (!error) {
-        console.log('[Profile Insert] SUCCESS on attempt', attempt)
-        break
-      }
+      if (!error) break
       console.error(`[Profile Insert] Attempt ${attempt} FAILED:`, error.message)
     }
 
@@ -215,7 +208,6 @@ export default function DetailsScreen() {
       await AsyncStorage.removeItem('amplifi_ref_handle')
     }
 
-    console.log('[Navigation] Navigating to handle screen')
     setSubmitting(false)
     router.push({
       pathname: '/(auth)/handle',

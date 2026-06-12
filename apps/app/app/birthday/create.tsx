@@ -135,10 +135,6 @@ export default function CreateWishlistScreen() {
     if (!isValid || saving || !child) return
     setSaving(true)
 
-    console.log('[Wishlist] Starting create for user:', user?.id)
-    console.log('[Wishlist] Child ID:', child.id)
-    console.log('[Wishlist] Items:', items)
-
     const occasionLabel =
       occasionType === 'birthday' ? `${childName}'s Birthday` :
       occasionType === 'christmas' ? 'Christmas' : 'Other'
@@ -169,8 +165,6 @@ export default function CreateWishlistScreen() {
         p_payment_detail: '',
       })
 
-    console.log('[Wishlist] Insert result:', wlData, wlError)
-
     if (wlError || !wlData) {
       Alert.alert('Error', wlError?.message ?? 'Failed to create wishlist. Please try again.')
       setSaving(false)
@@ -190,12 +184,8 @@ export default function CreateWishlistScreen() {
         }))
       )
 
-    console.log('[Wishlist Items] Insert result:', itemsError)
-
     if (itemsError) {
-      console.error('[Wishlist Items] Error:', itemsError)
-      // Don't show error to user if wishlist was created successfully
-      // Items may have saved despite the error response
+      console.error('[Wishlist Items] Insert error:', itemsError)
     }
 
     const totalTarget = items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0)
