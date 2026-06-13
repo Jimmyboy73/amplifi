@@ -159,7 +159,7 @@ James has NOT approved this — needs his decision.
 - **Account active** at dashboard.fidel.uk
 - **API Key (test):** `sk_test_<redacted — retrieve from Fidel dashboard>`
 - **SDK Key (test):** `pk_test_<redacted — retrieve from Fidel dashboard>`
-- **Program ID:** `5e619a8e-d003-4dde-b074-005bfb26e56f` (Demo Program, Select Transactions)
+- **Program ID:** `<redacted>` (Demo Program, Select Transactions)
 - **Products:** Select Transactions API (real-time card-linked transaction webhooks) + Transaction Stream (all transactions) + OaaS (brand offer marketplace) available
 - **Integration plan:** Supabase Edge Function receives Fidel webhook → inserts `cashback_events` row → existing DB trigger handles matching + crediting. Card enrolment via Fidel React Native SDK (requires Expo dev client, NOT Expo Go).
 - **Key Fidel fields:** `cleared` boolean = settlement signal (pending while false, settled when true); `card.metadata.userId` = where to stash Amplifi user ID at enrolment
@@ -218,7 +218,7 @@ Each user has a unique handle (like @revolut). Family members can find you by ha
 ### Proposed data model
 
 **profiles table addition:**
-- `handle` — unique, lowercase, alphanumeric + underscores, e.g. `jamesshattock`. Set during onboarding or in Settings. Searchable.
+- `handle` — unique, lowercase, alphanumeric + underscores, e.g. `myhandle`. Set during onboarding or in Settings. Searchable.
 
 **New table: `family_connections`**
 - `id` (uuid PK)
@@ -287,10 +287,10 @@ Reference values at £50/mo:
 ---
 
 ## Test Accounts & Data
-- **Test user:** James Shattock (`jamesshattock@yahoo.co.uk`), user ID `5d77d54b-2edf-4b6e-b8c5-cb9df709c8b7`
-- **Test child:** Isla, child ID `69d68eed-0791-48ca-99ec-0d0c8aea130d`
+- **Test user:** `<redacted>`, user ID `<redacted>`
+- **Test child:** child ID `<redacted>`
 - **Test merchant:** Waitrose (in merchants table), has a 2% cashback offer (was toggled off then on during testing — there may be duplicate offers, one active one inactive)
-- **Family page URL:** `amplifi-plan.netlify.app/family/69d68eed-0791-48ca-99ec-0d0c8aea130d`
+- **Family page URL:** `amplifi-plan.netlify.app/family/<redacted>`
 
 ---
 

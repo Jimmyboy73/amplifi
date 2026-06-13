@@ -1,11 +1,11 @@
 import type { Config } from "@netlify/functions";
 
 export default async (): Promise<Response> => {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
+    console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY");
     return new Response("Missing environment variables", { status: 500 });
   }
 
