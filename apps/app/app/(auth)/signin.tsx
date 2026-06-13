@@ -11,15 +11,16 @@ import {
   Platform,
   ScrollView,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { colors } from '@/constants/brand'
 
 export default function SignInScreen() {
   const router = useRouter()
+  const { prefillEmail } = useLocalSearchParams<{ prefillEmail?: string }>()
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(typeof prefillEmail === 'string' ? prefillEmail : '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)

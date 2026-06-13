@@ -133,7 +133,7 @@ export default function ChildScreen() {
           <Text style={styles.progress}>5 of 5</Text>
         </View>
 
-        <Text style={styles.headline}>Who are we investing for?</Text>
+        <Text style={styles.headline}>Who are we building a pot for?</Text>
         <Text style={styles.subheadline}>Tell us about your child. You can add more children later.</Text>
 
         {/* Child's name */}

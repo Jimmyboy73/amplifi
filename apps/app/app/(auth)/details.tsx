@@ -231,7 +231,7 @@ export default function DetailsScreen() {
             <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
               <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
-            <Text style={styles.progress}>2 of 8</Text>
+            <Text style={styles.progress}>3 of 5</Text>
           </View>
 
           <Text style={styles.headline}>Let's get you set up</Text>
@@ -383,6 +383,15 @@ export default function DetailsScreen() {
 
           {/* Auth error */}
           {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+          {authError.includes('Sign in instead') && (
+            <TouchableOpacity
+              style={styles.goToLoginBtn}
+              onPress={() => router.push({ pathname: '/(auth)/signin', params: { prefillEmail: email.trim() } })}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.goToLoginText}>Go to login →</Text>
+            </TouchableOpacity>
+          )}
 
           {/* CTA */}
           <TouchableOpacity
@@ -435,7 +444,9 @@ const styles = StyleSheet.create({
   atInputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 14, backgroundColor: '#ffffff' },
   atPrefix: { fontSize: 18, fontWeight: '700', color: colors.azure, marginRight: 2 },
   atInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: colors.midnight },
-  authError: { fontSize: 13, color: '#ef4444', marginBottom: 12, lineHeight: 19 },
+  authError: { fontSize: 13, color: '#ef4444', marginBottom: 6, lineHeight: 19 },
+  goToLoginBtn: { alignSelf: 'flex-start', paddingVertical: 4, marginBottom: 10 },
+  goToLoginText: { fontSize: 14, fontWeight: '700', color: colors.sky },
   cta: { backgroundColor: colors.sky, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
   ctaDisabled: { opacity: 0.4 },
   ctaText: { color: colors.midnight, fontSize: 17, fontWeight: '700' },

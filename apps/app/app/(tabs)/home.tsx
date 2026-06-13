@@ -838,59 +838,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* ── Coming soon teasers ──────────────────────────────────────── */}
-        <View style={styles.teaserCard}>
-          <View style={styles.teaserIconWrap}>
-            <Text style={styles.teaserIconText}>%</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.teaserTitle}>Cashback</Text>
-            <Text style={styles.teaserBody}>
-              Earn cashback on everyday spending — automatically added to {childName}'s pot
-            </Text>
-          </View>
-          <View style={styles.teaserBadge}>
-            <Text style={styles.teaserBadgeText}>Coming soon</Text>
-          </View>
-        </View>
-
-        <View style={styles.teaserCard}>
-          <View style={styles.teaserIconWrap}>
-            <Text style={styles.teaserIconText}>🎴</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.teaserTitle}>Loyalty offers</Text>
-            <Text style={styles.teaserBody}>
-              Buy gift cards from top brands and earn cashback for {childName}
-            </Text>
-          </View>
-          <View style={styles.teaserBadge}>
-            <Text style={styles.teaserBadgeText}>Coming soon</Text>
-          </View>
-        </View>
-
-        {/* ── S3: Quick actions ────────────────────────────────────────── */}
-        <Text style={styles.actionsTitle}>Ways to grow {child?.name ?? 'your child'}'s pot</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.actionsContent}
-          style={styles.actionsRow}
-        >
-          {([
-            { key: 'family',   label: 'My Family',     icon: <Ionicons name="people" size={18} color={colors.sky} />, onPress: () => router.push('/(tabs)/family') },
-            { key: 'occasions',label: 'Occasions',      icon: <Text style={styles.actionIcon}>🎁</Text>,              onPress: () => router.push('/birthday') },
-            { key: 'cashback', label: 'Cashback',       icon: <Text style={styles.actionIcon}>💳</Text>,              onPress: () => router.push('/(tabs)/offers') },
-            { key: 'loyalty',  label: 'Loyalty offers', icon: <Text style={styles.actionIcon}>🎯</Text>,              onPress: () => router.push('/(tabs)/shop') },
-          ] as const).map((a) => (
-            <TouchableOpacity key={a.key} style={styles.actionChip} onPress={a.onPress} activeOpacity={0.8}>
-              {a.icon}
-              <Text style={styles.actionLabel}>{a.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* ── S4: Projection slider ────────────────────────────────────── */}
+        {/* ── Projection slider ────────────────────────────────────────── */}
         <View style={styles.sliderCard}>
           <Text style={styles.sliderCardTitle}>What {childName} could have!</Text>
           <Text style={styles.sliderCardSubtitle}>Adjust monthly contribution to see the impact</Text>
@@ -935,7 +883,26 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* ── S5: Recent activity ──────────────────────────────────────── */}
+        {/* ── Quick actions 2×2 grid ───────────────────────────────────── */}
+        <Text style={styles.actionsTitle}>Ways to grow {child?.name ?? 'your child'}'s pot</Text>
+        <View style={styles.actionsGrid}>
+          {([
+            { key: 'family',   label: 'My Family',     desc: 'Invite family to contribute', icon: 'people-outline'  as const, onPress: () => router.push('/(tabs)/family') },
+            { key: 'occasions',label: 'Occasions',      desc: 'Create a birthday wishlist',  icon: 'gift-outline'    as const, onPress: () => router.push('/(tabs)/occasions') },
+            { key: 'cashback', label: 'Cashback',       desc: 'Earn on everyday spending',   icon: 'card-outline'    as const, onPress: () => router.push('/(tabs)/rewards') },
+            { key: 'loyalty',  label: 'Loyalty offers', desc: 'Gift cards from top brands',  icon: 'star-outline'    as const, onPress: () => router.push('/(tabs)/rewards') },
+          ]).map((a) => (
+            <TouchableOpacity key={a.key} style={styles.actionCard} onPress={a.onPress} activeOpacity={0.8}>
+              <View style={styles.actionCardIconWrap}>
+                <Ionicons name={a.icon} size={20} color={colors.azure} />
+              </View>
+              <Text style={styles.actionCardTitle}>{a.label}</Text>
+              <Text style={styles.actionCardBody}>{a.desc}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── Recent activity ──────────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Recent activity</Text>
         <View style={styles.activityList}>
           {contributions.length === 0 ? (
@@ -1100,16 +1067,24 @@ const styles = StyleSheet.create({
     fontSize: 16, fontWeight: '700', color: colors.midnight,
     paddingHorizontal: 16, marginBottom: 8, marginTop: 16,
   },
-  actionsRow: { marginBottom: 16 },
-  actionsContent: { paddingHorizontal: 16, paddingVertical: 4, gap: 10 },
-  actionChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderWidth: 1, borderColor: colors.midnight,
-    borderRadius: 100, backgroundColor: '#ffffff',
-  },
-  actionIcon: { fontSize: 15 },
   actionLabel: { fontSize: 13, fontWeight: '600', color: colors.midnight },
+
+  actionsGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+    paddingHorizontal: 16, marginBottom: 16,
+  },
+  actionCard: {
+    width: '48%', backgroundColor: '#f8fafc',
+    borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: '#e2e8f0',
+  },
+  actionCardIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#e8f4fd',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+  },
+  actionCardTitle: { fontSize: 13, fontWeight: '700', color: colors.midnight, marginBottom: 3 },
+  actionCardBody: { fontSize: 12, color: '#64748b', lineHeight: 16 },
 
   // Projection slider card
   sliderCard: {

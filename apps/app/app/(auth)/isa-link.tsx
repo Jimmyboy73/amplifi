@@ -98,7 +98,7 @@ export default function IsaLinkScreen() {
     } else if (source === 'home') {
       router.replace('/(tabs)/home')
     } else {
-      router.push({ pathname: '/(auth)/card', params: { childName: name, childId: cid } })
+      router.replace('/(tabs)/home')
     }
   }
 
@@ -118,11 +118,10 @@ export default function IsaLinkScreen() {
             <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
               <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
-            {!isEditing && <Text style={styles.progress}>5 of 8</Text>}
           </View>
 
           <Text style={styles.headline}>{isEditing ? 'ISA / JISA details' : 'Link your ISA or JISA'}</Text>
-          <Text style={styles.subheadline}>{isEditing ? 'View or update your ISA details below.' : "We'll send your cashback here automatically."}</Text>
+          <Text style={styles.subheadline}>{isEditing ? 'View or update your ISA details below.' : `Family members use these details to send contributions directly to ${name}'s account.`}</Text>
 
           {/* Sort code */}
           <View style={styles.fieldWrapper}>
@@ -193,7 +192,7 @@ export default function IsaLinkScreen() {
           {isFormValid && (
             <View style={styles.confirmCard}>
               <Text style={styles.confirmText}>
-                We'll send cashback and contributions to account{' '}
+                Contributions will be sent to account{' '}
                 <Text style={styles.confirmBold}>{sortCode} / {accountNumber}</Text>
                 {'\n'}with reference{' '}
                 <Text style={styles.confirmBold}>{reference.trim()}</Text>

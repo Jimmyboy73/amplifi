@@ -77,6 +77,18 @@ function AuthRedirect() {
         .maybeSingle()
 
       if (!child) {
+        const { data: conn } = await supabase
+          .from('family_connections')
+          .select('id')
+          .eq('requester_id', userId)
+          .limit(1)
+          .maybeSingle()
+
+        if (conn) {
+          router.replace('/(tabs)/home')
+          return
+        }
+
         router.replace('/(auth)/child')
         return
       }
