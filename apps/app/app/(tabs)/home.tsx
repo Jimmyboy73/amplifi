@@ -591,10 +591,6 @@ export default function HomeScreen() {
   const hasAnimatedSlider = useRef(false)
 
   useEffect(() => {
-    if (wallet) setSliderValue(wallet.balance > 0 ? wallet.balance : 20)
-  }, [wallet])
-
-  useEffect(() => {
     if (isLoading || hasAnimatedSlider.current) return
     hasAnimatedSlider.current = true
     let current = 10
