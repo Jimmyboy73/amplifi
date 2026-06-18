@@ -18,6 +18,7 @@ import { useAuth } from '@/lib/auth'
 import { useChildren } from '@/lib/useChildren'
 import { useContributorConnections, type ContributorConnection } from '@/lib/useContributorConnections'
 import { useFamilyContributions, type FamilyContribution } from '@/lib/useFamilyContributions'
+import { computePot, monthlyEquiv } from '@/lib/computePot'
 import CelebrationModal from '@/components/CelebrationModal'
 import { supabase } from '@/lib/supabase'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -70,19 +71,6 @@ const ACTIVITY_ICON_BG: Record<ActivityType, string> = {
 
 const MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000] as const
 
-function monthlyEquiv(amount: number, freq: 'weekly' | 'monthly' | 'one_off'): number {
-  if (freq === 'monthly') return amount
-  if (freq === 'weekly') return Math.round(amount * 4.33)
-  return 0
-}
-
-function estimateContributed(contrib: FamilyContribution): number {
-  if (contrib.frequency === 'one_off') return contrib.amount_gbp
-  const months = Math.max(0, Math.floor(
-    (Date.now() - new Date(contrib.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-  ))
-  return Math.round(monthlyEquiv(contrib.amount_gbp, contrib.frequency) * months)
-}
 
 const FREQ_LABELS: Record<'weekly' | 'monthly' | 'one_off', string> = {
   weekly: 'Weekly',
@@ -179,6 +167,16 @@ function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
   const router = useRouter()
   const { contributions, loading: contribLoading, logContribution, updateContribution, stopContribution } =
     useFamilyContributions(conn.id)
+
+  const [allContributions, setAllContributions] = useState<FamilyContribution[]>([])
+  useEffect(() => {
+    const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+    db.from('family_contributions')
+      .select('id, amount_gbp, frequency, status, started_at, created_at, stopped_at')
+      .eq('child_id', conn.childId)
+      .eq('status', 'active')
+      .then(({ data }) => setAllContributions((data ?? []) as FamilyContribution[]))
+  }, [conn.childId])
 
   const [jisa, setJisa] = useState<JisaDetails | null>(null)
   const [jisaLoading, setJisaLoading] = useState(true)
@@ -284,7 +282,7 @@ function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
         </View>
         <View style={cStyles.potRow}>
           <Text style={cStyles.potLabel}>Pot total</Text>
-          <Text style={cStyles.potValue}>£0.00</Text>
+          <Text style={cStyles.potValue}>{gbp(computePot(allContributions))}</Text>
         </View>
         <Text style={cStyles.potSub}>Together, the family is building {conn.childName}'s future</Text>
       </View>
@@ -338,7 +336,7 @@ function ContributorChildCard({ conn }: { conn: ContributorConnection }) {
               </TouchableOpacity>
             </View>
             {(() => {
-              const totalEstimate = estimateContributed(activeContrib)
+              const totalEstimate = computePot([activeContrib])
               const monthsActive = activeContrib.frequency !== 'one_off'
                 ? Math.max(0, Math.floor((Date.now() - new Date(activeContrib.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
                 : 0
@@ -509,20 +507,18 @@ export default function HomeScreen() {
   const child = children.find(c => c.id === selectedChildId) ?? null
   const childPhoto = child?.photo_url ?? null
 
-  // Wallet (owner-level, fetched once)
-  const [wallet, setWallet] = useState<{ balance: number; total_earned: number } | null>(null)
+  // Pot total for selected child — all active family contributions
+  const [potContributions, setPotContributions] = useState<FamilyContribution[]>([])
 
   useEffect(() => {
-    if (!user) return
-    supabase
-      .from('wallets')
-      .select('balance, total_earned')
-      .eq('owner_id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) setWallet(data as { balance: number; total_earned: number })
-      })
-  }, [user?.id])
+    if (!selectedChildId) { setPotContributions([]); return }
+    const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
+    db.from('family_contributions')
+      .select('id, amount_gbp, frequency, status, started_at, created_at, stopped_at')
+      .eq('child_id', selectedChildId)
+      .eq('status', 'active')
+      .then(({ data }) => setPotContributions((data ?? []) as FamilyContribution[]))
+  }, [selectedChildId])
 
   // Contributions (child-level)
   const [contributions, setContributions] = useState<Array<{
@@ -549,20 +545,18 @@ export default function HomeScreen() {
   // Getting Started card data
   const [hasJisa, setHasJisa] = useState(false)
   const [approvedFamilyCount, setApprovedFamilyCount] = useState(0)
-  const [hasWishlists, setHasWishlists] = useState(false)
   const [gettingStartedLoaded, setGettingStartedLoaded] = useState(false)
   const [teamMonthlyTotal, setTeamMonthlyTotal] = useState(0)
 
   const refetchGettingStarted = useCallback(async () => {
     if (!user || !selectedChildId) return
     const db = supabase as unknown as { from: (t: string) => ReturnType<typeof supabase.from> }
-    const [jisaRes, connRes, wlRes, teamConnRes] = await Promise.all([
+    const [jisaRes, connRes, teamConnRes] = await Promise.all([
       supabase.from('jisa_accounts').select('id').eq('child_id', selectedChildId).maybeSingle(),
       db.from('family_connections')
         .select('id', { count: 'exact', head: true })
         .eq('parent_id', user.id)
         .eq('status', 'approved'),
-      supabase.from('wishlists').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
       db.from('family_connections')
         .select('id')
         .eq('parent_id', user.id)
@@ -571,7 +565,6 @@ export default function HomeScreen() {
     ])
     setHasJisa(!!jisaRes.data)
     setApprovedFamilyCount((connRes as { count: number | null }).count ?? 0)
-    setHasWishlists(((wlRes as { count: number | null }).count ?? 0) > 0)
 
     const teamConnIds = ((teamConnRes as { data: Array<{ id: string }> | null }).data ?? []).map(c => c.id)
     if (teamConnIds.length > 0) {
@@ -738,8 +731,9 @@ export default function HomeScreen() {
             <Text style={styles.potSub}>Building {child?.name ?? 'their'}'s future</Text>
           </View>
 
-          <Text style={styles.heroBalance}>{gbp(wallet?.total_earned ?? 0)}</Text>
-          <Text style={styles.heroBalanceSub}>total in {childName}'s JISA</Text>
+          <Text style={styles.heroBalance}>{gbp(computePot(potContributions))}</Text>
+          <Text style={styles.heroBalanceSub}>contributions set up for {childName}</Text>
+          <Text style={styles.heroBalanceSmall}>Your ISA is held by your provider — this tracks contributions the family has logged.</Text>
         </View>
 
         {/* ── Team stats card ──────────────────────────────────────────── */}
@@ -784,7 +778,7 @@ export default function HomeScreen() {
         )}
 
         {/* ── Getting Started card ─────────────────────────────────────── */}
-        {gettingStartedLoaded && !(hasJisa && approvedFamilyCount > 0 && hasWishlists) && (
+        {gettingStartedLoaded && !(hasJisa && approvedFamilyCount > 0) && (
           <View style={styles.gettingStartedCard}>
             <Text style={styles.gsTitle}>Get more from Amplifi</Text>
 
@@ -819,22 +813,6 @@ export default function HomeScreen() {
                 : <Ionicons name="chevron-forward" size={17} color="#94a3b8" />}
             </TouchableOpacity>
 
-            <View style={styles.gsDivider} />
-
-            <TouchableOpacity
-              style={styles.gsRow}
-              onPress={hasWishlists ? undefined : () => router.push('/(tabs)/occasions')}
-              activeOpacity={hasWishlists ? 1 : 0.75}
-              disabled={hasWishlists}
-            >
-              <View style={[styles.gsIconWrap, hasWishlists && styles.gsIconWrapDone]}>
-                <Ionicons name="gift-outline" size={19} color={hasWishlists ? '#16a34a' : colors.azure} />
-              </View>
-              <Text style={styles.gsLabel}>Create a birthday wishlist</Text>
-              {hasWishlists
-                ? <Text style={styles.gsDoneText}>Done ✓</Text>
-                : <Ionicons name="chevron-forward" size={17} color="#94a3b8" />}
-            </TouchableOpacity>
           </View>
         )}
 
@@ -886,20 +864,13 @@ export default function HomeScreen() {
         {/* ── Quick actions 2×2 grid ───────────────────────────────────── */}
         <Text style={styles.actionsTitle}>Ways to grow {child?.name ?? 'your child'}'s pot</Text>
         <View style={styles.actionsGrid}>
-          {([
-            { key: 'family',   label: 'My Family',     desc: 'Invite family to contribute', icon: 'people-outline'  as const, onPress: () => router.push('/(tabs)/family') },
-            { key: 'occasions',label: 'Occasions',      desc: 'Create a birthday wishlist',  icon: 'gift-outline'    as const, onPress: () => router.push('/(tabs)/occasions') },
-            { key: 'cashback', label: 'Cashback',       desc: 'Earn on everyday spending',   icon: 'card-outline'    as const, onPress: () => router.push('/(tabs)/rewards') },
-            { key: 'loyalty',  label: 'Loyalty offers', desc: 'Gift cards from top brands',  icon: 'star-outline'    as const, onPress: () => router.push('/(tabs)/rewards') },
-          ]).map((a) => (
-            <TouchableOpacity key={a.key} style={styles.actionCard} onPress={a.onPress} activeOpacity={0.8}>
-              <View style={styles.actionCardIconWrap}>
-                <Ionicons name={a.icon} size={20} color={colors.azure} />
-              </View>
-              <Text style={styles.actionCardTitle}>{a.label}</Text>
-              <Text style={styles.actionCardBody}>{a.desc}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity style={[styles.actionCard, { width: '100%' }]} onPress={() => router.push('/(tabs)/family')} activeOpacity={0.8}>
+            <View style={styles.actionCardIconWrap}>
+              <Ionicons name="people-outline" size={20} color={colors.azure} />
+            </View>
+            <Text style={styles.actionCardTitle}>My Family</Text>
+            <Text style={styles.actionCardBody}>Invite family to contribute</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Recent activity ──────────────────────────────────────────── */}
@@ -1049,6 +1020,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', letterSpacing: -1, marginTop: 8,
   },
   heroBalanceSub: { color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', marginTop: 4 },
+  heroBalanceSmall: { color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'center', marginTop: 6, lineHeight: 15, paddingHorizontal: 8 },
 
   // Child switcher
   childSwitcherRow: { marginBottom: 8 },

@@ -9,6 +9,7 @@ export type FamilyContribution = {
   amount_gbp: number
   frequency: 'weekly' | 'monthly' | 'one_off'
   status: 'active' | 'stopped'
+  started_at: string | null
   created_at: string
   stopped_at: string | null
 }
@@ -24,7 +25,7 @@ export function useFamilyContributions(connectionId: string | null) {
     if (!connectionId) { setLoading(false); return }
     const { data } = await supabase
       .from('family_contributions' as never)
-      .select('id, amount_gbp, frequency, status, created_at, stopped_at')
+      .select('id, amount_gbp, frequency, status, started_at, created_at, stopped_at')
       .eq('connection_id', connectionId)
       .order('created_at', { ascending: false })
     setContributions((data ?? []) as FamilyContribution[])

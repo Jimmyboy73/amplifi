@@ -159,7 +159,7 @@ export default function FamilyScreen() {
   }, [user?.id, selectedChildId])
 
   // Re-filter whenever contributors load or child changes
-  const { contributors, pending: pendingInvites, loading: connectionsLoading, refetch: refetchConnections } = useFamilyConnections(selectedChildId)
+  const { contributors, loading: connectionsLoading, refetch: refetchConnections } = useFamilyConnections(selectedChildId)
   useEffect(() => {
     if (!connectionsLoading) void loadLocalInvites(contributors)
   }, [contributors, selectedChildId, connectionsLoading])
@@ -674,64 +674,40 @@ export default function FamilyScreen() {
                         {idx < pendingRequests.length - 1 && <View style={styles.rowDivider} />}
                       </View>
                     ))}
-                    {(contributors.length > 0 || pendingInvites.length > 0) && (
+                    {contributors.length > 0 && (
                       <View style={[styles.rowDivider, { marginVertical: 12 }]} />
                     )}
                   </>
                 )}
 
-                {connectionsLoading && contributors.length === 0 && pendingInvites.length === 0 ? (
+                {connectionsLoading && contributors.length === 0 ? (
                   <ActivityIndicator size="small" color={colors.sky} />
-                ) : contributors.length === 0 && pendingInvites.length === 0 && pendingRequests.length === 0 && localInvites.length === 0 ? (
+                ) : contributors.length === 0 && pendingRequests.length === 0 && localInvites.length === 0 ? (
                   <Text style={styles.emptyText}>No family members yet — invite someone below</Text>
                 ) : (
                   <>
                     {contributors.map((c, idx) => (
                       <View key={c.id}>
                         <View style={styles.contributorRow}>
-                          <View style={[styles.avatar, { backgroundColor: c.avatar_color || AVATAR_COLORS[idx % AVATAR_COLORS.length] }]}>
+                          <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[idx % AVATAR_COLORS.length] }]}>
                             <Text style={styles.avatarText}>{c.name.charAt(0).toUpperCase()}</Text>
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.contributorName}>{c.name}</Text>
                             <Text style={styles.contributorRel}>{c.relationship ?? 'Family'}</Text>
                           </View>
-                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                            <Text style={styles.contributorAmount}>{gbp(c.total_contributed)}</Text>
-                            <View style={styles.activeChip}>
-                              <View style={styles.activeDot} />
-                              <Text style={styles.activeChipText}>Active</Text>
-                            </View>
+                          <View style={styles.activeChip}>
+                            <View style={styles.activeDot} />
+                            <Text style={styles.activeChipText}>Active</Text>
                           </View>
                         </View>
                         {idx < contributors.length - 1 && <View style={styles.rowDivider} />}
                       </View>
                     ))}
 
-                    {pendingInvites.length > 0 && (
-                      <>
-                        {contributors.length > 0 && <View style={styles.rowDivider} />}
-                        <Text style={styles.pendingLabel}>Pending invites</Text>
-                        {pendingInvites.map(p => (
-                          <View key={p.id} style={styles.contributorRow}>
-                            <View style={[styles.avatar, { backgroundColor: '#e2e8f0' }]}>
-                              <Text style={[styles.avatarText, { color: '#94a3b8' }]}>?</Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.contributorName, { color: '#94a3b8' }]}>{p.invited_name}</Text>
-                              <Text style={styles.contributorRel}>{p.sent_to_email}</Text>
-                            </View>
-                            <View style={styles.pendingChip}>
-                              <Text style={styles.pendingChipText}>Pending</Text>
-                            </View>
-                          </View>
-                        ))}
-                      </>
-                    )}
-
                     {localInvites.length > 0 && (
                       <>
-                        {(contributors.length > 0 || pendingInvites.length > 0) && <View style={styles.rowDivider} />}
+                        {contributors.length > 0 && <View style={styles.rowDivider} />}
                         <Text style={styles.pendingLabel}>Invite sent</Text>
                         {localInvites.map(inv => (
                           <View key={inv.id} style={styles.contributorRow}>

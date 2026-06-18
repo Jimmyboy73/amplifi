@@ -14,7 +14,9 @@
       "Bash(gh repo *)",
       "Bash(netlify *)",
       "Bash(git push *)",
-      "mcp__claude_ai_Netlify__netlify-project-services-reader"
+      "mcp__claude_ai_Netlify__netlify-project-services-reader",
+      "PowerShell(git add *)",
+      "PowerShell(git push *)"
     ]
   }
 }

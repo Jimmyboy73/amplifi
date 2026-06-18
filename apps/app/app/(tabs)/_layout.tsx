@@ -3,12 +3,15 @@ import { Text } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { colors } from '@/constants/brand'
 import { SelectedChildProvider } from '@/lib/SelectedChildContext'
+import { usePendingConnectionCount } from '@/lib/usePendingConnectionCount'
 
 function EmojiIcon({ emoji, color }: { emoji: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{emoji}</Text>
 }
 
 export default function TabsLayout() {
+  const pendingCount = usePendingConnectionCount()
+
   return (
     <SelectedChildProvider>
     <Tabs
@@ -38,26 +41,15 @@ export default function TabsLayout() {
         name="family"
         options={{
           title: 'My Family',
+          tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
           tabBarActiveTintColor: colors.sky,
           tabBarIcon: () => (
             <Ionicons name="people" size={22} color={colors.sky} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="occasions"
-        options={{
-          title: 'Occasions',
-          tabBarIcon: ({ color }) => <EmojiIcon emoji="🎁" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="rewards"
-        options={{
-          title: 'Rewards',
-          tabBarIcon: ({ color }) => <Ionicons name="star-outline" size={22} color={color} />,
-        }}
-      />
+      <Tabs.Screen name="occasions" options={{ href: null }} />
+      <Tabs.Screen name="rewards" options={{ href: null }} />
       <Tabs.Screen name="offers" options={{ href: null }} />
       <Tabs.Screen name="shop" options={{ href: null }} />
       <Tabs.Screen name="pot" options={{ href: null }} />

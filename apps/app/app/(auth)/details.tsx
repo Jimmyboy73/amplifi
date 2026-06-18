@@ -186,20 +186,20 @@ export default function DetailsScreen() {
         status: 'pending',
       })
 
-      // Find the referrer's first child to link the connection to
-      const { data: firstChild } = await supabase
+      // Bind to the referrer's child provisionally. Single-child → always correct.
+      // Multi-child → first by created_at as a default; parent selects correct
+      // child(ren) at approval time, which overwrites this provisional binding.
+      const { data: referrerChildren } = await supabase
         .from('children')
         .select('id')
         .eq('owner_id', validatedReferrerId)
         .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
 
-      if (firstChild) {
+      if (referrerChildren && referrerChildren.length > 0) {
         await supabase.from('family_connections').insert({
           requester_id: data.user.id,
           parent_id: validatedReferrerId,
-          child_id: firstChild.id,
+          child_id: (referrerChildren[0] as { id: string }).id,
           status: 'pending',
           relationship: null,
         })
