@@ -10,15 +10,16 @@ export type ContributorRow = {
   joined_at: string
 }
 
-export type PendingInviteRow = {
+export type InvitedRow = {
   id: string
-  invited_name: string
-  sent_to_email: string
-  sent_at: string
+  invited_name: string | null
+  relationship: string | null
+  created_at: string
 }
 
 export function useFamilyConnections(childId: string | null) {
   const [contributors, setContributors] = useState<ContributorRow[]>([])
+  const [invited, setInvited] = useState<InvitedRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const refetch = useCallback(async () => {
@@ -27,17 +28,45 @@ export function useFamilyConnections(childId: string | null) {
 
     const { data: conns } = await supabase
       .from('family_connections')
-      .select('id, requester_id, relationship, created_at')
+      .select('id, requester_id, relationship, created_at, status, invited_name')
       .eq('child_id', childId)
-      .eq('status', 'approved')
+      .in('status', ['invited', 'approved'])
 
     if (!conns?.length) {
+      setContributors([])
+      setInvited([])
+      setLoading(false)
+      return
+    }
+
+    const rows = conns as Array<{
+      id: string
+      requester_id: string | null
+      relationship: string | null
+      created_at: string
+      status: string
+      invited_name: string | null
+    }>
+
+    setInvited(
+      rows
+        .filter(r => r.status === 'invited')
+        .map(r => ({
+          id: r.id,
+          invited_name: r.invited_name,
+          relationship: r.relationship,
+          created_at: r.created_at,
+        }))
+    )
+
+    const approvedRows = rows.filter(r => r.status === 'approved' && r.requester_id)
+    if (!approvedRows.length) {
       setContributors([])
       setLoading(false)
       return
     }
 
-    const ids = (conns as Array<{ requester_id: string }>).map(c => c.requester_id)
+    const ids = approvedRows.map(r => r.requester_id as string)
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, handle')
@@ -51,20 +80,19 @@ export function useFamilyConnections(childId: string | null) {
     )
 
     setContributors(
-      (conns as Array<{ id: string; requester_id: string; relationship: string | null; created_at: string }>)
-        .map(c => ({
-          id: c.id,
-          requester_id: c.requester_id,
-          name: pm[c.requester_id]?.full_name ?? 'Unknown',
-          handle: pm[c.requester_id]?.handle ?? null,
-          relationship: c.relationship,
-          joined_at: c.created_at,
-        }))
+      approvedRows.map(r => ({
+        id: r.id,
+        requester_id: r.requester_id as string,
+        name: pm[r.requester_id as string]?.full_name ?? 'Unknown',
+        handle: pm[r.requester_id as string]?.handle ?? null,
+        relationship: r.relationship,
+        joined_at: r.created_at,
+      }))
     )
     setLoading(false)
   }, [childId])
 
   useEffect(() => { void refetch() }, [refetch])
 
-  return { contributors, pending: [] as PendingInviteRow[], loading, refetch }
+  return { contributors, invited, loading, refetch }
 }

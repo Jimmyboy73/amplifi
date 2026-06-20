@@ -10,6 +10,11 @@ interface ChildData {
   date_of_birth: string
 }
 
+interface InviteData {
+  invited_name: string | null
+  relationship: string | null
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fvAnnuityDue(pmt: number, years: number): number {
@@ -40,16 +45,31 @@ export default function FamilyPage() {
   const { childId } = useParams<{ childId: string }>()
   const [searchParams] = useSearchParams()
   const handle = searchParams.get('ref')
+  const inviteId = searchParams.get('invite')
 
   const [child, setChild] = useState<ChildData | null>(null)
+  const [inviteData, setInviteData] = useState<InviteData | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [selectedAmount, setSelectedAmount] = useState<Amount>(25)
 
-  // Persist ref code to localStorage
+  // Persist handle and invite ID to localStorage for the native app signup flow
   useEffect(() => {
-    if (handle) localStorage.setItem('amplifi_ref_code', handle)
-  }, [handle])
+    if (handle) localStorage.setItem('amplifi_ref_handle', handle)
+    if (inviteId) localStorage.setItem('amplifi_ref_invite', inviteId)
+  }, [handle, inviteId])
+
+  // Fetch invite data for personalised greeting
+  useEffect(() => {
+    if (!inviteId) return
+    supabase
+      .from('family_connections')
+      .select('invited_name, relationship')
+      .eq('id', inviteId)
+      .eq('status', 'invited')
+      .maybeSingle()
+      .then(({ data }) => { if (data) setInviteData(data as InviteData) })
+  }, [inviteId])
 
   useEffect(() => {
     if (!childId) return
@@ -94,7 +114,9 @@ export default function FamilyPage() {
   const name = child.name
   const years = yearsUntilAge25(child.date_of_birth)
   const projection = fvAnnuityDue(4 * selectedAmount, years)
-  const signupUrl = `https://amplifi-marketing.netlify.app/${handle ? `?ref=${handle}` : ''}`
+
+  const personalName = inviteData?.invited_name?.trim()
+  const relationship = inviteData?.relationship
 
   const steps = [
     { icon: '👤', title: 'Sign up to Amplifi', desc: 'Create your free account in a few minutes' },
@@ -113,11 +135,18 @@ export default function FamilyPage() {
         >
           🌱
         </div>
+        {personalName && (
+          <p className="text-[15px] font-semibold mb-2" style={{ color: 'rgba(89,201,233,0.7)' }}>
+            Hi {personalName}!
+          </p>
+        )}
         <h1 className="text-white text-[2rem] font-extrabold leading-tight tracking-tight">
           {name}'s savings pot
         </h1>
         <p className="mt-3 text-[15px] leading-relaxed max-w-xs mx-auto" style={{ color: 'rgba(89,201,233,0.85)' }}>
-          Every contribution makes a difference — help build {name}'s financial future
+          {personalName && relationship
+            ? `You've been invited to join as ${name}'s ${relationship.replace('_', ' ')} — help build their financial future`
+            : `Every contribution makes a difference — help build ${name}'s financial future`}
         </p>
       </div>
 
@@ -177,20 +206,20 @@ export default function FamilyPage() {
 
         {/* ── CTA ───────────────────────────────────────────────────────── */}
         <div className="pt-1">
-          <a
-            href={signupUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full py-4 rounded-2xl font-bold text-center text-base transition-opacity hover:opacity-90 active:opacity-75"
+          <div
+            className="w-full py-4 rounded-2xl font-bold text-center text-base"
             style={{ backgroundColor: '#59C9E9', color: '#101628' }}
           >
             Join {name}'s team
-          </a>
+          </div>
           {handle && (
-            <p className="text-center text-sm text-slate-400 mt-4">
-              Already have Amplifi?{' '}
-              <span className="font-bold" style={{ color: '#101628' }}>Search for @{handle}</span>
-            </p>
+            <div className="bg-white rounded-2xl p-4 mt-3 text-center shadow-sm border border-slate-100">
+              <p className="text-sm text-slate-500 mb-1">Open the Amplifi app and search for:</p>
+              <p className="text-xl font-extrabold" style={{ color: '#101628' }}>@{handle}</p>
+              <p className="text-xs text-slate-400 mt-2">
+                New to Amplifi? Download the app, create an account, and enter this handle when prompted.
+              </p>
+            </div>
           )}
         </div>
 

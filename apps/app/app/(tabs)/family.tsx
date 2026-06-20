@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   View,
   Text,
@@ -7,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Linking,
+  Share,
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
@@ -21,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/lib/auth'
 import { useHandle } from '@/lib/useHandle'
 import { useChildren } from '@/lib/useChildren'
-import { useFamilyConnections, type ContributorRow } from '@/lib/useFamilyConnections'
+import { useFamilyConnections, type ContributorRow, type InvitedRow } from '@/lib/useFamilyConnections'
 import { useContributorConnections } from '@/lib/useContributorConnections'
 import { useSelectedChild } from '@/lib/SelectedChildContext'
 import { supabase } from '@/lib/supabase'
@@ -58,14 +57,6 @@ type JisaRow = {
 type PendingRequest = {
   id: string; requester_id: string; requester_name: string
   requester_handle: string | null; created_at: string
-}
-
-type LocalInvite = {
-  id: string
-  relationship: string
-  dbRelationship: string
-  childId: string
-  timestamp: number
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -120,6 +111,8 @@ export default function FamilyScreen() {
   // Invite sheet
   const [showInvite, setShowInvite] = useState(false)
   const [inviteRelationship, setInviteRelationship] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [sendingInvite, setSendingInvite] = useState(false)
 
   // Pending connection requests (parent receives from family_connections table)
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
@@ -130,39 +123,12 @@ export default function FamilyScreen() {
   const [connectionCelebration, setConnectionCelebration] = useState<{ name: string; childName: string; referralCredit?: boolean } | null>(null)
   const hasScrolledToInvite = useRef(false)
 
-  // Locally-tracked WhatsApp invites (pre-signup)
-  const [localInvites, setLocalInvites] = useState<LocalInvite[]>([])
-
   // Contributor connections (where this user is the requester)
   const { connections: myConnections, loading: myConnectionsLoading, refetch: refetchMyConnections } = useContributorConnections()
 
-  // ── Local invite tracking ────────────────────────────────────────────────────
+  // ── Connections ──────────────────────────────────────────────────────────────
 
-  const loadLocalInvites = useCallback(async (currentContributors: ContributorRow[]) => {
-    if (!user || !selectedChildId) return
-    const raw = await AsyncStorage.getItem(`@amplifi/pending_invites/${user.id}`)
-    if (!raw) { setLocalInvites([]); return }
-    const all: LocalInvite[] = JSON.parse(raw)
-    const relevant = all.filter(inv => {
-      if (inv.childId !== selectedChildId) return false
-      return !currentContributors.some(c => c.relationship === inv.dbRelationship)
-    })
-    setLocalInvites(relevant)
-    // Prune fulfilled invites from storage
-    const fulfilled = all.filter(inv =>
-      inv.childId === selectedChildId && !relevant.some(r => r.id === inv.id)
-    )
-    if (fulfilled.length > 0) {
-      const remaining = all.filter(inv => !fulfilled.some(f => f.id === inv.id))
-      await AsyncStorage.setItem(`@amplifi/pending_invites/${user.id}`, JSON.stringify(remaining))
-    }
-  }, [user?.id, selectedChildId])
-
-  // Re-filter whenever contributors load or child changes
-  const { contributors, loading: connectionsLoading, refetch: refetchConnections } = useFamilyConnections(selectedChildId)
-  useEffect(() => {
-    if (!connectionsLoading) void loadLocalInvites(contributors)
-  }, [contributors, selectedChildId, connectionsLoading])
+  const { contributors, invited, loading: connectionsLoading, refetch: refetchConnections } = useFamilyConnections(selectedChildId)
 
   // ── Data fetching ────────────────────────────────────────────────────────────
 
@@ -392,42 +358,78 @@ export default function FamilyScreen() {
     ])
   }
 
-  const shareWhatsApp = async () => {
-    if (!selectedChild || !handle) return
-    if (inviteRelationship && user) {
-      const dbRel = RELATIONSHIP_DB[inviteRelationship] ?? inviteRelationship.toLowerCase()
-      const newInvite: LocalInvite = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        relationship: inviteRelationship,
-        dbRelationship: dbRel,
-        childId: selectedChild.id,
-        timestamp: Date.now(),
-      }
-      const raw = await AsyncStorage.getItem(`@amplifi/pending_invites/${user.id}`)
-      const existing: LocalInvite[] = raw ? JSON.parse(raw) : []
-      await AsyncStorage.setItem(`@amplifi/pending_invites/${user.id}`, JSON.stringify([...existing, newInvite]))
-      setLocalInvites(prev => [...prev, newInvite])
+  const sendInvite = async () => {
+    if (!selectedChild || !handle || !inviteRelationship || !user || sendingInvite) return
+    const dbRel = RELATIONSHIP_DB[inviteRelationship] ?? inviteRelationship.toLowerCase()
+    setSendingInvite(true)
+
+    const { data: newConn, error } = await supabase
+      .from('family_connections')
+      .insert({
+        parent_id: user.id,
+        child_id: selectedChild.id,
+        status: 'invited',
+        relationship: dbRel,
+        invited_name: inviteName.trim() || null,
+        requester_id: null,
+      })
+      .select('id')
+      .single()
+
+    if (error || !newConn) {
+      Alert.alert('Error', 'Could not create invite. Please try again.')
+      setSendingInvite(false)
+      return
     }
-    const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}`
-    const msg =
-      `I've started building a savings pot for ${selectedChild.name} — would you like to be part of it? 💙\n\n` +
-      `Tap here to see how you can help: ${url}`
-    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
-      Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
-    )
+
+    const inviteId = (newConn as { id: string }).id
+    const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}&invite=${inviteId}`
+    const trimmedName = inviteName.trim()
+    const msg = trimmedName
+      ? `Hi ${trimmedName}! I've started building a savings pot for ${selectedChild.name} — I'd love for you to be part of it 💙\n\nTap here to see how: ${url}`
+      : `I've started building a savings pot for ${selectedChild.name} — would you like to be part of it? 💙\n\nTap here to see how: ${url}`
+
+    await refetchConnections()
+    setSendingInvite(false)
     setShowInvite(false)
     setInviteRelationship('')
+    setInviteName('')
+
+    await Share.share({ message: msg })
   }
 
-  const resendInvite = (invite: LocalInvite) => {
+  const resendInvited = async (inv: InvitedRow) => {
     if (!selectedChild || !handle) return
-    const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}`
-    const msg =
-      `I've started building a savings pot for ${selectedChild.name} — would you like to be part of it? 💙\n\n` +
-      `Tap here to see how you can help: ${url}`
-    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(msg)}`).catch(() =>
-      Alert.alert('WhatsApp not found', 'Please install WhatsApp to share this way.')
-    )
+    const url = `https://amplifi-plan.netlify.app/family/${selectedChild.id}?ref=${handle}&invite=${inv.id}`
+    const trimmedName = inv.invited_name?.trim()
+    const msg = trimmedName
+      ? `Hi ${trimmedName}! I've started building a savings pot for ${selectedChild.name} — I'd love for you to be part of it 💙\n\nTap here to see how: ${url}`
+      : `I've started building a savings pot for ${selectedChild.name} — would you like to be part of it? 💙\n\nTap here to see how: ${url}`
+    await Share.share({ message: msg })
+  }
+
+  const deleteInvited = (connId: string) => {
+    Alert.alert('Remove invite?', 'This will delete the invite. The link will no longer work.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          await supabase.from('family_connections').delete().eq('id', connId)
+          await refetchConnections()
+        },
+      },
+    ])
+  }
+
+  const deleteContributor = (connId: string, name: string) => {
+    Alert.alert(`Remove ${name}?`, 'They will lose access to this child\'s pot.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          await supabase.from('family_connections').update({ status: 'revoked' }).eq('id', connId)
+          await refetchConnections()
+        },
+      },
+    ])
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -680,9 +682,9 @@ export default function FamilyScreen() {
                   </>
                 )}
 
-                {connectionsLoading && contributors.length === 0 ? (
+                {connectionsLoading && contributors.length === 0 && invited.length === 0 ? (
                   <ActivityIndicator size="small" color={colors.sky} />
-                ) : contributors.length === 0 && pendingRequests.length === 0 && localInvites.length === 0 ? (
+                ) : contributors.length === 0 && invited.length === 0 && pendingRequests.length === 0 ? (
                   <Text style={styles.emptyText}>No family members yet — invite someone below</Text>
                 ) : (
                   <>
@@ -696,36 +698,44 @@ export default function FamilyScreen() {
                             <Text style={styles.contributorName}>{c.name}</Text>
                             <Text style={styles.contributorRel}>{c.relationship ?? 'Family'}</Text>
                           </View>
-                          <View style={styles.activeChip}>
-                            <View style={styles.activeDot} />
-                            <Text style={styles.activeChipText}>Active</Text>
+                          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                            <View style={styles.activeChip}>
+                              <View style={styles.activeDot} />
+                              <Text style={styles.activeChipText}>Connected</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => deleteContributor(c.id, c.name)} activeOpacity={0.7}>
+                              <Text style={styles.removeText}>Remove</Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
                         {idx < contributors.length - 1 && <View style={styles.rowDivider} />}
                       </View>
                     ))}
 
-                    {localInvites.length > 0 && (
+                    {invited.length > 0 && (
                       <>
                         {contributors.length > 0 && <View style={styles.rowDivider} />}
-                        <Text style={styles.pendingLabel}>Invite sent</Text>
-                        {localInvites.map(inv => (
+                        <Text style={styles.pendingLabel}>Invited</Text>
+                        {invited.map(inv => (
                           <View key={inv.id} style={styles.contributorRow}>
                             <View style={[styles.avatar, { backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' }]}>
                               <Ionicons name="time-outline" size={20} color="#d97706" />
                             </View>
                             <View style={{ flex: 1 }}>
-                              <Text style={styles.contributorName}>{inv.relationship} invite sent</Text>
+                              <Text style={styles.contributorName}>{inv.invited_name ?? 'Guest'}</Text>
                               <Text style={styles.contributorRel}>
-                                Sent {new Date(inv.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                {inv.relationship ?? 'Family member'} · Invited {new Date(inv.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                               </Text>
                             </View>
                             <View style={{ alignItems: 'flex-end', gap: 6 }}>
                               <View style={styles.pendingChip}>
-                                <Text style={styles.pendingChipText}>Pending</Text>
+                                <Text style={styles.pendingChipText}>Invited</Text>
                               </View>
-                              <TouchableOpacity onPress={() => resendInvite(inv)} activeOpacity={0.7}>
+                              <TouchableOpacity onPress={() => void resendInvited(inv)} activeOpacity={0.7}>
                                 <Text style={styles.resendText}>Resend</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => deleteInvited(inv.id)} activeOpacity={0.7}>
+                                <Text style={styles.removeText}>Remove</Text>
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -748,6 +758,17 @@ export default function FamilyScreen() {
                   }}
                 >
                   <Text style={styles.inviteSheetTitle}>Invite a family member</Text>
+                  <View style={styles.field}>
+                    <Text style={styles.inviteSheetLabel}>Their name (optional)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={inviteName}
+                      onChangeText={setInviteName}
+                      placeholder="e.g. Grandma Susan"
+                      placeholderTextColor="#94a3b8"
+                      autoCapitalize="words"
+                    />
+                  </View>
                   <Text style={styles.inviteSheetLabel}>Their relationship to {selectedChild?.name ?? 'your child'}</Text>
                   <View style={styles.relRow}>
                     {RELATIONSHIPS.map(rel => (
@@ -757,16 +778,17 @@ export default function FamilyScreen() {
                     ))}
                   </View>
                   <TouchableOpacity
-                    style={[styles.whatsappBtn, !handle && styles.btnDisabled]}
-                    onPress={shareWhatsApp}
-                    disabled={!handle}
+                    style={[styles.shareBtn, (!handle || !inviteRelationship || sendingInvite) && styles.btnDisabled]}
+                    onPress={() => void sendInvite()}
+                    disabled={!handle || !inviteRelationship || sendingInvite}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.whatsappText}>
-                      {handle ? 'Share on WhatsApp' : 'Loading handle…'}
-                    </Text>
+                    {sendingInvite
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.shareBtnText}>Share invite link</Text>
+                    }
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.ghostBtn} onPress={() => { setShowInvite(false); setInviteRelationship('') }} activeOpacity={0.7}>
+                  <TouchableOpacity style={styles.ghostBtn} onPress={() => { setShowInvite(false); setInviteRelationship(''); setInviteName('') }} activeOpacity={0.7}>
                     <Text style={[styles.ghostBtnText, { textAlign: 'center' }]}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
@@ -1068,11 +1090,12 @@ const styles = StyleSheet.create({
   },
   inviteSheetTitle: { fontSize: 16, fontWeight: '700', color: colors.midnight, marginBottom: 4 },
   inviteSheetLabel: { fontSize: 13, color: '#64748b', marginBottom: 14 },
-  whatsappBtn: {
-    backgroundColor: '#25D366', borderRadius: 14,
+  shareBtn: {
+    backgroundColor: colors.azure, borderRadius: 14,
     paddingVertical: 15, alignItems: 'center', marginBottom: 10,
   },
-  whatsappText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  shareBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  removeText: { fontSize: 11, fontWeight: '600', color: '#ef4444' },
   inviteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: colors.azure, borderRadius: 16,

@@ -74,10 +74,17 @@ export default function DetailsScreen() {
     name: false, email: false, phone: false, dob: false, password: false, referral: false,
   })
 
+  const storedInviteId = useRef<string | null>(null)
+
   useEffect(() => {
-    AsyncStorage.getItem('amplifi_ref_handle').then((stored) => {
-      if (stored) setReferralCode(stored.replace(/^@/, '').toLowerCase().slice(0, 20))
-    })
+    void (async () => {
+      const [handle, inviteId] = await Promise.all([
+        AsyncStorage.getItem('amplifi_ref_handle'),
+        AsyncStorage.getItem('amplifi_ref_invite'),
+      ])
+      if (handle) setReferralCode(handle.replace(/^@/, '').toLowerCase().slice(0, 20))
+      storedInviteId.current = inviteId
+    })()
   }, [])
 
   const touch = (field: keyof typeof touched) =>
@@ -177,7 +184,7 @@ export default function DetailsScreen() {
       console.error(`[Profile Insert] Attempt ${attempt} FAILED:`, error.message)
     }
 
-    // Record referral event and auto-create pending family connection
+    // Record referral event and claim / create family connection
     if (validatedReferrerId) {
       await supabase.from('referral_events').insert({
         referrer_id: validatedReferrerId,
@@ -186,26 +193,60 @@ export default function DetailsScreen() {
         status: 'pending',
       })
 
-      // Bind to the referrer's child provisionally. Single-child → always correct.
-      // Multi-child → first by created_at as a default; parent selects correct
-      // child(ren) at approval time, which overwrites this provisional binding.
-      const { data: referrerChildren } = await supabase
-        .from('children')
-        .select('id')
-        .eq('owner_id', validatedReferrerId)
-        .order('created_at', { ascending: true })
+      let invitedConn: { id: string } | null = null
 
-      if (referrerChildren && referrerChildren.length > 0) {
-        await supabase.from('family_connections').insert({
-          requester_id: data.user.id,
-          parent_id: validatedReferrerId,
-          child_id: (referrerChildren[0] as { id: string }).id,
-          status: 'pending',
-          relationship: null,
-        })
+      // Primary: claim the specific invited row by ID
+      if (storedInviteId.current) {
+        const { data: row } = await supabase
+          .from('family_connections')
+          .select('id')
+          .eq('id', storedInviteId.current)
+          .eq('parent_id', validatedReferrerId)
+          .eq('status', 'invited')
+          .is('requester_id', null)
+          .maybeSingle()
+        invitedConn = row as { id: string } | null
       }
 
-      await AsyncStorage.removeItem('amplifi_ref_handle')
+      // MVP fallback — invite-id path requires native deep link (TestFlight); created_at DESC
+      // is reliable only for single-outstanding-invite solo testing. Harden before multi-family Week 2.
+      if (!invitedConn) {
+        const { data: row } = await supabase
+          .from('family_connections')
+          .select('id')
+          .eq('parent_id', validatedReferrerId)
+          .eq('status', 'invited')
+          .is('requester_id', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        invitedConn = row as { id: string } | null
+      }
+
+      if (invitedConn) {
+        await supabase
+          .from('family_connections')
+          .update({ requester_id: data.user.id, status: 'approved' })
+          .eq('id', (invitedConn as { id: string }).id)
+      } else {
+        // Stranger path: no invited row — insert pending (parked; approval flow dormant)
+        const { data: referrerChildren } = await supabase
+          .from('children')
+          .select('id')
+          .eq('owner_id', validatedReferrerId)
+          .order('created_at', { ascending: true })
+        if (referrerChildren && referrerChildren.length > 0) {
+          await supabase.from('family_connections').insert({
+            requester_id: data.user.id,
+            parent_id: validatedReferrerId,
+            child_id: (referrerChildren[0] as { id: string }).id,
+            status: 'pending',
+            relationship: null,
+          })
+        }
+      }
+
+      await AsyncStorage.multiRemove(['amplifi_ref_handle', 'amplifi_ref_invite'])
     }
 
     setSubmitting(false)
