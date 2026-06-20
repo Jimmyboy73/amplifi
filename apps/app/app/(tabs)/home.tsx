@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import Slider from '@react-native-community/slider'
@@ -157,7 +158,7 @@ function PendingWaitingCard({ conn }: { conn: ContributorConnection }) {
         Waiting for {conn.parentHandle ? `@${conn.parentHandle}` : conn.parentName} to approve your connection
       </Text>
       <Text style={cStyles.pendingSub}>
-        This usually happens quickly — we'll let you know when you're in.
+        This usually happens quickly. Pull down to refresh once they've approved you.
       </Text>
     </View>
   )
@@ -486,6 +487,13 @@ export default function HomeScreen() {
   const { children, loading: childrenLoading, refetch: refetchChildren } = useChildren()
   const { connections, loading: connectionsLoading, refetch: refetchConnections } = useContributorConnections()
 
+  const [refreshing, setRefreshing] = useState(false)
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await refetchConnections()
+    setRefreshing(false)
+  }, [refetchConnections])
+
   useFocusEffect(
     useCallback(() => {
       refetchHandle()
@@ -621,7 +629,12 @@ export default function HomeScreen() {
   if (!isParent) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} />
+          }
+        >
           <View style={styles.topBar}>
             <Text style={styles.logo}>amplifi</Text>
             <View style={styles.topRight}>
