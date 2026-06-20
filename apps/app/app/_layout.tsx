@@ -11,7 +11,6 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 
@@ -35,7 +34,6 @@ function AuthRedirect() {
     if (isLoading) return
 
     if (!session) {
-      AsyncStorage.clear()
       router.replace('/(auth)/welcome')
       checkedForUser.current = null
       return
