@@ -21,12 +21,28 @@ export default function Home() {
   const child = children[0] ?? null
 
   const { pot, loading: potLoading, refetch: refetchPot } = usePot(child?.id ?? null)
-  const { contributors, invited, refetch: refetchRoster } = useChildConnections(child?.id ?? null)
+  const { contributors, invited, refetch: refetchRoster, cancelInvite, removeConnection } =
+    useChildConnections(child?.id ?? null)
 
   const [hasJisa, setHasJisa] = useState(false)
   const [selfConnId, setSelfConnId] = useState<string | null>(null)
   const [selfConnError, setSelfConnError] = useState<string | null>(null)
   const [showContrib, setShowContrib] = useState(false)
+  const [rosterError, setRosterError] = useState<string | null>(null)
+
+  const handleCancelInvite = async (id: string, name: string) => {
+    if (!window.confirm(`Cancel the invite for ${name}?`)) return
+    setRosterError(null)
+    const { error } = await cancelInvite(id)
+    if (error) setRosterError(describeError(error))
+  }
+
+  const handleRemoveConnection = async (id: string, name: string) => {
+    if (!window.confirm(`Remove ${name}? Their past contributions stay part of the pot.`)) return
+    setRosterError(null)
+    const { error } = await removeConnection(id)
+    if (error) setRosterError(describeError(error))
+  }
 
   useEffect(() => {
     if (!child) return
@@ -138,9 +154,18 @@ export default function Home() {
                       {RELATIONSHIP_LABEL[c.relationship ?? 'other'] ?? 'Family member'}
                     </p>
                   </div>
-                  <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
-                    Connected
-                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+                      Connected
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-slate-400 transition hover:text-azure"
+                      onClick={() => void handleRemoveConnection(c.id, c.name)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
               {invited.map((inv) => (
@@ -151,12 +176,22 @@ export default function Home() {
                       {RELATIONSHIP_LABEL[inv.relationship ?? 'other'] ?? 'Family member'} · Invited
                     </p>
                   </div>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                    Invited
-                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                      Invited
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-slate-400 transition hover:text-azure"
+                      onClick={() => void handleCancelInvite(inv.id, inv.invited_name ?? 'Guest')}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+            {rosterError && <p className="mt-3 text-sm text-red-500">{rosterError}</p>}
           </Card>
         )}
 

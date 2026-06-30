@@ -86,9 +86,35 @@ export function useChildConnections(childId: string | null) {
     setLoading(false)
   }, [childId])
 
+  // Cancel an unclaimed invite (status 'invited', no contributor attached): hard
+  // delete — nothing references it.
+  const cancelInvite = useCallback(
+    async (id: string): Promise<{ error: unknown }> => {
+      const { error } = await supabase.from('family_connections').delete().eq('id', id)
+      if (!error) await refetch()
+      return { error }
+    },
+    [refetch]
+  )
+
+  // Remove a connected contributor (status 'approved'): soft disconnect to 'revoked'.
+  // Their family_contributions are LEFT UNTOUCHED so the pot total is preserved; the
+  // row drops out of the list because the query filters to ('invited','approved').
+  const removeConnection = useCallback(
+    async (id: string): Promise<{ error: unknown }> => {
+      const { error } = await supabase
+        .from('family_connections')
+        .update({ status: 'revoked', updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (!error) await refetch()
+      return { error }
+    },
+    [refetch]
+  )
+
   useEffect(() => {
     void refetch()
   }, [refetch])
 
-  return { contributors, invited, loading, refetch }
+  return { contributors, invited, loading, refetch, cancelInvite, removeConnection }
 }

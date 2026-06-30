@@ -1,12 +1,18 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 
-// ── Brand wordmark ──────────────────────────────────────────────────────────
-
+// ── Brand lockup ────────────────────────────────────────────────────────────
+// Horizontal Amplifi lockup (blue mark + wordmark), dark variant — the visible
+// match for the previous text-midnight wordmark on the app's offwhite surfaces.
+// Served from public/ (the convention for static assets here). Height scales with
+// font-size (text-xl by default, text-2xl on hero screens) so each screen keeps the
+// optical size and box height the old text node had — no layout shift.
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`font-jakarta text-xl font-extrabold tracking-tight text-midnight ${className}`}>
-      amplifi
-    </span>
+    <img
+      src="/amplifi-lockup-dark-transparent.png"
+      alt="Amplifi"
+      className={`block h-[1.4em] w-auto text-xl ${className}`}
+    />
   )
 }
 

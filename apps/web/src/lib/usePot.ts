@@ -4,8 +4,9 @@ import { computePot } from './computePot'
 import type { FamilyContribution } from './types'
 
 /**
- * The Pot for a child = sum of ALL active family_contributions for that child
- * (the parent's own self-row + every contributor's), via computePot.
+ * The Pot for a child = sum of ALL family_contributions for that child (the
+ * parent's own self-row + every contributor's), via computePot. Includes stopped
+ * rows so their accrued total stays in the pot, frozen at stopped_at.
  */
 export function usePot(childId: string | null) {
   const [contributions, setContributions] = useState<FamilyContribution[]>([])
@@ -21,7 +22,7 @@ export function usePot(childId: string | null) {
       .from('family_contributions')
       .select('id, connection_id, user_id, child_id, amount_gbp, frequency, status, started_at, created_at, stopped_at')
       .eq('child_id', childId)
-      .eq('status', 'active')
+      .in('status', ['active', 'stopped'])
     setContributions((data as FamilyContribution[] | null) ?? [])
     setLoading(false)
   }, [childId])
