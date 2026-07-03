@@ -13,10 +13,12 @@ import { PotHero } from '../../components/PotHero'
 import { ProjectionWidget } from '../../components/ProjectionWidget'
 import { ContributionPanel } from '../../components/ContributionPanel'
 import { InviteCard } from '../../components/InviteCard'
+import { WelcomeFlow } from '../../components/WelcomeFlow'
+import { FeedbackModal } from '../../components/FeedbackModal'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user, profile, signOut } = useAuth()
   const { children, loading: childrenLoading } = useChildren()
   const child = children[0] ?? null
 
@@ -29,6 +31,8 @@ export default function Home() {
   const [selfConnError, setSelfConnError] = useState<string | null>(null)
   const [showContrib, setShowContrib] = useState(false)
   const [rosterError, setRosterError] = useState<string | null>(null)
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
 
   const handleCancelInvite = async (id: string, name: string) => {
     if (!window.confirm(`Cancel the invite for ${name}?`)) return
@@ -65,6 +69,12 @@ export default function Home() {
 
   if (childrenLoading || !child) return <FullScreenLoader />
 
+  // First-login welcome — shown once, before the pot. Flag lives in user metadata.
+  const seenWelcome = Boolean(user?.user_metadata?.has_seen_welcome)
+  if (!seenWelcome && !welcomeDismissed) {
+    return <WelcomeFlow onDone={() => setWelcomeDismissed(true)} />
+  }
+
   const ageMonths = ageMonthsFromDob(child.date_of_birth)
 
   return (
@@ -73,12 +83,20 @@ export default function Home() {
         {/* Top bar */}
         <div className="flex items-center justify-between py-4">
           <Logo />
-          <button
-            className="text-sm font-semibold text-slate-400 hover:text-slate-600"
-            onClick={() => void signOut().then(() => navigate('/signup', { replace: true }))}
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              className="text-sm font-semibold text-azure hover:brightness-110"
+              onClick={() => setShowFeedback(true)}
+            >
+              Feedback
+            </button>
+            <button
+              className="text-sm font-semibold text-slate-400 hover:text-slate-600"
+              onClick={() => void signOut().then(() => navigate('/signup', { replace: true }))}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {/* Hero pot */}
@@ -200,6 +218,14 @@ export default function Home() {
           <ProjectionWidget childName={child.name} ageMonths={ageMonths} />
         </div>
       </div>
+
+      {showFeedback && user && (
+        <FeedbackModal
+          userId={user.id}
+          email={user.email ?? profile?.email ?? null}
+          onClose={() => setShowFeedback(false)}
+        />
+      )}
     </div>
   )
 }
