@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { maybeSendWelcomeEmail } from '../lib/welcomeEmail'
 import { Button, Field } from './ui'
 
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
@@ -25,10 +26,17 @@ type Step = 'credentials' | 'verify' | 'details'
 export function EmailPasswordForm({
   loginQuery = '',
   onComplete,
+  sendWelcomeEmail = false,
 }: {
   /** Optional query string appended to the "Log in" link, e.g. "?next=/invite/123". */
   loginQuery?: string
   onComplete: () => void | Promise<void>
+  /**
+   * Fire the one-time welcome email once a session exists (first sign-in after
+   * confirmation). Opt-in — only the parent flow sets this, since the copy is about
+   * starting a child's pot. Best-effort; never blocks.
+   */
+  sendWelcomeEmail?: boolean
 }) {
   const [step, setStep] = useState<Step>('credentials')
   const [email, setEmail] = useState('')
@@ -44,6 +52,14 @@ export function EmailPasswordForm({
 
   const credentialsValid =
     isValidEmail(email) && password.length >= MIN_PASSWORD && password === confirm
+
+  // Move to the name step once a session exists. This is the "first sign-in after
+  // confirmation" moment, so fire the one-time welcome email here (best-effort,
+  // fire-and-forget) when the flow opts in.
+  const enterDetails = () => {
+    if (sendWelcomeEmail) void maybeSendWelcomeEmail()
+    setStep('details')
+  }
 
   const signUp = async () => {
     if (!credentialsValid || busy) return
@@ -77,7 +93,7 @@ export function EmailPasswordForm({
     }
     if (data.session) {
       // "Confirm email" is OFF — we already have a live session, skip verification.
-      setStep('details')
+      enterDetails()
       return
     }
     // "Confirm email" is ON — Supabase emailed a code. Collect it next.
@@ -111,8 +127,8 @@ export function EmailPasswordForm({
       setError('That code is incorrect or has expired. Check your email and try again.')
       return
     }
-    // Session is now live — continue to collect the user's name.
-    setStep('details')
+    // Session is now live (email confirmed) — continue to collect the user's name.
+    enterDetails()
   }
 
   const resendCode = async () => {

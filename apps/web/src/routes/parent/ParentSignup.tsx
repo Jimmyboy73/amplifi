@@ -35,6 +35,7 @@ export default function ParentSignup() {
             Build a savings pot for your child — and invite the family to help.
           </p>
           <EmailPasswordForm
+            sendWelcomeEmail
             onComplete={async () => {
               await refreshProfile()
               setPhase('child')
