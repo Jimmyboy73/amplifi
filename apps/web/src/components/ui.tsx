@@ -133,3 +133,21 @@ export function FullScreenLoader() {
     </div>
   )
 }
+
+// ── Standing FCA disclaimer ───────────────────────────────────────────────────
+// Required on EVERY screen in the pledge/invite flow (spec §10). Do not reword —
+// this is the approved compliance copy. `mt-auto` pins it to the bottom of a
+// flex-column Screen so it always sits under the content.
+
+export const FCA_DISCLAIMER =
+  'Amplifi is pre-launch and not yet authorised or regulated by the FCA. Nothing here is ' +
+  'financial advice or an invitation to invest. Amplifi does not open accounts or hold or ' +
+  'move money. Investments can fall as well as rise.'
+
+export function Disclaimer({ className = '' }: { className?: string }) {
+  return (
+    <p className={`mt-auto pt-8 text-center text-[11px] leading-snug text-slate-400 ${className}`}>
+      {FCA_DISCLAIMER}
+    </p>
+  )
+}

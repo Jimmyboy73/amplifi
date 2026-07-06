@@ -17,7 +17,7 @@ export function useChildren() {
     }
     const { data } = await supabase
       .from('children')
-      .select('id, owner_id, name, date_of_birth, photo_url, created_at')
+      .select('id, owner_id, name, date_of_birth, approx_age_months, photo_url, created_at')
       .eq('owner_id', user.id)
       .order('created_at', { ascending: true })
     setChildren((data as Child[] | null) ?? [])

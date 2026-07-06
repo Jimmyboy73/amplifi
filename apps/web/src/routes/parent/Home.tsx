@@ -4,15 +4,14 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { useChildren } from '../../lib/useChildren'
 import { usePot } from '../../lib/usePot'
-import { useChildConnections } from '../../lib/useChildConnections'
 import { ensureSelfConnection } from '../../lib/useContribution'
 import { ageMonthsFromDob, describeError } from '../../lib/format'
+import { contributionLabel } from '../../lib/pledge'
 import { RELATIONSHIP_LABEL } from '../../lib/types'
 import { Logo, Card, FullScreenLoader } from '../../components/ui'
 import { PotHero } from '../../components/PotHero'
 import { ProjectionWidget } from '../../components/ProjectionWidget'
 import { ContributionPanel } from '../../components/ContributionPanel'
-import { InviteCard } from '../../components/InviteCard'
 import { WelcomeFlow } from '../../components/WelcomeFlow'
 import { FeedbackModal } from '../../components/FeedbackModal'
 
@@ -22,31 +21,14 @@ export default function Home() {
   const { children, loading: childrenLoading } = useChildren()
   const child = children[0] ?? null
 
-  const { pot, loading: potLoading, refetch: refetchPot } = usePot(child?.id ?? null)
-  const { contributors, invited, refetch: refetchRoster, cancelInvite, removeConnection } =
-    useChildConnections(child?.id ?? null)
+  const { pot, pledges, loading: potLoading, refetch: refetchPot } = usePot(child?.id ?? null)
 
   const [hasJisa, setHasJisa] = useState(false)
   const [selfConnId, setSelfConnId] = useState<string | null>(null)
   const [selfConnError, setSelfConnError] = useState<string | null>(null)
   const [showContrib, setShowContrib] = useState(false)
-  const [rosterError, setRosterError] = useState<string | null>(null)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
-
-  const handleCancelInvite = async (id: string, name: string) => {
-    if (!window.confirm(`Cancel the invite for ${name}?`)) return
-    setRosterError(null)
-    const { error } = await cancelInvite(id)
-    if (error) setRosterError(describeError(error))
-  }
-
-  const handleRemoveConnection = async (id: string, name: string) => {
-    if (!window.confirm(`Remove ${name}? Their past contributions stay part of the pot.`)) return
-    setRosterError(null)
-    const { error } = await removeConnection(id)
-    if (error) setRosterError(describeError(error))
-  }
 
   useEffect(() => {
     if (!child) return
@@ -75,7 +57,8 @@ export default function Home() {
     return <WelcomeFlow onDone={() => setWelcomeDismissed(true)} />
   }
 
-  const ageMonths = ageMonthsFromDob(child.date_of_birth)
+  // Prefer a real DOB; fall back to the approximate age captured in the pledge flow.
+  const ageMonths = ageMonthsFromDob(child.date_of_birth) ?? child.approx_age_months ?? null
 
   return (
     <div className="min-h-dvh w-full bg-offwhite">
@@ -148,68 +131,48 @@ export default function Home() {
             )}
           </div>
 
-          {/* Invite */}
-          <div className="pt-4">
-            <InviteCard
-              parentId={user!.id}
-              childId={child.id}
-              childName={child.name}
-              onInvited={() => void refetchRoster()}
-            />
-          </div>
+          {/* Invite family to pledge (token/pledge flow) */}
+          <Link
+            to={`/invite-family/${child.id}`}
+            className="flex items-center justify-between py-3"
+          >
+            <span className="text-sm font-semibold text-midnight">
+              Invite family to build {child.name}'s pot
+            </span>
+            <span className="text-slate-400">›</span>
+          </Link>
         </Card>
 
-        {/* Family roster */}
-        {(contributors.length > 0 || invited.length > 0) && (
+        {/* Family roster — driven by pledges (read-only) */}
+        {pledges.length > 0 && (
           <Card className="mt-4">
             <p className="mb-3 text-base font-bold text-midnight">{child.name}'s family</p>
             <div className="space-y-2">
-              {contributors.map((c) => (
-                <div key={c.id} className="flex items-center justify-between py-1.5">
-                  <div>
-                    <p className="text-sm font-bold text-midnight">{c.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {RELATIONSHIP_LABEL[c.relationship ?? 'other'] ?? 'Family member'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">
-                      Connected
-                    </span>
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-slate-400 transition hover:text-azure"
-                      onClick={() => void handleRemoveConnection(c.id, c.name)}
+              {pledges.map((p) => {
+                const linked = p.status === 'linked'
+                const contrib = contributionLabel(p.amountPennies, p.frequency)
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-1.5">
+                    <div>
+                      <p className="text-sm font-bold text-midnight">
+                        {p.pledgerName || 'Family member'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {RELATIONSHIP_LABEL[p.relationship ?? 'other'] ?? 'Family member'}
+                        {contrib ? ` · ${contrib}` : ''}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        linked ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                      }`}
                     >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {invited.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between py-1.5">
-                  <div>
-                    <p className="text-sm font-bold text-midnight">{inv.invited_name ?? 'Guest'}</p>
-                    <p className="text-xs text-slate-500">
-                      {RELATIONSHIP_LABEL[inv.relationship ?? 'other'] ?? 'Family member'} · Invited
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                      Invited
+                      {linked ? 'Contributing' : 'Pledged'}
                     </span>
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-slate-400 transition hover:text-azure"
-                      onClick={() => void handleCancelInvite(inv.id, inv.invited_name ?? 'Guest')}
-                    >
-                      Cancel
-                    </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-            {rosterError && <p className="mt-3 text-sm text-red-500">{rosterError}</p>}
           </Card>
         )}
 

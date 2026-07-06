@@ -48,10 +48,15 @@ export function describeError(error: unknown): string {
   return e?.code ? `${msg} (${e.code})` : msg
 }
 
-/** Whole months between a child's DOB and now. */
-export function ageMonthsFromDob(dob: string): number {
-  return Math.max(
-    0,
-    Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44))
-  )
+/**
+ * Whole months between a child's DOB and now, or null if the DOB is missing/invalid.
+ * Returning null (rather than treating a null DOB as the 1970 epoch → ~56 years) keeps the
+ * projection from collapsing to £0; callers fall back to approx_age_months.
+ */
+export function ageMonthsFromDob(dob: string | null): number | null {
+  if (!dob) return null
+  const birth = new Date(dob)
+  const t = birth.getTime()
+  if (isNaN(t) || t > Date.now()) return null
+  return Math.max(0, Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24 * 30.44)))
 }

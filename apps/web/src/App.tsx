@@ -9,12 +9,31 @@ import LinkIsa from './routes/parent/LinkIsa'
 import InviteLanding from './routes/contributor/InviteLanding'
 import ContributorSignup from './routes/contributor/ContributorSignup'
 import Contribute from './routes/contributor/Contribute'
+import EntryFork from './routes/start/EntryFork'
+import PledgeFlow from './routes/pledge/PledgeFlow'
+import PledgeStatus from './routes/pledge/PledgeStatus'
+import TokenLanding from './routes/invite/TokenLanding'
+import ParentAccept from './routes/parent/ParentAccept'
+import ProviderSignpost from './routes/parent/ProviderSignpost'
+import ConfirmAccount from './routes/parent/ConfirmAccount'
+import InviteFamily from './routes/parent/InviteFamily'
 import { RequireAuth, RequireParent } from './components/guards'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Root />} />
+
+      {/* Pledge / invite flow — public entry fork, family-member flow, opaque-token landing */}
+      <Route path="/start" element={<EntryFork />} />
+      <Route path="/pledge" element={<PledgeFlow />} />
+      <Route path="/i/:token/pledge" element={<PledgeFlow />} />
+      <Route path="/pledge/status/:token" element={<PledgeStatus />} />
+      <Route path="/i/:token" element={<TokenLanding />} />
+      <Route path="/i/:token/accept" element={<ParentAccept />} />
+      <Route path="/provider/:childId" element={<RequireAuth><ProviderSignpost /></RequireAuth>} />
+      <Route path="/confirm/:childId" element={<RequireAuth><ConfirmAccount /></RequireAuth>} />
+      <Route path="/invite-family/:childId" element={<RequireAuth><InviteFamily /></RequireAuth>} />
 
       {/* Auth */}
       <Route path="/login" element={<Login />} />

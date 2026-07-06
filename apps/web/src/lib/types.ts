@@ -11,7 +11,8 @@ export type Child = {
   id: string
   owner_id: string
   name: string
-  date_of_birth: string
+  date_of_birth: string | null
+  approx_age_months: number | null
   photo_url: string | null
   created_at: string
 }

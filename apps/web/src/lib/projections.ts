@@ -1,4 +1,4 @@
-const MONTHLY_RATE = 0.08 / 12
+const MONTHLY_RATE = 0.07 / 12
 
 export function fv(pmt: number, months: number): number {
   if (months <= 0) return 0
