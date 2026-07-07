@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { confirmChildAccount, sendPledgeEmail } from '../../lib/pledge'
 import { Screen, Logo, Card, Button, Field, Disclaimer, FullScreenLoader } from '../../components/ui'
+import { DobInput, childDobError, dobComplete, dobToIso, type Dob } from '../../components/DobInput'
 import { formatSortCode, describeError } from '../../lib/format'
 
 /**
@@ -23,6 +24,7 @@ export default function ConfirmAccount() {
   const [sortCode, setSortCode] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
   const [reference, setReference] = useState('')
+  const [dob, setDob] = useState<Dob>({ day: '', month: '', year: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -30,11 +32,18 @@ export default function ConfirmAccount() {
     if (!childId) return
     supabase
       .from('children')
-      .select('name')
+      .select('name, date_of_birth')
       .eq('id', childId)
       .maybeSingle()
       .then(({ data }) => {
-        setChildName((data as { name: string } | null)?.name ?? null)
+        const row = data as { name: string; date_of_birth: string | null } | null
+        setChildName(row?.name ?? null)
+        // Prefill if the child already has a DOB (e.g. a returning parent), so this
+        // stays a confirm rather than a re-entry.
+        if (row?.date_of_birth) {
+          const [y, m, d] = row.date_of_birth.split('-')
+          if (y && m && d) setDob({ day: d, month: m, year: y })
+        }
         setLoading(false)
       })
   }, [childId])
@@ -43,12 +52,31 @@ export default function ConfirmAccount() {
   const child = childName ?? 'your child'
 
   const rawSort = sortCode.replace(/\D/g, '')
-  const valid = rawSort.length === 6 && accountNumber.length === 8 && reference.trim().length > 0
+  const dobErr = childDobError(dob)
+  const valid =
+    rawSort.length === 6 &&
+    accountNumber.length === 8 &&
+    reference.trim().length > 0 &&
+    dobComplete(dob) &&
+    !dobErr
 
   const save = async () => {
     if (!valid || !childId || busy) return
     setBusy(true)
     setError('')
+
+    // Capture the child's real date of birth (the keystone — a Junior ISA cannot be
+    // opened without it, and it makes every projection accurate). Saved first so a
+    // later jisa failure still leaves us with the DOB.
+    const { error: dobError } = await supabase
+      .from('children')
+      .update({ date_of_birth: dobToIso(dob) })
+      .eq('id', childId)
+    if (dobError) {
+      setBusy(false)
+      setError(describeError(dobError))
+      return
+    }
 
     const { error: jisaError } = await supabase.from('jisa_accounts').upsert(
       {
@@ -130,6 +158,17 @@ export default function ConfirmAccount() {
             value={reference}
             onChange={(e) => setReference(e.target.value.toUpperCase())}
           />
+
+          <div>
+            <span className="mb-1.5 block text-sm font-semibold text-midnight">
+              {child}'s date of birth
+            </span>
+            <DobInput value={dob} onChange={setDob} />
+            <span className="mt-1.5 block text-xs text-slate-400">
+              A Junior ISA can't be opened without it — and it makes {child}'s projection accurate.
+            </span>
+            {dobErr && <span className="mt-1 block text-xs text-red-500">{dobErr}</span>}
+          </div>
 
           {valid && (
             <div className="rounded-xl border border-sky/40 bg-sky/5 p-4 text-sm leading-relaxed text-slate-600">

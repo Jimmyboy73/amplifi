@@ -1,70 +1,51 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Screen, Logo, Card, Button } from './ui'
 
 /**
- * One-time welcome shown on a user's FIRST login (after email confirmation),
- * before the pot/home screen. Two tap-through cards. On finish we persist
- * `has_seen_welcome: true` to Supabase user metadata so it never shows again,
- * and call `onDone` to swap to the home screen immediately.
+ * One-time welcome, shown as a dismissible banner ON the pot page (not a full-screen
+ * interstitial) — the parent lands straight on their pot, with this greeting sitting
+ * above it until dismissed. Merges what used to be two welcome cards (founding-family
+ * warmth + the "works alongside your ISA" line) into a single calm banner.
  *
- * The flag lives in auth user metadata (not a profiles column) — it's a
+ * On dismiss we persist `has_seen_welcome: true` to Supabase user metadata so it never
+ * shows again. The flag lives in auth user metadata (not a profiles column) — it's a
  * non-security UI flag, needs no migration, and updates the live session via the
- * USER_UPDATED auth event.
+ * USER_UPDATED auth event. Best-effort: if the write fails the user still gets through;
+ * worst case they see the banner once more next login.
  */
-export function WelcomeFlow({ onDone }: { onDone: () => void }) {
-  const [card, setCard] = useState<0 | 1>(0)
+export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
   const [busy, setBusy] = useState(false)
 
-  const finish = async () => {
+  const dismiss = async () => {
     if (busy) return
     setBusy(true)
-    // Best-effort persist — even if it fails we still let the user through; worst
-    // case they see the welcome once more on next login.
     await supabase.auth.updateUser({ data: { has_seen_welcome: true } })
     setBusy(false)
-    onDone()
+    onDismiss()
   }
 
   return (
-    <Screen className="justify-center pt-8">
-      <div className="mb-8 flex justify-center">
-        <Logo className="text-2xl" />
+    <div className="mt-4 rounded-2xl bg-sky/5 p-4 ring-1 ring-sky/20">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-base font-bold text-midnight">
+            <span className="mr-1">👋</span> You're one of our Founding Families
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">
+            Amplifi works alongside your ISA or Junior ISA — we help you set one up if you don't
+            have one yet. As one of our first families, your feedback shapes what we build next. 💙
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Dismiss welcome"
+          onClick={() => void dismiss()}
+          disabled={busy}
+          className="-mr-1 -mt-1 shrink-0 rounded-full px-2 py-1 text-lg leading-none text-slate-400 hover:text-slate-600 disabled:opacity-40"
+        >
+          ×
+        </button>
       </div>
-
-      {card === 0 ? (
-        <Card>
-          <p className="text-4xl">👋</p>
-          <h1 className="mb-3 mt-3 text-2xl font-extrabold tracking-tight text-midnight">
-            Welcome
-          </h1>
-          <p className="mb-2 text-base font-semibold text-midnight">
-            You're one of our Founding Families.
-          </p>
-          <p className="mb-6 text-sm leading-relaxed text-slate-500">
-            Together we're building a better way for families to build wealth.
-          </p>
-          <Button type="button" onClick={() => setCard(1)}>
-            Let's get started →
-          </Button>
-        </Card>
-      ) : (
-        <Card>
-          <h1 className="mb-3 text-2xl font-extrabold tracking-tight text-midnight">
-            Before we begin…
-          </h1>
-          <p className="mb-4 text-sm leading-relaxed text-slate-500">
-            Today, Amplifi works alongside your existing ISA or Junior ISA. Don't have one yet?
-            We'll help you set one up with one of our trusted partners.
-          </p>
-          <p className="mb-6 text-sm leading-relaxed text-midnight">
-            💙 As one of our first families, your feedback will help shape everything we build next.
-          </p>
-          <Button type="button" onClick={() => void finish()} loading={busy}>
-            Continue →
-          </Button>
-        </Card>
-      )}
-    </Screen>
+    </div>
   )
 }
