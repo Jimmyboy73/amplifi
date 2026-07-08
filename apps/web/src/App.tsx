@@ -4,7 +4,7 @@ import Login from './routes/auth/Login'
 import ResetRequest from './routes/auth/ResetRequest'
 import ResetConfirm from './routes/auth/ResetConfirm'
 import ParentSignup from './routes/parent/ParentSignup'
-import Home from './routes/parent/Home'
+import HomeMission from './routes/parent/HomeMission'
 import LinkIsa from './routes/parent/LinkIsa'
 import InviteLanding from './routes/contributor/InviteLanding'
 import ContributorSignup from './routes/contributor/ContributorSignup'
@@ -17,6 +17,8 @@ import ParentAccept from './routes/parent/ParentAccept'
 import ProviderSignpost from './routes/parent/ProviderSignpost'
 import ConfirmAccount from './routes/parent/ConfirmAccount'
 import InviteFamily from './routes/parent/InviteFamily'
+import FamilyMission from './routes/prototype/FamilyMission'
+import ProviderSignpostPrototype from './routes/prototype/ProviderSignpostPrototype'
 import { RequireAuth, RequireParent } from './components/guards'
 
 export default function App() {
@@ -42,7 +44,8 @@ export default function App() {
 
       {/* Parent flow */}
       <Route path="/signup" element={<ParentSignup />} />
-      <Route path="/home" element={<RequireParent><Home /></RequireParent>} />
+      {/* Home is now the Family Mission (HomeMission). Old pot page kept at routes/parent/Home.tsx for rollback. */}
+      <Route path="/home" element={<RequireParent><HomeMission /></RequireParent>} />
       <Route path="/link-isa" element={<RequireParent><LinkIsa /></RequireParent>} />
 
       {/* Contributor flow — invite landing is public (no auth) */}
@@ -52,6 +55,10 @@ export default function App() {
         path="/contribute/:connectionId"
         element={<RequireAuth><Contribute /></RequireAuth>}
       />
+
+      {/* Prototype — isolated visual mockup (dummy data, no auth, no db). Design review only. */}
+      <Route path="/prototype/home" element={<FamilyMission />} />
+      <Route path="/prototype/provider" element={<ProviderSignpostPrototype />} />
 
       {/* Fallback */}
       <Route path="*" element={<Root />} />
