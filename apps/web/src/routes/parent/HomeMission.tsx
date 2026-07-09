@@ -29,9 +29,10 @@ import { FeedbackModal } from '../../components/FeedbackModal'
 
 const CORE = '#2F6FC4'
 const FAMILY = '#33C6EC'
-const BOOST = '#F5A623'
+const OCC = '#F5A623' // Occasions ring — celebratory amber
+// Everyday Boosters is parked upside (not a ring) — rendered with neutral slate utilities.
 
-type RingKey = 'core' | 'family' | 'boosters'
+type RingKey = 'core' | 'family' | 'occasions'
 const VIEW = 270
 const CENTER = VIEW / 2
 
@@ -85,7 +86,7 @@ export default function HomeMission() {
   const [hasJisa, setHasJisa] = useState(false)
   const [selfConnId, setSelfConnId] = useState<string | null>(null)
   const [selfConnError, setSelfConnError] = useState<string | null>(null)
-  const [selected, setSelected] = useState<RingKey | null>(null)
+  const [selected, setSelected] = useState<RingKey | 'boosters' | null>(null)
   const [showProjection, setShowProjection] = useState(false)
   const [showContrib, setShowContrib] = useState(false)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
@@ -123,15 +124,14 @@ export default function HomeMission() {
 
   const seenWelcome = Boolean(user?.user_metadata?.has_seen_welcome)
   const showWelcome = !seenWelcome && !welcomeDismissed
-  const hasSupporters = pledges.some((p) => p.status === 'linked') || view.monthly.core > 0
 
   const RINGS: { key: RingKey; label: string; color: string; r: number; unit: string }[] = [
     { key: 'core', label: 'Core', color: CORE, r: 78, unit: 'a month' },
     { key: 'family', label: 'Family', color: FAMILY, r: 101, unit: 'a month' },
-    { key: 'boosters', label: 'Boosters', color: BOOST, r: 123, unit: 'a year' },
+    { key: 'occasions', label: 'Occasions', color: OCC, r: 123, unit: 'a year' },
   ]
 
-  const selectRing = (k: RingKey) => {
+  const selectRing = (k: RingKey | 'boosters') => {
     setShowProjection(false)
     setSelected((cur) => (cur === k ? null : k))
   }
@@ -234,8 +234,8 @@ export default function HomeMission() {
                     <p className="text-2xl font-extrabold leading-none text-midnight">
                       {formatGBP(view.projectedFutureValue)}
                     </p>
-                    <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[10px] font-medium leading-tight text-slate-400">
-                      <span>at age 25 · {formatGBP(view.householdGoal)} goal</span>
+                    <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium leading-tight text-slate-400">
+                      <span>at age 25</span>
                       <span className="transition-transform duration-300" style={{ transform: showProjection ? 'rotate(180deg)' : 'none' }}>⌄</span>
                     </p>
                   </>
@@ -277,13 +277,43 @@ export default function HomeMission() {
           </button>
         )}
 
+        {/* The £100k mission — its own home, above the per-bucket targets */}
+        <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-sm font-bold text-midnight">The £100k mission</p>
+            {view.projectedFutureValue != null && (
+              <p className="text-[11px] font-medium text-slate-400">
+                {formatGBP(view.projectedFutureValue)} of {formatGBP(view.householdGoal)}
+              </p>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            The aim: {child.name} starts adult life with £100,000 by age 25. Illustrative, not a guarantee.
+          </p>
+          {view.projectedFutureValue != null && (
+            <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${Math.min(100, Math.round((view.projectedFutureValue / view.householdGoal) * 100))}%`,
+                  background: CORE,
+                }}
+              />
+            </div>
+          )}
+        </div>
+
         {/* Legend rows — tap to expand */}
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-3 flex flex-col gap-2">
           {RINGS.map((ring) => {
             const isSel = selected === ring.key
             const stat = view.rings[ring.key]
             const tagline =
-              ring.key === 'core' ? 'You + Child Benefit' : ring.key === 'family' ? 'The wider circle' : 'On the way'
+              ring.key === 'core'
+                ? 'You + Child Benefit'
+                : ring.key === 'family'
+                  ? 'The wider circle'
+                  : 'Birthdays, Christmas & milestones'
             return (
               <button
                 key={ring.key}
@@ -296,7 +326,7 @@ export default function HomeMission() {
                   <span className="block text-[11px] leading-tight text-slate-400">{tagline}</span>
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className="block text-sm font-bold leading-tight" style={{ color: ring.color }}>
+                  <span className="block text-sm font-bold leading-tight text-midnight">
                     £{Math.round(stat.current)}
                     <span className="text-[11px] font-semibold text-slate-400">/£{stat.target}</span>
                   </span>
@@ -305,6 +335,21 @@ export default function HomeMission() {
               </button>
             )
           })}
+
+          {/* Everyday Boosters — a fourth row in the same family, but coming soon (no target yet) */}
+          <button
+            onClick={() => selectRing('boosters')}
+            className={`flex w-full items-center gap-3 rounded-2xl bg-white px-3.5 py-2.5 text-left shadow-sm ring-1 transition ${selected === 'boosters' ? 'ring-black/10' : 'ring-black/5 hover:ring-black/10'}`}
+            style={{ borderLeft: '3px solid #94a3b8' }}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold leading-tight text-midnight">Everyday Boosters</span>
+              <span className="block text-[11px] leading-tight text-slate-400">Cashback, employer top-ups &amp; more</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Coming soon
+            </span>
+          </button>
         </div>
 
         {/* Expanded ring detail */}
@@ -391,18 +436,51 @@ export default function HomeMission() {
           </RingPanelShell>
         )}
 
+        {selected === 'occasions' && (
+          <RingPanelShell color={OCC} title="Occasions">
+            <p className="mb-3 text-sm text-slate-500">
+              Birthdays, Christmas and milestones — pocket money, exam results, a christening. The
+              whole circle can chip in with no account, and it&apos;s the easiest money toward{' '}
+              {child.name}&apos;s future.
+            </p>
+            <div className="rounded-xl p-4" style={{ background: `${OCC}12`, border: `1px solid ${OCC}33` }}>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">🎂</span>
+                <p className="text-sm font-bold text-midnight">Open a gifting moment</p>
+              </div>
+              <p className="mt-1.5 text-xs leading-snug text-slate-500">
+                Share it and family gift straight into {child.name}&apos;s future, instead of another toy.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  className="flex-1 rounded-lg py-2.5 text-xs font-bold text-white transition hover:brightness-105"
+                  style={{ background: OCC }}
+                >
+                  🎂 Birthday
+                </button>
+                <button
+                  className="flex-1 rounded-lg py-2.5 text-xs font-bold transition hover:brightness-105"
+                  style={{ background: '#fff', color: '#854F0B', border: `1.5px solid ${OCC}` }}
+                >
+                  🎄 Christmas
+                </button>
+              </div>
+            </div>
+          </RingPanelShell>
+        )}
+
         {selected === 'boosters' && (
-          <RingPanelShell color={BOOST} title="Everyday Boosters">
+          <RingPanelShell color="#94a3b8" title="Everyday Boosters">
             <p className="mb-4 text-sm text-slate-500">
               Passive ways {child.name}&apos;s future can grow — money that builds without anyone
-              writing a cheque. These are on the way.
+              writing a cheque. These are on the way; no target is set until they launch.
             </p>
             <div className="space-y-2">
               {['Cashback on everyday spending', 'Employer contributions', 'Gift-card boosts', 'Payroll giving'].map((b) => (
                 <div key={b} className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3.5">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs" style={{ background: `${BOOST}1f`, color: BOOST }}>✦</span>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-400">✦</span>
                   <span className="flex-1 text-sm font-semibold text-midnight">{b}</span>
-                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: `${BOOST}1f`, color: BOOST }}>Coming soon</span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-400">Coming soon</span>
                 </div>
               ))}
             </div>
@@ -410,31 +488,43 @@ export default function HomeMission() {
           </RingPanelShell>
         )}
 
-        {/* Family activity feed — derived from linked/pledged supporters */}
+        {/* Family activity — real moments plus a ghost example of what's still to come */}
         <div className="mt-6">
           <p className="mb-2 px-1 text-sm font-bold text-midnight">Family activity</p>
-          {hasSupporters || pledges.length > 0 ? (
-            <div className="rounded-2xl bg-white p-2 shadow-sm ring-1 ring-black/5">
-              {pledges.slice(0, 3).map((p, i, arr) => (
-                <div key={p.id} className={`flex items-center gap-3 px-3 py-3 ${i < arr.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-offwhite text-base">
-                    {p.status === 'linked' ? '💛' : '🎁'}
-                  </span>
-                  <span className="flex-1 text-sm font-medium text-midnight">
-                    {(p.pledgerName || 'A family member')}{' '}
-                    {p.status === 'linked' ? 'is contributing' : 'pledged'}{' '}
-                    {contributionLabel(p.amountPennies, p.frequency) ?? ''}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-6 text-center">
-              <p className="text-sm font-semibold text-midnight">The first moment is on its way</p>
-              <p className="mx-auto mt-1 max-w-[240px] text-xs leading-snug text-slate-400">
-                It&apos;ll appear the day someone joins {child.name}&apos;s mission. Invite a supporter to begin.
-              </p>
-            </div>
+          <div className="divide-y divide-slate-100 rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+            {view.monthly.core > 0 && (
+              <div className="flex items-center gap-3 px-3 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-offwhite text-base">💷</span>
+                <span className="flex-1 text-sm font-medium text-midnight">
+                  You&apos;re contributing {formatGBP(view.monthly.core)} a month
+                </span>
+              </div>
+            )}
+            {pledges.slice(0, 3).map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-3 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-offwhite text-base">
+                  {p.status === 'linked' ? '💛' : '🎁'}
+                </span>
+                <span className="flex-1 text-sm font-medium text-midnight">
+                  {(p.pledgerName || 'A family member')}{' '}
+                  {p.status === 'linked' ? 'is contributing' : 'pledged'}{' '}
+                  {contributionLabel(p.amountPennies, p.frequency) ?? ''}
+                </span>
+              </div>
+            ))}
+            {pledges.length === 0 && (
+              <div className="flex items-center gap-3 px-3 py-3 opacity-40">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-offwhite text-base">💛</span>
+                <span className="flex-1 text-sm font-medium italic text-slate-400">
+                  Waiting for your first family gift — e.g. Grandma starts £20 a month
+                </span>
+              </div>
+            )}
+          </div>
+          {pledges.length === 0 && (
+            <p className="mt-2 px-1 text-[11px] leading-snug text-slate-400">
+              This is where {child.name}&apos;s family moments will appear — each new supporter shows up here.
+            </p>
           )}
         </div>
       </div>

@@ -1,36 +1,56 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Mission data layer — derives the "Family Mission" home-screen view model from the
-// EXISTING tables (family_contributions + linked family_pledges + the child's age).
+// EXISTING tables (family_contributions + linked family_pledges + occasion gifts + age).
 //
-// Pure + framework-free on purpose: no Supabase, no React, no network. It takes plain
-// rows and returns numbers, so it's trivially testable and changes NO existing behaviour.
-// The UI phase (Phase 3) consumes buildMissionView; nothing here touches Home.tsx yet.
+// Pure + framework-free: no Supabase, no React, no network. Takes plain rows, returns
+// numbers — trivially testable, changes NO existing behaviour. See docs/home-screen-build-spec.md.
 //
-// See docs/home-screen-build-spec.md. Ring model = Target. Boosters is parked (Phase 2):
-// it has no live data and always reads £0 of its target.
+// THE MISSION: £100k by 25. Three rings the family actively drives toward it —
+//   • Core      — the parental household (+ Child Benefit), recurring monthly
+//   • Family    — the wider circle (grandparents etc.), recurring monthly
+//   • Occasions — birthday/Christmas/milestone gifting moments, yearly
+// Everyday Boosters (cashback etc.) is PARKED upside — tracked but NOT a ring.
+//
+// Default targets hit ~£100k from birth at 7% p.a.; they SCALE UP the later a child
+// joins (fewer compounding years), and the parent can re-weight them.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { FamilyContribution, Frequency } from './types'
 import type { ChildPledge } from './pledge'
 import { computePot, type PledgeAccrual } from './computePot'
 import { fv } from './projections'
 
-// D1-A: app-level default targets (not persisted yet). Illustrative motivators, not
-// promises — kept in one place so persisting them later (D1-B) is a drop-in swap.
-export const DEFAULT_TARGETS = {
-  coreMonthly: 150, // Core = parental household (+ Child Benefit)
-  familyMonthly: 100, // Family = the wider circle, recurring
-  boostersYearly: 500, // Boosters = parked; shown as a target to work toward
-  householdGoal: 100000, // the centre "£100k goal" (illustrative)
-} as const
-export type Targets = typeof DEFAULT_TARGETS
-
-// The centre figure projects to this age (the design's "at age 25").
+const ANNUAL_RATE = 0.07
+const MONTHLY_RATE = ANNUAL_RATE / 12
 export const PROJECTION_AGE_YEARS = 25
 
+export type Targets = {
+  coreMonthly: number
+  familyMonthly: number
+  occasionsYearly: number
+  boostersYearly: number
+  householdGoal: number
+}
+
+// Default targets — Python-verified to reach ~£100k from birth at 7% p.a.
+// (Core £50 + Family £30 monthly, Occasions £400/yr ≈ £102k; the reliable buckets
+// alone reach ~£92k, with Boosters as upside.) The parent can adjust these.
+export const DEFAULT_TARGETS: Targets = {
+  coreMonthly: 50,
+  familyMonthly: 30,
+  occasionsYearly: 400,
+  boostersYearly: 150, // parked UPSIDE — not a ring, tracked as a top-up
+  householdGoal: 100000, // the £100k-by-25 mission (illustrative, not a guarantee)
+}
+
+// Annuity-due future value of a YEARLY contribution at 7% over whole years.
+function fvAnnual(pmtYear: number, years: number): number {
+  if (years <= 0) return 0
+  return pmtYear * ((Math.pow(1 + ANNUAL_RATE, years) - 1) / ANNUAL_RATE) * (1 + ANNUAL_RATE)
+}
+
 /**
- * Normalise any contribution to a recurring MONTHLY figure (£).
- * One-off gifts are NOT a recurring rate → 0 (they still feed the pot + the projection
- * base elsewhere, but the ring's fill tracks recurring monthly giving only — see spec §5).
+ * Normalise a contribution to a recurring MONTHLY figure (£). One-off gifts are not a
+ * recurring rate → 0 (they still feed the pot; the ring fill tracks recurring giving).
  */
 export function toMonthly(amountGbp: number, frequency: Frequency): number {
   if (frequency === 'monthly') return amountGbp
@@ -42,11 +62,8 @@ export type RingMonthly = { core: number; family: number }
 
 /**
  * Split recurring monthly giving into Core vs Family.
- *  - Core   = the parent household's own contributions — rows on the self-connection
- *             (`connection_id === selfConnectionId`). Child Benefit lands here too, once
- *             recorded as a contribution on that connection (D2, later phase).
- *  - Family = everyone else — linked family_pledges + contributions on any other connection.
- * Only `active` contributions and `linked` pledges count toward the live rate.
+ *  - Core   = the parent household — rows on the self-connection (incl. Child Benefit later).
+ *  - Family = everyone else — linked pledges + contributions on any other connection.
  */
 export function ringMonthlyTotals(params: {
   contributions: FamilyContribution[]
@@ -56,73 +73,98 @@ export function ringMonthlyTotals(params: {
   const { contributions, pledges, selfConnectionId } = params
   let core = 0
   let family = 0
-
   for (const c of contributions) {
     if (c.status !== 'active') continue
     const monthly = toMonthly(c.amount_gbp, c.frequency)
     if (selfConnectionId && c.connection_id === selfConnectionId) core += monthly
     else family += monthly
   }
-
   for (const p of pledges) {
     if (p.status !== 'linked') continue
     family += toMonthly(p.amountPennies / 100, p.frequency)
   }
-
   return { core, family }
 }
 
-/** Whole months from the child's current age to the target age (never negative). */
 export function monthsToAge(ageMonths: number, ageYears = PROJECTION_AGE_YEARS): number {
   return Math.max(0, ageYears * 12 - ageMonths)
 }
 
 /**
- * The centre projection: illustrative future value of the household's total monthly giving
- * at 7% p.a. (annuity-due, via projections.fv) to the target age.
- * Returns null when age is unknown — NO figure before the DOB is known (compliance).
+ * Target scaling multiplier: to still reach £100k by the target age, contributions must
+ * be higher the later a child joins (fewer compounding years). 1.0 from birth.
+ * e.g. join at 5 ≈ 1.56×, at 8 ≈ 2.08×, at 12 ≈ 3.2×.
+ */
+export function targetScale(ageMonths: number | null, ageYears = PROJECTION_AGE_YEARS): number {
+  if (ageMonths == null) return 1
+  const f = (n: number) => (n <= 0 ? 0 : ((Math.pow(1 + MONTHLY_RATE, n) - 1) / MONTHLY_RATE) * (1 + MONTHLY_RATE))
+  const totalMonths = ageYears * 12
+  const monthsLeft = Math.max(1, totalMonths - ageMonths)
+  return f(totalMonths) / f(monthsLeft)
+}
+
+/** Age-adjusted targets (the £100k goal itself never changes; the contributions to reach it do). */
+export function scaledTargets(ageMonths: number | null, base: Targets = DEFAULT_TARGETS): Targets {
+  const s = targetScale(ageMonths)
+  return {
+    coreMonthly: Math.round(base.coreMonthly * s),
+    familyMonthly: Math.round(base.familyMonthly * s),
+    occasionsYearly: Math.round(base.occasionsYearly * s),
+    boostersYearly: Math.round(base.boostersYearly * s),
+    householdGoal: base.householdGoal,
+  }
+}
+
+/**
+ * The centre projection: illustrative future value at 7% to the target age of the family's
+ * ACTUAL current streams (recurring monthly + yearly occasion/booster giving).
+ * Returns null when age is unknown — no figure before DOB (compliance).
  */
 export function projectedFuture(params: {
   monthlyTotal: number
+  occasionsYear?: number
+  boostersYear?: number
   ageMonths: number | null
   ageYears?: number
 }): number | null {
-  const { monthlyTotal, ageMonths, ageYears = PROJECTION_AGE_YEARS } = params
+  const { monthlyTotal, occasionsYear = 0, boostersYear = 0, ageMonths, ageYears = PROJECTION_AGE_YEARS } = params
   if (ageMonths == null) return null
-  return fv(monthlyTotal, monthsToAge(ageMonths, ageYears))
+  const months = monthsToAge(ageMonths, ageYears)
+  const years = Math.max(0, ageYears - ageMonths / 12)
+  return fv(monthlyTotal, months) + fvAnnual(occasionsYear, years) + fvAnnual(boostersYear, years)
 }
 
-/** Ring fill percentage (0–100), clamped. */
-export function ringPct(currentGbp: number, targetGbp: number): number {
-  if (targetGbp <= 0) return 0
-  return Math.min(100, Math.round((currentGbp / targetGbp) * 100))
+export function ringPct(current: number, target: number): number {
+  if (target <= 0) return 0
+  return Math.min(100, Math.round((current / target) * 100))
 }
 
 export type RingStat = { current: number; target: number; pct: number }
 
 export type MissionView = {
   monthly: RingMonthly & { total: number }
-  projectedFutureValue: number | null // null before DOB known
+  projectedFutureValue: number | null
   pot: number
-  rings: { core: RingStat; family: RingStat; boosters: RingStat }
+  rings: { core: RingStat; family: RingStat; occasions: RingStat }
+  boosters: RingStat // parked upside — shown as a "coming soon" strip, not a ring
   householdGoal: number
+  targets: Targets
   hasDob: boolean
 }
 
-/**
- * Assemble the whole home-screen view model from raw rows. This is the single function
- * the UI hook (Phase 3) will call. Pure — pass it data, get back numbers.
- */
+/** Assemble the full home view model. Pure — pass data, get numbers. */
 export function buildMissionView(params: {
   contributions: FamilyContribution[]
   pledges: ChildPledge[]
   selfConnectionId: string | null
   ageMonths: number | null
+  occasionsGbpYear?: number // occasion gifts logged this year (0 until wired)
   targets?: Targets
 }): MissionView {
-  const targets = params.targets ?? DEFAULT_TARGETS
+  const targets = params.targets ?? scaledTargets(params.ageMonths)
   const monthly = ringMonthlyTotals(params)
   const total = monthly.core + monthly.family
+  const occCurrent = params.occasionsGbpYear ?? 0
 
   const pledgeAccruals: PledgeAccrual[] = params.pledges.map((p) => ({
     amountPennies: p.amountPennies,
@@ -132,31 +174,22 @@ export function buildMissionView(params: {
   }))
   const pot = computePot(params.contributions, pledgeAccruals)
 
-  // Boosters is parked (Phase 2) — no live data, always £0 of its target.
-  const boostersCurrent = 0
-
   return {
     monthly: { ...monthly, total },
-    projectedFutureValue: projectedFuture({ monthlyTotal: total, ageMonths: params.ageMonths }),
+    projectedFutureValue: projectedFuture({
+      monthlyTotal: total,
+      occasionsYear: occCurrent,
+      ageMonths: params.ageMonths,
+    }),
     pot,
     rings: {
-      core: {
-        current: monthly.core,
-        target: targets.coreMonthly,
-        pct: ringPct(monthly.core, targets.coreMonthly),
-      },
-      family: {
-        current: monthly.family,
-        target: targets.familyMonthly,
-        pct: ringPct(monthly.family, targets.familyMonthly),
-      },
-      boosters: {
-        current: boostersCurrent,
-        target: targets.boostersYearly,
-        pct: ringPct(boostersCurrent, targets.boostersYearly),
-      },
+      core: { current: monthly.core, target: targets.coreMonthly, pct: ringPct(monthly.core, targets.coreMonthly) },
+      family: { current: monthly.family, target: targets.familyMonthly, pct: ringPct(monthly.family, targets.familyMonthly) },
+      occasions: { current: occCurrent, target: targets.occasionsYearly, pct: ringPct(occCurrent, targets.occasionsYearly) },
     },
+    boosters: { current: 0, target: targets.boostersYearly, pct: 0 },
     householdGoal: targets.householdGoal,
+    targets,
     hasDob: params.ageMonths != null,
   }
 }

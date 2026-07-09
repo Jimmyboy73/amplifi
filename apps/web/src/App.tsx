@@ -19,6 +19,8 @@ import ConfirmAccount from './routes/parent/ConfirmAccount'
 import InviteFamily from './routes/parent/InviteFamily'
 import FamilyMission from './routes/prototype/FamilyMission'
 import ProviderSignpostPrototype from './routes/prototype/ProviderSignpostPrototype'
+import FamilyTab from './routes/prototype/FamilyTab'
+import OccasionsTab from './routes/prototype/OccasionsTab'
 import { RequireAuth, RequireParent } from './components/guards'
 
 export default function App() {
@@ -59,6 +61,8 @@ export default function App() {
       {/* Prototype — isolated visual mockup (dummy data, no auth, no db). Design review only. */}
       <Route path="/prototype/home" element={<FamilyMission />} />
       <Route path="/prototype/provider" element={<ProviderSignpostPrototype />} />
+      <Route path="/prototype/family" element={<FamilyTab />} />
+      <Route path="/prototype/occasions" element={<OccasionsTab />} />
 
       {/* Fallback */}
       <Route path="*" element={<Root />} />

@@ -54,8 +54,10 @@ export function Button({
   const base =
     'inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl px-5 text-base font-bold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40'
   const styles: Record<string, string> = {
-    primary: 'bg-sky text-midnight hover:brightness-105',
-    secondary: 'bg-azure text-white hover:brightness-105',
+    // primary = solid Core blue with white text (matches the new home CTAs);
+    // secondary = outline Core (keeps hierarchy where a screen has several actions).
+    primary: 'bg-azure text-white hover:brightness-105',
+    secondary: 'border-2 border-azure bg-white text-azure hover:bg-azure/5',
     ghost: 'bg-transparent text-azure hover:bg-azure/5',
   }
   return (
@@ -90,7 +92,7 @@ export function Field({ label, hint, className = '', ...rest }: FieldProps) {
     <label className="block">
       {label && <span className="mb-1.5 block text-sm font-semibold text-midnight">{label}</span>}
       <input
-        className={`w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-midnight outline-none transition focus:border-sky focus:ring-2 focus:ring-sky/30 ${className}`}
+        className={`w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-midnight outline-none transition focus:border-azure focus:ring-2 focus:ring-azure/30 ${className}`}
         {...rest}
       />
       {hint && <span className="mt-1.5 block text-xs leading-snug text-slate-400">{hint}</span>}
@@ -129,7 +131,7 @@ export function Pill({
 export function FullScreenLoader() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-offwhite">
-      <Spinner className="h-8 w-8 text-sky" />
+      <Spinner className="h-8 w-8 text-azure" />
     </div>
   )
 }

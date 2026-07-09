@@ -5,10 +5,12 @@ export default {
     extend: {
       colors: {
         midnight: '#101628',
-        sky: '#59c9e9',
-        azure: '#407bbf',
+        // Refreshed Family Mission palette — azure = Core, sky = Family, amber = Boosters.
+        // (Old values were azure #407bbf / sky #59c9e9 / amber #f59e0b.)
+        sky: '#33c6ec',
+        azure: '#2f6fc4',
         offwhite: '#f4f6f9',
-        amber: '#f59e0b',
+        amber: '#f5a623',
       },
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
