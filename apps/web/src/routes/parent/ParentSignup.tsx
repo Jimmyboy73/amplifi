@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { Screen, Logo, Card, Button, Field, FullScreenLoader } from '../../components/ui'
+import { Screen, Logo, Card, Button, Field, FullScreenLoader, Disclaimer } from '../../components/ui'
 import { EmailPasswordForm } from '../../components/EmailPasswordForm'
 import { DobInput, childDobError, dobComplete, dobToIso, type Dob } from '../../components/DobInput'
 
@@ -29,10 +29,10 @@ export default function ParentSignup() {
       {phase === 'auth' ? (
         <Card>
           <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-midnight">
-            Start your child's pot
+            Start your child's future
           </h1>
           <p className="mb-5 text-sm text-slate-500">
-            Build a savings pot for your child — and invite the family to help.
+            Start building your child's future — and invite the whole family to help.
           </p>
           <EmailPasswordForm
             sendWelcomeEmail
@@ -53,6 +53,8 @@ export default function ParentSignup() {
           onDone={() => navigate('/home', { replace: true })}
         />
       )}
+
+      <Disclaimer />
     </Screen>
   )
 }
@@ -89,7 +91,9 @@ function ChildStep({ onDone }: { onDone: () => void }) {
       <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-midnight">
         Who are you saving for?
       </h1>
-      <p className="mb-5 text-sm text-slate-500">Add your child so we can start their pot.</p>
+      <p className="mb-5 text-sm text-slate-500">
+        Add your child so we can start building their future.
+      </p>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -112,7 +116,7 @@ function ChildStep({ onDone }: { onDone: () => void }) {
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
         <Button type="submit" loading={busy} disabled={!valid}>
-          Create pot
+          Start their future
         </Button>
       </form>
     </Card>

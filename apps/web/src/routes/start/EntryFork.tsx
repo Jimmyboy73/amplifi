@@ -18,10 +18,8 @@ export default function EntryFork() {
 
   return (
     <Screen className="pt-6">
-      <div className="mb-8 flex items-center justify-between">
-        <span className="w-14" />
+      <div className="mb-8 flex justify-center">
         <Logo />
-        <span className="w-14 text-right text-xs font-semibold text-slate-400">Step 1 of 3</span>
       </div>
 
       <Card>

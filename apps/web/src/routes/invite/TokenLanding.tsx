@@ -61,7 +61,7 @@ export default function TokenLanding() {
         // invite_to_family (parent → family) — F-ACCEPT.
         <Card>
           <h1 className="mb-1 text-2xl font-extrabold tracking-tight text-midnight">
-            Join {summary.childName}'s family pot
+            Help build {summary.childName}'s future
           </h1>
           <p className="mb-5 text-sm leading-relaxed text-slate-500">
             {summary.senderFirstName || 'A family member'} invited you to add a little towards{' '}

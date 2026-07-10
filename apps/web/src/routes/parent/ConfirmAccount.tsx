@@ -109,6 +109,9 @@ export default function ConfirmAccount() {
   return (
     <Screen className="pt-6">
       <div className="mb-6 flex items-center justify-between">
+        <button className="text-2xl text-midnight" onClick={() => navigate(-1)} aria-label="Back">
+          ←
+        </button>
         <Logo />
         <span className="w-6" />
       </div>
@@ -185,6 +188,13 @@ export default function ConfirmAccount() {
           <Button type="submit" loading={busy} disabled={!valid}>
             Confirm account
           </Button>
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className="w-full py-2 text-sm font-semibold text-slate-400 transition hover:text-midnight"
+          >
+            I'll do this later
+          </button>
         </form>
       </Card>
 
