@@ -19,8 +19,9 @@ import { ensureSelfConnection } from '../../lib/useContribution'
 import { ageMonthsFromDob, describeError } from '../../lib/format'
 import { contributionLabel, sendPledgeEmail, type ChildPledge } from '../../lib/pledge'
 import { RELATIONSHIP_LABEL } from '../../lib/types'
-import { buildMissionView } from '../../lib/mission'
+import { buildMissionView, effectiveTargets } from '../../lib/mission'
 import { formatGBP } from '../../lib/projections'
+import { AdjustTargetsModal } from '../../components/AdjustTargetsModal'
 import { Logo, FullScreenLoader } from '../../components/ui'
 import { ProjectionWidget } from '../../components/ProjectionWidget'
 import { ContributionPanel } from '../../components/ContributionPanel'
@@ -89,6 +90,7 @@ export default function HomeMission() {
   const [selected, setSelected] = useState<RingKey | 'boosters' | null>(null)
   const [showProjection, setShowProjection] = useState(false)
   const [showContrib, setShowContrib] = useState(false)
+  const [showAdjust, setShowAdjust] = useState(false)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [sendingDetails, setSendingDetails] = useState(false)
@@ -115,11 +117,18 @@ export default function HomeMission() {
   if (childrenLoading || !child) return <FullScreenLoader />
 
   const ageMonths = ageMonthsFromDob(child.date_of_birth) ?? child.approx_age_months ?? null
+  const targets = effectiveTargets(ageMonths, {
+    core: child.core_target_gbp,
+    family: child.family_target_gbp,
+    occasions: child.occasions_target_gbp,
+    boosters: child.boosters_target_gbp,
+  })
   const view = buildMissionView({
     contributions,
     pledges,
     selfConnectionId: selfConnId,
     ageMonths,
+    targets,
   })
 
   const seenWelcome = Boolean(user?.user_metadata?.has_seen_welcome)
@@ -290,6 +299,13 @@ export default function HomeMission() {
           <p className="mt-0.5 text-xs text-slate-500">
             The aim: {child.name} starts adult life with £100,000 by age 25. Illustrative, not a guarantee.
           </p>
+          <button
+            onClick={() => setShowAdjust(true)}
+            className="mt-2 text-xs font-bold transition hover:brightness-110"
+            style={{ color: CORE }}
+          >
+            Adjust your targets →
+          </button>
           {view.projectedFutureValue != null && (
             <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
               <div
@@ -534,6 +550,16 @@ export default function HomeMission() {
           userId={user.id}
           email={user.email ?? profile?.email ?? null}
           onClose={() => setShowFeedback(false)}
+        />
+      )}
+
+      {showAdjust && (
+        <AdjustTargetsModal
+          childId={child.id}
+          ageMonths={ageMonths}
+          initial={targets}
+          onClose={() => setShowAdjust(false)}
+          onSaved={() => void refetchChildren()}
         />
       )}
     </div>

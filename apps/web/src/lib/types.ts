@@ -15,6 +15,12 @@ export type Child = {
   approx_age_months: number | null
   photo_url: string | null
   created_at: string
+  account_status: 'no_account' | 'account_open' | null
+  // Per-child adjusted targets (NULL = use the age-scaled defaults from lib/mission.ts).
+  core_target_gbp: number | null
+  family_target_gbp: number | null
+  occasions_target_gbp: number | null
+  boosters_target_gbp: number | null
 }
 
 export type JisaAccount = {

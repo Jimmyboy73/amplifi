@@ -115,6 +115,26 @@ export function scaledTargets(ageMonths: number | null, base: Targets = DEFAULT_
   }
 }
 
+// A parent's saved targets (any NULL falls back to the age-scaled default for that bucket).
+export type SavedTargets = {
+  core: number | null
+  family: number | null
+  occasions: number | null
+  boosters: number | null
+}
+
+/** Effective targets = the parent's saved values where set, else the age-scaled defaults. */
+export function effectiveTargets(ageMonths: number | null, saved?: SavedTargets): Targets {
+  const base = scaledTargets(ageMonths)
+  return {
+    coreMonthly: saved?.core ?? base.coreMonthly,
+    familyMonthly: saved?.family ?? base.familyMonthly,
+    occasionsYearly: saved?.occasions ?? base.occasionsYearly,
+    boostersYearly: saved?.boosters ?? base.boostersYearly,
+    householdGoal: base.householdGoal,
+  }
+}
+
 /**
  * The centre projection: illustrative future value at 7% to the target age of the family's
  * ACTUAL current streams (recurring monthly + yearly occasion/booster giving).

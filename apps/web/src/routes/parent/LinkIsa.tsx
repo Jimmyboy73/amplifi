@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useChildren } from '../../lib/useChildren'
+import { confirmChildAccount, sendPledgeEmail } from '../../lib/pledge'
 import { Screen, Logo, Card, Button, Field, FullScreenLoader } from '../../components/ui'
 import { formatSortCode } from '../../lib/format'
 
@@ -72,11 +73,26 @@ export default function LinkIsa() {
       },
       { onConflict: 'child_id' }
     )
-    setBusy(false)
     if (error) {
+      setBusy(false)
       setError(error.message)
       return
     }
+
+    // First-time open: flip the child's account to "open", link any pending pledges, and
+    // email the family their pay-in details — the same trigger the invited path runs.
+    // Guarded on account_status so editing details later never re-emails the family.
+    if (child.account_status !== 'account_open') {
+      const ok = await confirmChildAccount(child.id)
+      if (!ok) {
+        setBusy(false)
+        setError('We saved the details but couldn’t finish linking. Please try again.')
+        return
+      }
+      void sendPledgeEmail({ kind: 'account_open', childId: child.id })
+    }
+
+    setBusy(false)
     navigate('/home', { replace: true })
   }
 
