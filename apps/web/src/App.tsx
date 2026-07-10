@@ -5,6 +5,9 @@ import ResetRequest from './routes/auth/ResetRequest'
 import ResetConfirm from './routes/auth/ResetConfirm'
 import ParentSignup from './routes/parent/ParentSignup'
 import HomeMission from './routes/parent/HomeMission'
+import FamilyView from './routes/parent/FamilyView'
+import OccasionsView from './routes/parent/OccasionsView'
+import GiftPage from './routes/gift/GiftPage'
 import LinkIsa from './routes/parent/LinkIsa'
 import InviteLanding from './routes/contributor/InviteLanding'
 import ContributorSignup from './routes/contributor/ContributorSignup'
@@ -34,6 +37,7 @@ export default function App() {
       <Route path="/i/:token/pledge" element={<PledgeFlow />} />
       <Route path="/pledge/status/:token" element={<PledgeStatus />} />
       <Route path="/i/:token" element={<TokenLanding />} />
+      <Route path="/gift/:token" element={<GiftPage />} />
       <Route path="/i/:token/accept" element={<ParentAccept />} />
       <Route path="/provider/:childId" element={<RequireAuth><ProviderSignpost /></RequireAuth>} />
       <Route path="/confirm/:childId" element={<RequireAuth><ConfirmAccount /></RequireAuth>} />
@@ -48,6 +52,8 @@ export default function App() {
       <Route path="/signup" element={<ParentSignup />} />
       {/* Home is now the Family Mission (HomeMission). Old pot page kept at routes/parent/Home.tsx for rollback. */}
       <Route path="/home" element={<RequireParent><HomeMission /></RequireParent>} />
+      <Route path="/family" element={<RequireParent><FamilyView /></RequireParent>} />
+      <Route path="/occasions" element={<RequireParent><OccasionsView /></RequireParent>} />
       <Route path="/link-isa" element={<RequireParent><LinkIsa /></RequireParent>} />
 
       {/* Contributor flow — invite landing is public (no auth) */}

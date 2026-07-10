@@ -22,6 +22,8 @@ import { RELATIONSHIP_LABEL } from '../../lib/types'
 import { buildMissionView, effectiveTargets } from '../../lib/mission'
 import { formatGBP } from '../../lib/projections'
 import { AdjustTargetsModal } from '../../components/AdjustTargetsModal'
+import { BottomTabs } from '../../components/BottomTabs'
+import { loadChildOccasions } from '../../lib/occasions'
 import { Logo, FullScreenLoader } from '../../components/ui'
 import { ProjectionWidget } from '../../components/ProjectionWidget'
 import { ContributionPanel } from '../../components/ContributionPanel'
@@ -91,6 +93,7 @@ export default function HomeMission() {
   const [showProjection, setShowProjection] = useState(false)
   const [showContrib, setShowContrib] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
+  const [occasionsGbpYear, setOccasionsGbpYear] = useState(0)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [sendingDetails, setSendingDetails] = useState(false)
@@ -114,6 +117,14 @@ export default function HomeMission() {
     })
   }, [user, child])
 
+  // Total gifted across this child's occasion moments — feeds the Occasions ring.
+  useEffect(() => {
+    if (!child) return
+    void loadChildOccasions(child.id).then((list) =>
+      setOccasionsGbpYear(list.reduce((sum, o) => sum + o.totalGifted, 0))
+    )
+  }, [child])
+
   if (childrenLoading || !child) return <FullScreenLoader />
 
   const ageMonths = ageMonthsFromDob(child.date_of_birth) ?? child.approx_age_months ?? null
@@ -128,6 +139,7 @@ export default function HomeMission() {
     pledges,
     selfConnectionId: selfConnId,
     ageMonths,
+    occasionsGbpYear,
     targets,
   })
 
@@ -162,7 +174,7 @@ export default function HomeMission() {
         @keyframes ampBreathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.012); } }
       `}</style>
 
-      <div className="mx-auto w-full max-w-md px-5 pb-20">
+      <div className="mx-auto w-full max-w-md px-5 pb-24">
         {/* Top bar */}
         <div className="flex items-center justify-between py-4">
           <Logo />
@@ -562,6 +574,8 @@ export default function HomeMission() {
           onSaved={() => void refetchChildren()}
         />
       )}
+
+      <BottomTabs active="home" />
     </div>
   )
 }
