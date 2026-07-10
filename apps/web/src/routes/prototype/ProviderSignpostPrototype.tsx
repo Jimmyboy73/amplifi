@@ -16,25 +16,18 @@ import { Logo } from '../../components/ui'
 const CORE = '#2F6FC4'
 const CHILD = { name: 'Olivia' }
 
-// Neutral, ALPHABETICAL. No ranking, no "recommended/best". Fees + minimums are left as
-// placeholders on purpose — the real details are confirmed with James before launch.
-// `url` opens the provider's OWN site in a new tab; Amplifi collects nothing. These are
-// placeholder homepages — the exact Junior ISA deep-links are confirmed at Gate 2.
+// Neutral, ALPHABETICAL. No ranking, no "recommended/best". Approved copy (Gate 2).
+// `url` opens the provider's OWN site in a new tab; Amplifi collects nothing.
 const PROVIDERS = [
   {
     name: 'Hargreaves Lansdown',
-    detail: 'Junior ISA · fees & minimum confirmed before launch',
+    detail: 'Junior ISA · no account fee · start from £25/month or £100',
     url: 'https://www.hl.co.uk',
   },
   {
     name: 'Moneybox',
-    detail: 'Junior ISA · fees & minimum confirmed before launch',
+    detail: 'Junior ISA · start from £1, all in the app',
     url: 'https://www.moneyboxapp.com',
-  },
-  {
-    name: 'Nutmeg',
-    detail: 'Junior ISA · fees & minimum confirmed before launch',
-    url: 'https://www.nutmeg.com',
   },
 ]
 
@@ -119,15 +112,28 @@ export default function ProviderSignpostPrototype() {
             ))}
           </div>
 
-          {/* Gentle, honest placeholder marker — not the alarming amber warning banner */}
           <p className="mt-3 px-1 text-[11px] leading-snug text-slate-400">
-            Example providers. The final list and each provider&apos;s fees and minimums are
-            confirmed before this screen goes live.
+            Fees can change — check the provider&apos;s own site for the latest.
           </p>
         </div>
 
+        {/* Already have one / use my own — no steer */}
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-3.5">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-midnight">
+              Already have one, or prefer another provider?
+            </span>
+            <span className="block text-[11px] leading-snug text-slate-400">
+              That&apos;s completely fine — we don&apos;t mind where it&apos;s held.
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-bold" style={{ color: CORE }}>
+            Use my own →
+          </span>
+        </div>
+
         {/* Actions */}
-        <div className="mt-7 space-y-2.5">
+        <div className="mt-6 space-y-2.5">
           <button
             className="w-full rounded-xl py-3.5 text-sm font-bold text-white shadow-sm transition hover:brightness-105"
             style={{ background: CORE }}
