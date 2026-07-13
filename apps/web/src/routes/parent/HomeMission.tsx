@@ -370,6 +370,7 @@ export default function HomeMission() {
                   <>
                     <p className="text-2xl font-extrabold leading-none text-midnight">
                       {formatGBP(view.projectedFutureValue)}
+                      <span className="align-super text-xs font-bold text-slate-400">*</span>
                     </p>
                     <p className="mt-1 text-[10px] font-medium leading-tight text-slate-400">
                       at age 25
@@ -380,13 +381,6 @@ export default function HomeMission() {
             </div>
           </div>
         </div>
-
-        {/* Compliance line — only when a figure is shown */}
-        {view.projectedFutureValue != null && (
-          <p className="mx-auto mt-3 max-w-xs text-center text-[11px] leading-snug text-slate-400">
-            Illustrative — could grow to around this, not a guarantee. Assumes 7% p.a.; capital at risk.
-          </p>
-        )}
 
         {/* Pre-DOB only: tap the centre to capture the date of birth (no calculator). */}
         {showProjection && view.projectedFutureValue == null && (
@@ -400,60 +394,36 @@ export default function HomeMission() {
           </div>
         )}
 
-        {/* Single contextual nudge — default state only, and only when there's a useful next step */}
-        {nudge && !selected && !showProjection && (
-          <button
-            onClick={nudge.onClick}
-            className="mt-5 flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition hover:brightness-[1.03]"
-            style={{ background: `${CORE}12` }}
-          >
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: CORE }}>✦</span>
-            <span className="flex-1 text-xs font-semibold leading-snug" style={{ color: CORE }}>{nudge.text}</span>
-            <span className="shrink-0 text-base" style={{ color: CORE }}>→</span>
-          </button>
-        )}
-
-        {/* Pending pledges waiting on the ISA — explains why the Family ring can read £0 */}
-        {pendingMonthly > 0 && !selected && !showProjection && (
-          <button
-            onClick={() => navigate('/link-isa')}
-            className="mt-3 flex w-full items-center gap-2.5 rounded-xl bg-amber-50 px-3.5 py-3 text-left ring-1 ring-amber-200 transition hover:brightness-[1.02]"
-          >
-            <span className="text-base">⏳</span>
-            <span className="flex-1 text-xs font-semibold leading-snug text-amber-800">
-              {formatGBP(pendingMonthly)} a month is pledged and waiting. Link {child.name}&apos;s ISA
-              to activate it — then it counts toward the mission.
-            </span>
-            <span className="shrink-0 text-amber-700">→</span>
-          </button>
-        )}
-
-        {/* The £100k mission — the shared goal + the lever. The projected figure lives in the
-            ring centre; here we frame the goal and progress (encouragement, never a shortfall). */}
-        <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-sm font-bold text-midnight">The £100k mission</p>
+        {/* The £100k mission — front and centre: the shared goal + the lever. The projected
+            figure lives in the ring centre; here we frame the goal and progress. */}
+        <div
+          className="mt-4 rounded-2xl p-5 shadow-sm ring-1 ring-black/5"
+          style={{ background: `linear-gradient(135deg, ${CORE}14, #ffffff 62%)` }}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-lg font-extrabold tracking-tight text-midnight">🎯 The £100k mission</p>
             <button
               onClick={() => setShowAdjust(true)}
-              className="shrink-0 text-[11px] font-bold transition hover:brightness-110"
+              className="shrink-0 text-xs font-bold transition hover:brightness-110"
               style={{ color: CORE }}
             >
               Adjust targets →
             </button>
           </div>
-          <p className="mt-0.5 text-xs leading-snug text-slate-500">
-            Every family starts here: {child.name} reaching £100,000 by 25. A shared goal, not a
-            promise — shape it to fit your family.
+          <p className="mt-1.5 text-sm leading-snug text-slate-600">
+            Every family starts here:{' '}
+            <span className="font-bold text-midnight">{child.name} reaching £100,000 by 25.</span> A
+            shared goal, not a promise — shape it to fit your family.
           </p>
           {view.projectedFutureValue != null && (
             <>
-              <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-black/[0.06]">
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{ width: `${Math.max(missionPct, 1.5)}%`, background: CORE }}
                 />
               </div>
-              <p className="mt-1.5 text-[11px] font-medium" style={{ color: CORE }}>
+              <p className="mt-2 text-xs font-bold" style={{ color: CORE }}>
                 {missionLine}
               </p>
             </>
@@ -647,6 +617,34 @@ export default function HomeMission() {
           </RingPanelShell>
         )}
 
+        {/* Contextual next-step nudge — sits below the rings so the mission stays front-and-centre */}
+        {nudge && !selected && !showProjection && (
+          <button
+            onClick={nudge.onClick}
+            className="mt-5 flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition hover:brightness-[1.03]"
+            style={{ background: `${CORE}12` }}
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: CORE }}>✦</span>
+            <span className="flex-1 text-xs font-semibold leading-snug" style={{ color: CORE }}>{nudge.text}</span>
+            <span className="shrink-0 text-base" style={{ color: CORE }}>→</span>
+          </button>
+        )}
+
+        {/* Pending pledges waiting on the ISA — explains why the Family ring can read £0 */}
+        {pendingMonthly > 0 && !selected && !showProjection && (
+          <button
+            onClick={() => navigate('/link-isa')}
+            className="mt-3 flex w-full items-center gap-2.5 rounded-xl bg-amber-50 px-3.5 py-3 text-left ring-1 ring-amber-200 transition hover:brightness-[1.02]"
+          >
+            <span className="text-base">⏳</span>
+            <span className="flex-1 text-xs font-semibold leading-snug text-amber-800">
+              {formatGBP(pendingMonthly)} a month is pledged and waiting. Link {child.name}&apos;s ISA
+              to activate it — then it counts toward the mission.
+            </span>
+            <span className="shrink-0 text-amber-700">→</span>
+          </button>
+        )}
+
         {/* Family activity — real moments plus a ghost example of what's still to come */}
         <div className="mt-6">
           <p className="mb-2 px-1 text-sm font-bold text-midnight">Family activity</p>
@@ -700,6 +698,13 @@ export default function HomeMission() {
             </p>
           )}
         </div>
+
+        {/* Disclaimer footer — the "*" from the projected figure lives here, out of the way. */}
+        {view.projectedFutureValue != null && (
+          <p className="mt-6 px-1 text-center text-[11px] leading-snug text-slate-400">
+            *Illustrative — could grow to around this, not a guarantee. Assumes 7% p.a.; capital at risk.
+          </p>
+        )}
       </div>
 
       {showFeedback && user && (

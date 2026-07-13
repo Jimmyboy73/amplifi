@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global readability — darken the two workhorse faded text colours one step across the whole
+   app (unlayered rules override Tailwind's utility layer). Keeps secondary text legible on
+   white without touching every component. */
+.text-slate-400 { color: #64748b; } /* slate-400 → slate-500 */
+.text-slate-500 { color: #475569; } /* slate-500 → slate-600 */
+
 :root {
   color-scheme: light;
 }
