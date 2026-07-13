@@ -23,6 +23,7 @@ export type InviteSummary = {
   personalMessage: string | null
   status: 'pending' | 'opened' | 'accepted' | 'expired'
   expired: boolean
+  accountOpen: boolean
 }
 
 type InviteRpcRow = {
@@ -35,6 +36,7 @@ type InviteRpcRow = {
   personal_message: string | null
   status: InviteSummary['status']
   expired: boolean
+  account_open: boolean | null
 }
 
 /** Resolve an invite token to its accept-screen summary (public / unauthenticated). */
@@ -52,6 +54,7 @@ export async function loadInviteByToken(token: string): Promise<InviteSummary | 
     personalMessage: row.personal_message,
     status: row.status,
     expired: row.expired,
+    accountOpen: row.account_open ?? false,
   }
 }
 
@@ -214,15 +217,50 @@ export async function loadChildPledges(childId: string): Promise<ChildPledge[]> 
 export async function createFamilyInvite(
   childId: string,
   channel: 'whatsapp' | 'email' | 'copy_link',
-  recipientEmail?: string | null
+  recipientEmail?: string | null,
+  recipientName?: string | null
 ): Promise<string | null> {
   const { data, error } = await supabase.rpc('create_family_invite', {
     p_child_id: childId,
     p_channel: channel,
     p_recipient_email: recipientEmail ?? null,
+    p_recipient_name: recipientName ?? null,
   })
   if (error || !data) return null
   return data as string
+}
+
+/** An outward family invite the parent has sent — for the "who you've invited" record. */
+export type ChildInvite = {
+  id: string
+  recipientName: string | null
+  recipientEmail: string | null
+  channel: 'whatsapp' | 'email' | 'copy_link'
+  status: 'pending' | 'opened' | 'accepted' | 'expired'
+  createdAt: string
+}
+
+/** Load the outward invites the parent has sent for a child they own (auth-gated). */
+export async function loadChildInvites(childId: string): Promise<ChildInvite[]> {
+  const { data, error } = await supabase.rpc('get_child_invites', { p_child_id: childId })
+  if (error || !data) return []
+  return (
+    data as {
+      id: string
+      recipient_name: string | null
+      recipient_email: string | null
+      channel: ChildInvite['channel']
+      status: ChildInvite['status']
+      created_at: string
+    }[]
+  ).map((r) => ({
+    id: r.id,
+    recipientName: r.recipient_name,
+    recipientEmail: r.recipient_email,
+    channel: r.channel,
+    status: r.status,
+    createdAt: r.created_at,
+  }))
 }
 
 export type PledgeForChildInput = {
@@ -266,14 +304,26 @@ export async function createPledgeForChild(
  * passes an address or body, so it can't be used as an open relay.
  */
 export async function sendPledgeEmail(body: {
-  kind: 'pledge_to_parent' | 'invite_to_family' | 'account_open'
+  kind:
+    | 'pledge_to_parent'
+    | 'invite_to_family'
+    | 'account_open'
+    | 'pledge_thankyou'
+    | 'pledge_landed'
+    | 'occasion_gift'
   token?: string
   childId?: string
-}): Promise<void> {
+  giftId?: string
+}): Promise<boolean> {
   try {
-    await supabase.functions.invoke('send-pledge-email', { body })
+    const { data, error } = await supabase.functions.invoke('send-pledge-email', { body })
+    // The function returns { ok: <sent> } (or { ok: true, sent } for account_open).
+    // Treat a transport error or an explicit ok:false as a failure; anything else sent.
+    if (error) return false
+    return (data as { ok?: boolean } | null)?.ok !== false
   } catch {
     // Best-effort — a failed email must never break the pledge flow.
+    return false
   }
 }
 

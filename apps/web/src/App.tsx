@@ -15,6 +15,8 @@ import Contribute from './routes/contributor/Contribute'
 import EntryFork from './routes/start/EntryFork'
 import PledgeFlow from './routes/pledge/PledgeFlow'
 import PledgeStatus from './routes/pledge/PledgeStatus'
+import FollowSignup from './routes/follow/FollowSignup'
+import FollowingHome from './routes/follow/FollowingHome'
 import TokenLanding from './routes/invite/TokenLanding'
 import ParentAccept from './routes/parent/ParentAccept'
 import ProviderSignpost from './routes/parent/ProviderSignpost'
@@ -36,6 +38,9 @@ export default function App() {
       <Route path="/pledge" element={<PledgeFlow />} />
       <Route path="/i/:token/pledge" element={<PledgeFlow />} />
       <Route path="/pledge/status/:token" element={<PledgeStatus />} />
+      <Route path="/follow/:token" element={<FollowSignup />} />
+      <Route path="/follow/gift/:giftId" element={<FollowSignup />} />
+      <Route path="/following" element={<RequireAuth><FollowingHome /></RequireAuth>} />
       <Route path="/i/:token" element={<TokenLanding />} />
       <Route path="/gift/:token" element={<GiftPage />} />
       <Route path="/i/:token/accept" element={<ParentAccept />} />

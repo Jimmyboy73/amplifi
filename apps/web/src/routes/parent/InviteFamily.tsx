@@ -19,6 +19,7 @@ export default function InviteFamily() {
   const [loading, setLoading] = useState(true)
   const [emailMode, setEmailMode] = useState(false)
   const [recipientEmail, setRecipientEmail] = useState('')
+  const [recipientName, setRecipientName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -48,7 +49,7 @@ export default function InviteFamily() {
     if (!childId || busy) return
     setBusy(true)
     setError('')
-    const token = await createFamilyInvite(childId, channel, to?.trim() || null)
+    const token = await createFamilyInvite(childId, channel, to?.trim() || null, recipientName.trim() || null)
     setBusy(false)
     if (!token) {
       setError('Could not create the invite. Please try again.')
@@ -58,11 +59,18 @@ export default function InviteFamily() {
     if (channel === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(message(url))}`, '_blank')
     } else if (channel === 'email') {
-      // Server-sent via Resend (§8.4) — recipient stored on the invite.
-      void sendPledgeEmail({ kind: 'invite_to_family', token })
-      setEmailMode(false)
-      setSent(true)
-      setTimeout(() => setSent(false), 3000)
+      // Server-sent via Resend (§8.4) — recipient stored on the invite. Only claim it
+      // sent if the function actually succeeded; otherwise be honest and offer the link.
+      const ok = await sendPledgeEmail({ kind: 'invite_to_family', token })
+      if (ok) {
+        setEmailMode(false)
+        setSent(true)
+        setTimeout(() => setSent(false), 4000)
+      } else {
+        setError(
+          "We couldn't email them just now. You can copy the link and send it yourself instead."
+        )
+      }
     } else if (channel === 'copy_link') {
       void navigator.clipboard?.writeText(url)
       setCopied(true)
@@ -98,6 +106,14 @@ export default function InviteFamily() {
 
         {!emailMode ? (
           <div className="space-y-3">
+            <Field
+              label="Who are you inviting? (optional)"
+              autoCapitalize="words"
+              placeholder="e.g. Grandma Sue"
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+              hint="So you can keep track of who you've asked."
+            />
             <Button loading={busy} onClick={() => void share('whatsapp')}>
               Share on WhatsApp
             </Button>

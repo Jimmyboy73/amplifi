@@ -2,13 +2,14 @@
 // and pledge a one-off gift. Writes only via the create_occasion_gift RPC (RLS-protected).
 // Amplifi never holds the money — this records the gift; the family shares how to pay in.
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   loadOccasionByToken,
   createOccasionGift,
   OCCASION_EMOJI,
   type OccasionPublic,
 } from '../../lib/occasions'
+import { sendPledgeEmail } from '../../lib/pledge'
 import { formatGBP } from '../../lib/projections'
 import { Screen, Logo, Button, Field, Disclaimer, FullScreenLoader } from '../../components/ui'
 
@@ -16,6 +17,7 @@ const AMOUNTS = [10, 25, 50, 100]
 
 export default function GiftPage() {
   const { token } = useParams<{ token: string }>()
+  const navigate = useNavigate()
   const [occasion, setOccasion] = useState<OccasionPublic | null>(null)
   const [loading, setLoading] = useState(true)
   const [preset, setPreset] = useState<number | null>(25)
@@ -25,6 +27,8 @@ export default function GiftPage() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
+  const [confirmed, setConfirmed] = useState(false)
+  const [giftId, setGiftId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -71,6 +75,9 @@ export default function GiftPage() {
       setError('Something went wrong — please try again.')
       return
     }
+    // Best-effort emails: thank the gifter (with pay-in) + tell the parent a gift arrived.
+    void sendPledgeEmail({ kind: 'occasion_gift', giftId: id })
+    setGiftId(id)
     setDone(true)
   }
 
@@ -106,12 +113,43 @@ export default function GiftPage() {
             <p className="mt-3 text-[11px] leading-snug text-slate-400">
               Use the reference exactly as shown so it reaches {occasion.childName}'s account.
             </p>
+            {!confirmed ? (
+              <button
+                type="button"
+                onClick={() => setConfirmed(true)}
+                className="mt-4 w-full rounded-xl border-2 border-azure py-3 text-sm font-bold text-azure transition hover:bg-azure/5"
+              >
+                I've made the gift
+              </button>
+            ) : (
+              <p className="mt-4 rounded-xl bg-green-50 px-3 py-2.5 text-center text-sm font-semibold text-green-700 ring-1 ring-green-200">
+                Lovely — thank you. You can close this page now. 💛
+              </p>
+            )}
           </div>
         ) : (
           <p className="mx-auto mt-4 max-w-sm text-center text-sm leading-relaxed text-slate-500">
             {occasion.childName}'s family will share exactly how to send it — Amplifi never holds or
             moves the money.
           </p>
+        )}
+
+        {giftId && (
+          <button
+            onClick={() =>
+              navigate(`/follow/gift/${giftId}`, { state: { childName: occasion.childName } })
+            }
+            className="mx-auto mt-6 block w-full max-w-sm rounded-xl bg-sky/5 p-4 text-center ring-1 ring-sky/20 transition hover:bg-sky/10"
+          >
+            <p className="text-sm font-bold text-midnight">Follow {occasion.childName}'s future</p>
+            <p className="mt-0.5 text-xs leading-snug text-slate-500">
+              Create a free account to watch the fund grow — and start something for your own
+              grandchildren.
+            </p>
+            <span className="mt-2 inline-block text-xs font-bold text-azure">
+              Create a free account →
+            </span>
+          </button>
         )}
 
         <Disclaimer />
@@ -192,7 +230,7 @@ export default function GiftPage() {
             </span>
             <textarea
               rows={3}
-              placeholder="Something to build on. With love…"
+              placeholder="A little something for your future — with love…"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-midnight outline-none transition focus:border-azure focus:ring-2 focus:ring-azure/30"

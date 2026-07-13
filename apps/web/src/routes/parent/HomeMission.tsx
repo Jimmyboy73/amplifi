@@ -9,21 +9,21 @@
 // Ring model = Target (locked). Boosters is parked (Phase 2) — shown as a target to work
 // toward with a coming-soon panel; no cashback data is read. See docs/home-screen-build-spec.md.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { useChildren } from '../../lib/useChildren'
+import { useActiveChild } from '../../lib/useActiveChild'
 import { usePot } from '../../lib/usePot'
 import { ensureSelfConnection } from '../../lib/useContribution'
 import { ageMonthsFromDob, describeError } from '../../lib/format'
 import { contributionLabel, sendPledgeEmail, type ChildPledge } from '../../lib/pledge'
 import { RELATIONSHIP_LABEL } from '../../lib/types'
-import { buildMissionView, effectiveTargets } from '../../lib/mission'
+import { buildMissionView, effectiveTargets, toMonthly } from '../../lib/mission'
 import { formatGBP } from '../../lib/projections'
 import { AdjustTargetsModal } from '../../components/AdjustTargetsModal'
 import { BottomTabs } from '../../components/BottomTabs'
-import { loadChildOccasions } from '../../lib/occasions'
+import { loadChildOccasions, loadOccasionGifts } from '../../lib/occasions'
 import { Logo, FullScreenLoader } from '../../components/ui'
 import { ProjectionWidget } from '../../components/ProjectionWidget'
 import { ContributionPanel } from '../../components/ContributionPanel'
@@ -81,8 +81,8 @@ function VibrantRing({
 export default function HomeMission() {
   const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
-  const { children, loading: childrenLoading, refetch: refetchChildren } = useChildren()
-  const child = children[0] ?? null
+  const { child, children, loading: childrenLoading, refetch: refetchChildren, setActiveChild } =
+    useActiveChild()
 
   const { contributions, pledges, refetch: refetchPot } = usePot(child?.id ?? null)
 
@@ -94,8 +94,12 @@ export default function HomeMission() {
   const [showContrib, setShowContrib] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
   const [occasionsGbpYear, setOccasionsGbpYear] = useState(0)
+  const [occasionActivity, setOccasionActivity] = useState<
+    { id: string; name: string; amountGbp: number; title: string; createdAt: string }[]
+  >([])
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [sendingDetails, setSendingDetails] = useState(false)
   const [detailsSent, setDetailsSent] = useState(false)
 
@@ -117,13 +121,44 @@ export default function HomeMission() {
     })
   }, [user, child])
 
-  // Total gifted across this child's occasion moments — feeds the Occasions ring.
-  useEffect(() => {
-    if (!child) return
-    void loadChildOccasions(child.id).then((list) =>
-      setOccasionsGbpYear(list.reduce((sum, o) => sum + o.totalGifted, 0))
+  // Total gifted across this child's occasion moments — feeds the Occasions ring — plus the
+  // individual gifts (gifter + amount) so they can show in the Family activity feed.
+  const childId = child?.id ?? null
+  const loadOccasions = useCallback(async () => {
+    if (!childId) return
+    const list = await loadChildOccasions(childId)
+    setOccasionsGbpYear(list.reduce((sum, o) => sum + o.totalGifted, 0))
+    const nested = await Promise.all(
+      list
+        .filter((o) => o.giftCount > 0)
+        .map(async (o) =>
+          (await loadOccasionGifts(o.id)).map((g) => ({
+            id: g.id,
+            name: g.gifterName,
+            amountGbp: g.amountGbp,
+            title: o.title,
+            createdAt: g.createdAt,
+          }))
+        )
     )
-  }, [child])
+    setOccasionActivity(nested.flat().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)))
+  }, [childId])
+
+  useEffect(() => {
+    void loadOccasions()
+  }, [loadOccasions])
+
+  // Refresh everything when the parent returns to the tab (a new pledge/gift made in another
+  // session won't have been picked up otherwise).
+  useEffect(() => {
+    const onFocus = () => {
+      void refetchPot()
+      void refetchChildren()
+      void loadOccasions()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [refetchPot, refetchChildren, loadOccasions])
 
   if (childrenLoading || !child) return <FullScreenLoader />
 
@@ -146,6 +181,30 @@ export default function HomeMission() {
   const seenWelcome = Boolean(user?.user_metadata?.has_seen_welcome)
   const showWelcome = !seenWelcome && !welcomeDismissed
 
+  // Pledges waiting on the ISA (status 'sent', not yet 'linked') — shown but not counted in
+  // the Family ring, which otherwise looks like broken maths.
+  const pendingPledges = pledges.filter((p) => p.status !== 'linked')
+  const pendingMonthly = pendingPledges.reduce(
+    (s, p) => s + toMonthly(p.amountPennies / 100, p.frequency),
+    0
+  )
+
+  // £100k mission progress — framed as encouragement, never as a shortfall.
+  const missionPct =
+    view.projectedFutureValue != null && view.householdGoal > 0
+      ? Math.min(100, Math.round((view.projectedFutureValue / view.householdGoal) * 100))
+      : 0
+  const missionLine =
+    missionPct >= 100
+      ? 'On track for the full £100k — wonderful. 🎉'
+      : missionPct >= 50
+        ? 'Over halfway to the £100k mission — keep it going.'
+        : missionPct >= 10
+          ? 'Well on the way — every new supporter adds to it.'
+          : missionPct >= 1
+            ? "You're on the board. Small amounts compound hugely over the years."
+            : `Add your first contribution and watch ${child.name}'s future start to grow.`
+
   const RINGS: { key: RingKey; label: string; color: string; r: number; unit: string }[] = [
     { key: 'core', label: 'Core', color: CORE, r: 78, unit: 'a month' },
     { key: 'family', label: 'Family', color: FAMILY, r: 101, unit: 'a month' },
@@ -161,12 +220,22 @@ export default function HomeMission() {
     setShowProjection((v) => !v)
   }
 
-  // Single contextual nudge — the next best action, in priority order.
-  const nudge = !hasJisa
-    ? { text: `Link ${child.name}'s Junior ISA — the critical first step.`, onClick: () => navigate('/link-isa') }
-    : pledges.length === 0
-      ? { text: 'Invite a grandparent — one recurring supporter makes the biggest difference.', onClick: () => navigate(`/invite-family/${child.id}`) }
-      : { text: `Redirecting even part of ${child.name}'s Child Benefit is the most powerful step you can take.`, onClick: () => selectRing('core') }
+  // Single contextual nudge — the genuinely next-best action. Linking the ISA always wins;
+  // otherwise suggest the LEAST-filled ring, and go quiet once everything's near target (so
+  // we never push a bucket that's already full).
+  const nudge: { text: string; onClick: () => void } | null = (() => {
+    if (!hasJisa) {
+      return { text: `Link ${child.name}'s Junior ISA — the critical first step.`, onClick: () => navigate('/link-isa') }
+    }
+    const r = view.rings
+    const candidates = [
+      { pct: r.family.pct, text: 'Invite a grandparent — one recurring supporter makes the biggest difference.', onClick: () => navigate(`/invite-family/${child.id}`) },
+      { pct: r.occasions.pct, text: 'Open a birthday or Christmas moment — the easiest way for the wider family to chip in.', onClick: () => navigate('/occasions') },
+      { pct: r.core.pct, text: `Redirecting even part of ${child.name}'s Child Benefit is a powerful monthly boost.`, onClick: () => selectRing('core') },
+    ]
+    const lowest = candidates.reduce((a, b) => (b.pct < a.pct ? b : a))
+    return lowest.pct >= 90 ? null : { text: lowest.text, onClick: lowest.onClick }
+  })()
 
   return (
     <div className="min-h-dvh w-full bg-offwhite">
@@ -178,21 +247,65 @@ export default function HomeMission() {
         {/* Top bar */}
         <div className="flex items-center justify-between py-4">
           <Logo />
-          <div className="flex items-center gap-4">
+          <div className="relative">
             <button
-              className="text-sm font-semibold text-azure hover:brightness-110"
-              onClick={() => setShowFeedback(true)}
+              aria-label="Settings"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-black/5 hover:text-midnight"
+              onClick={() => setShowSettings((s) => !s)}
             >
-              Feedback
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
             </button>
-            <button
-              className="text-sm font-semibold text-slate-400 hover:text-slate-600"
-              onClick={() => void signOut().then(() => navigate('/signup', { replace: true }))}
-            >
-              Sign out
-            </button>
+            {showSettings && (
+              <>
+                <button
+                  className="fixed inset-0 z-40 cursor-default"
+                  aria-hidden
+                  onClick={() => setShowSettings(false)}
+                />
+                <div className="absolute right-0 top-11 z-50 w-60 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl ring-1 ring-black/10">
+                  <button
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-midnight transition hover:bg-slate-50"
+                    onClick={() => {
+                      setShowSettings(false)
+                      navigate('/link-isa')
+                    }}
+                  >
+                    <span className="text-base">🏦</span>
+                    {hasJisa ? 'Edit ISA / pay-in details' : "Set up child's Junior ISA"}
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-midnight transition hover:bg-slate-50"
+                    onClick={() => {
+                      setShowSettings(false)
+                      setShowFeedback(true)
+                    }}
+                  >
+                    <span className="text-base">💬</span>
+                    Send feedback
+                  </button>
+                  <div className="my-1 h-px bg-slate-100" />
+                  <button
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+                    onClick={() => {
+                      setShowSettings(false)
+                      void signOut().then(() => navigate('/signup', { replace: true }))
+                    }}
+                  >
+                    <span className="text-base">↩︎</span>
+                    Sign out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
+
+        {children.length > 1 && (
+          <ChildSwitcher childList={children} activeId={child.id} onSelect={setActiveChild} />
+        )}
 
         {showWelcome && <WelcomeBanner onDismiss={() => setWelcomeDismissed(true)} />}
 
@@ -230,7 +343,7 @@ export default function HomeMission() {
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
               <button
                 onClick={toggleProjection}
-                className="pointer-events-auto flex max-w-[150px] flex-col items-center rounded-2xl px-2 py-1 transition hover:bg-black/[0.03]"
+                className="pointer-events-auto flex max-w-[150px] flex-col items-center px-2 py-1"
               >
                 <div
                   className="mb-1.5 flex h-11 w-11 items-center justify-center rounded-full text-base font-extrabold text-white shadow-md"
@@ -285,8 +398,8 @@ export default function HomeMission() {
           </div>
         )}
 
-        {/* Single contextual nudge — default state only */}
-        {!selected && !showProjection && (
+        {/* Single contextual nudge — default state only, and only when there's a useful next step */}
+        {nudge && !selected && !showProjection && (
           <button
             onClick={nudge.onClick}
             className="mt-5 flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition hover:brightness-[1.03]"
@@ -298,36 +411,50 @@ export default function HomeMission() {
           </button>
         )}
 
-        {/* The £100k mission — its own home, above the per-bucket targets */}
+        {/* Pending pledges waiting on the ISA — explains why the Family ring can read £0 */}
+        {pendingMonthly > 0 && !selected && !showProjection && (
+          <button
+            onClick={() => navigate('/link-isa')}
+            className="mt-3 flex w-full items-center gap-2.5 rounded-xl bg-amber-50 px-3.5 py-3 text-left ring-1 ring-amber-200 transition hover:brightness-[1.02]"
+          >
+            <span className="text-base">⏳</span>
+            <span className="flex-1 text-xs font-semibold leading-snug text-amber-800">
+              {formatGBP(pendingMonthly)} a month is pledged and waiting. Link {child.name}&apos;s ISA
+              to activate it — then it counts toward the mission.
+            </span>
+            <span className="shrink-0 text-amber-700">→</span>
+          </button>
+        )}
+
+        {/* The £100k mission — the shared goal + the lever. The projected figure lives in the
+            ring centre; here we frame the goal and progress (encouragement, never a shortfall). */}
         <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
           <div className="flex items-baseline justify-between gap-2">
             <p className="text-sm font-bold text-midnight">The £100k mission</p>
-            {view.projectedFutureValue != null && (
-              <p className="text-[11px] font-medium text-slate-400">
-                {formatGBP(view.projectedFutureValue)} of {formatGBP(view.householdGoal)}
-              </p>
-            )}
+            <button
+              onClick={() => setShowAdjust(true)}
+              className="shrink-0 text-[11px] font-bold transition hover:brightness-110"
+              style={{ color: CORE }}
+            >
+              Adjust targets →
+            </button>
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">
-            The aim: {child.name} starts adult life with £100,000 by age 25. Illustrative, not a guarantee.
+          <p className="mt-0.5 text-xs leading-snug text-slate-500">
+            Every family starts here: {child.name} reaching £100,000 by 25. A shared goal, not a
+            promise — shape it to fit your family.
           </p>
-          <button
-            onClick={() => setShowAdjust(true)}
-            className="mt-2 text-xs font-bold transition hover:brightness-110"
-            style={{ color: CORE }}
-          >
-            Adjust your targets →
-          </button>
           {view.projectedFutureValue != null && (
-            <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${Math.min(100, Math.round((view.projectedFutureValue / view.householdGoal) * 100))}%`,
-                  background: CORE,
-                }}
-              />
-            </div>
+            <>
+              <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${Math.max(missionPct, 1.5)}%`, background: CORE }}
+                />
+              </div>
+              <p className="mt-1.5 text-[11px] font-medium" style={{ color: CORE }}>
+                {missionLine}
+              </p>
+            </>
           )}
         </div>
 
@@ -481,12 +608,14 @@ export default function HomeMission() {
               </p>
               <div className="mt-3 flex gap-2">
                 <button
+                  onClick={() => navigate('/occasions', { state: { create: 'birthday' } })}
                   className="flex-1 rounded-lg py-2.5 text-xs font-bold text-white transition hover:brightness-105"
                   style={{ background: OCC }}
                 >
                   🎂 Birthday
                 </button>
                 <button
+                  onClick={() => navigate('/occasions', { state: { create: 'christmas' } })}
                   className="flex-1 rounded-lg py-2.5 text-xs font-bold transition hover:brightness-105"
                   style={{ background: '#fff', color: '#854F0B', border: `1.5px solid ${OCC}` }}
                 >
@@ -537,10 +666,24 @@ export default function HomeMission() {
                   {(p.pledgerName || 'A family member')}{' '}
                   {p.status === 'linked' ? 'is contributing' : 'pledged'}{' '}
                   {contributionLabel(p.amountPennies, p.frequency) ?? ''}
+                  {p.status !== 'linked' && (
+                    <span className="ml-1.5 whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                      waiting on ISA
+                    </span>
+                  )}
                 </span>
               </div>
             ))}
-            {pledges.length === 0 && (
+            {occasionActivity.slice(0, 3).map((g) => (
+              <div key={g.id} className="flex items-center gap-3 px-3 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-offwhite text-base">🎁</span>
+                <span className="flex-1 text-sm font-medium text-midnight">
+                  {(g.name || 'A family member')} gifted {formatGBP(g.amountGbp)}
+                  <span className="text-slate-400"> · {g.title}</span>
+                </span>
+              </div>
+            ))}
+            {pledges.length === 0 && occasionActivity.length === 0 && (
               <div className="flex items-center gap-3 px-3 py-3 opacity-40">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-offwhite text-base">💛</span>
                 <span className="flex-1 text-sm font-medium italic text-slate-400">
@@ -549,7 +692,7 @@ export default function HomeMission() {
               </div>
             )}
           </div>
-          {pledges.length === 0 && (
+          {pledges.length === 0 && occasionActivity.length === 0 && (
             <p className="mt-2 px-1 text-[11px] leading-snug text-slate-400">
               This is where {child.name}&apos;s family moments will appear — each new supporter shows up here.
             </p>
@@ -576,6 +719,66 @@ export default function HomeMission() {
       )}
 
       <BottomTabs active="home" />
+    </div>
+  )
+}
+
+function ChildSwitcher({
+  childList,
+  activeId,
+  onSelect,
+}: {
+  childList: { id: string; name: string }[]
+  activeId: string
+  onSelect: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const active = childList.find((c) => c.id === activeId)
+  return (
+    <div className="relative mb-2">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-midnight shadow-sm ring-1 ring-black/5"
+      >
+        <span className="flex items-center gap-2">
+          <span
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-extrabold text-white"
+            style={{ background: CORE }}
+          >
+            {active?.name.charAt(0).toUpperCase()}
+          </span>
+          {active?.name ?? 'Select child'}
+        </span>
+        <span className="text-xs text-slate-400">Switch child {open ? '▲' : '▾'}</span>
+      </button>
+      {open && (
+        <>
+          <button className="fixed inset-0 z-40 cursor-default" aria-hidden onClick={() => setOpen(false)} />
+          <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-xl bg-white py-1 shadow-xl ring-1 ring-black/10">
+            {childList.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => {
+                  onSelect(c.id)
+                  setOpen(false)
+                }}
+                className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 ${
+                  c.id === activeId ? 'font-bold text-midnight' : 'text-slate-600'
+                }`}
+              >
+                <span
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-extrabold text-white"
+                  style={{ background: CORE }}
+                >
+                  {c.name.charAt(0).toUpperCase()}
+                </span>
+                {c.name}
+                {c.id === activeId && <span className="ml-auto text-azure">✓</span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

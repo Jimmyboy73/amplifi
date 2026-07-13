@@ -150,7 +150,7 @@ export default function LinkIsa() {
             placeholder="e.g. ISA123456"
             hint="Specific to your provider — it tells them which account to credit."
             value={reference}
-            onChange={(e) => setReference(e.target.value.toUpperCase())}
+            onChange={(e) => setReference(e.target.value)}
           />
 
           <button

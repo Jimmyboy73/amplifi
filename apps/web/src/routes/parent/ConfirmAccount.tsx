@@ -159,7 +159,7 @@ export default function ConfirmAccount() {
             placeholder="e.g. ISA123456"
             hint="Given by your provider — it tells them which account to credit."
             value={reference}
-            onChange={(e) => setReference(e.target.value.toUpperCase())}
+            onChange={(e) => setReference(e.target.value)}
           />
 
           <div>

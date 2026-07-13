@@ -4,10 +4,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { useChildren } from '../../lib/useChildren'
+import { useActiveChild } from '../../lib/useActiveChild'
 import { usePot } from '../../lib/usePot'
 import { ensureSelfConnection } from '../../lib/useContribution'
-import { contributionLabel } from '../../lib/pledge'
+import { contributionLabel, loadChildInvites, type ChildInvite } from '../../lib/pledge'
 import { RELATIONSHIP_LABEL } from '../../lib/types'
 import { ringMonthlyTotals } from '../../lib/mission'
 import { formatGBP } from '../../lib/projections'
@@ -75,15 +75,20 @@ function SectionHeader({ color, label, sub }: { color: string; label: string; su
 
 export default function FamilyView() {
   const { user } = useAuth()
-  const { children, loading } = useChildren()
-  const child = children[0] ?? null
+  const { child, loading } = useActiveChild()
   const { contributions, pledges } = usePot(child?.id ?? null)
   const [selfConnId, setSelfConnId] = useState<string | null>(null)
+  const [invites, setInvites] = useState<ChildInvite[]>([])
 
   useEffect(() => {
     if (!user || !child) return
     void ensureSelfConnection(user.id, child.id).then(({ id }) => setSelfConnId(id))
   }, [user, child])
+
+  useEffect(() => {
+    if (!child) return
+    void loadChildInvites(child.id).then(setInvites)
+  }, [child])
 
   if (loading || !child) return <FullScreenLoader />
 
@@ -91,6 +96,8 @@ export default function FamilyView() {
   const totalMonthly = monthly.core + monthly.family
   const linkedCount = pledges.filter((p) => p.status === 'linked').length
   const peopleCount = linkedCount + (monthly.core > 0 ? 1 : 0)
+  // Invites still waiting (accepted ones already appear as pledges above).
+  const pendingInvites = invites.filter((i) => i.status !== 'accepted')
 
   return (
     <div className="min-h-dvh w-full bg-offwhite">
@@ -167,6 +174,32 @@ export default function FamilyView() {
               )
             })}
           </div>
+        )}
+
+        {/* Invited - waiting to hear back (accepted invites show as pledges above) */}
+        {pendingInvites.length > 0 && (
+          <>
+            <SectionHeader color="#94a3b8" label="Invited" sub="Waiting to hear back" />
+            <div className="divide-y divide-slate-100 rounded-2xl bg-white px-4 py-1 shadow-sm ring-1 ring-black/5">
+              {pendingInvites.map((i) => {
+                const who = i.recipientName || i.recipientEmail || 'Someone you shared a link with'
+                const channelLabel =
+                  i.channel === 'whatsapp' ? 'WhatsApp' : i.channel === 'email' ? 'email' : 'a link'
+                return (
+                  <div key={i.id} className="flex items-center gap-3 py-2.5">
+                    <Avatar initial={who.charAt(0).toUpperCase()} color="#94a3b8" muted />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-midnight">{who}</span>
+                      <span className="block text-xs text-slate-400">Invited via {channelLabel}</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                      {i.status === 'opened' ? 'Opened' : 'Waiting'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
 
         {/* Invite */}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { loadPledgePayin, inviteUrl, contributionLabel, type PledgeStatusView } from '../../lib/pledge'
 import { formatSortCode } from '../../lib/format'
 import { Screen, Logo, Card, Button, Disclaimer, FullScreenLoader } from '../../components/ui'
@@ -45,6 +45,7 @@ export default function PledgeStatus() {
   const [view, setView] = useState<PledgeStatusView | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [setUp, setSetUp] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -59,6 +60,20 @@ export default function PledgeStatus() {
   const url = token ? inviteUrl(token) : ''
   const contribution = view ? contributionLabel(view.amountPennies, view.frequency) : null
   const active = view ? stageIndex(view) : 0
+
+  const followCta = (
+    <Link
+      to={`/follow/${token}`}
+      className="mt-5 block rounded-xl bg-sky/5 p-4 text-center ring-1 ring-sky/20 transition hover:bg-sky/10"
+    >
+      <p className="text-sm font-bold text-midnight">Follow {view?.childName ?? 'their'}&apos;s future</p>
+      <p className="mt-0.5 text-xs leading-snug text-slate-500">
+        Create a free account to watch the fund grow once {view?.childName ?? 'their'}&apos;s parent
+        opens the account — and start something for your other grandchildren.
+      </p>
+      <span className="mt-2 inline-block text-xs font-bold text-azure">Create a free account →</span>
+    </Link>
+  )
 
   const reshareWhatsApp = () => {
     if (!view) return
@@ -115,6 +130,20 @@ export default function PledgeStatus() {
           <p className="mt-4 text-center text-xs leading-snug text-slate-400">
             Use the reference exactly as shown so it reaches {view.childName}'s account.
           </p>
+
+          <div className="mt-5">
+            {!setUp ? (
+              <Button onClick={() => setSetUp(true)}>I've set up my standing order</Button>
+            ) : (
+              <p className="rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-semibold text-green-700 ring-1 ring-green-200">
+                Wonderful — thank you for building {view.childName}'s future. 💙
+              </p>
+            )}
+            <p className="mt-4 text-center text-xs leading-snug text-slate-400">
+              Keep this link — you can come back to these details any time.
+            </p>
+          </div>
+          {followCta}
         </Card>
       ) : (
         // ── Pre-open — "on its way" + timeline ──
@@ -178,6 +207,7 @@ export default function PledgeStatus() {
           <p className="mt-4 text-center text-xs leading-snug text-slate-400">
             Keep this link — it's how you'll check back. We'll also email you when there's an update.
           </p>
+          {followCta}
         </Card>
       )}
 

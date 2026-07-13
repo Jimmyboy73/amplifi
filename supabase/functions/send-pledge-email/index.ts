@@ -87,7 +87,7 @@ serve(async (req) => {
     }
     // Plain anon client — reads happen through SECURITY DEFINER RPCs, which bypass RLS.
     const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    const { kind, token, childId } = await req.json()
+    const { kind, token, childId, giftId } = await req.json()
 
     // ── pledge_to_parent (§8.2) + invite_to_family (§8.4) ────────────────────
     if (kind === 'pledge_to_parent' || kind === 'invite_to_family') {
@@ -110,8 +110,8 @@ serve(async (req) => {
         const inner =
           `<p>${esc(sender)} has started ${esc(contrib ?? 'a contribution')} for ${esc(name)} on Amplifi.</p>` +
           (msg ? `<blockquote style="border-left:3px solid #59c9e9;margin:16px 0;padding:8px 16px;">${esc(msg).replace(/\n/g, '<br>')}</blockquote>` : '') +
-          `<p>There's one quick step only you can do.</p>`
-        const text = `${sender} has started ${contrib ?? 'a contribution'} for ${name} on Amplifi.\n\n${msg ? `"${msg}"\n\n` : ''}There's one quick step only you can do — see what's waiting:\n${link}\n\n${DISCLAIMER}`
+          `<p>To receive it, ${esc(name)} needs a <strong>Junior ISA</strong> — the account contributions are paid into. Only you, as the parent or guardian, can open one, and it takes about five minutes. Amplifi never holds or moves the money.</p>`
+        const text = `${sender} has started ${contrib ?? 'a contribution'} for ${name} on Amplifi.\n\n${msg ? `"${msg}"\n\n` : ''}To receive it, ${name} needs a Junior ISA — the account contributions are paid into. Only you (the parent/guardian) can open one; it takes about five minutes. Here's what's waiting:\n${link}\n\n${DISCLAIMER}`
         return json({ ok: await sendEmail(d.recipient_email, subject, shell(inner, { label: 'See what’s waiting', url: link }), text) })
       } else {
         const parentFirst = d.sender_first_name || 'Someone'
@@ -162,6 +162,98 @@ serve(async (req) => {
           `${r.provider_name ? `Provider: ${r.provider_name}\n` : ''}Sort code: ${sortDisplay}\nAccount number: ${r.account_number}\nReference: ${r.payment_reference}\n` +
           `${link ? `\nSee it here: ${link}\n` : ''}\n${DISCLAIMER}`
         if (await sendEmail(r.pledger_email as string, subject, shell(inner, link ? { label: 'See how to start', url: link } : undefined), text)) sent++
+      }
+      return json({ ok: true, sent })
+    }
+
+    // ── pledge_thankyou — warm thank-you to the PLEDGER after they pledge ─────
+    if (kind === 'pledge_thankyou') {
+      const { data: rows, error } = await db.rpc('get_pledge_thankyou_data', { p_token: token })
+      if (error) {
+        console.error('get_pledge_thankyou_data failed', error)
+        return json({ error: 'lookup failed' }, 500)
+      }
+      const d = rows?.[0]
+      if (!d?.pledger_email) return json({ ok: true, skipped: 'no pledger email' })
+      const name = d.child_name ?? 'their child'
+      const contrib = contribution(d.amount_pennies, d.frequency)
+      const link = token ? `${APP_URL}/pledge/status/${token}` : undefined
+      const next = d.account_open
+        ? `${name}'s account is already open, so you can start whenever you like — your page has the exact pay-in details.`
+        : `As soon as ${name}'s account is open we'll email you the exact details for setting up your ${d.frequency === 'one_off' ? 'payment' : 'standing order'}.`
+      const subject = `Thank you for building ${name}'s future`
+      const inner =
+        `<p>Thank you — you've started ${esc(contrib ?? 'a contribution')} towards ${esc(name)}'s future. It's a lovely thing to do.</p>` +
+        `<p>${esc(next)} Amplifi never holds or moves your money — you always pay in directly.</p>`
+      const text =
+        `Thank you — you've started ${contrib ?? 'a contribution'} towards ${name}'s future.\n\n${next}\n` +
+        `${link ? `\nCheck back any time: ${link}\n` : ''}\n${DISCLAIMER}`
+      return json({ ok: await sendEmail(d.pledger_email, subject, shell(inner, link ? { label: 'See your pledge', url: link } : undefined), text) })
+    }
+
+    // ── pledge_landed — tell the PARENT an invited pledge just landed ────────
+    if (kind === 'pledge_landed') {
+      const { data: rows, error } = await db.rpc('get_pledge_parent_notify', { p_token: token })
+      if (error) {
+        console.error('get_pledge_parent_notify failed', error)
+        return json({ error: 'lookup failed' }, 500)
+      }
+      const d = rows?.[0]
+      if (!d?.parent_email) return json({ ok: true, skipped: 'no parent email' })
+      const name = d.child_name ?? 'your child'
+      const sender = d.pledger_first_name || 'Someone'
+      const contrib = contribution(d.amount_pennies, d.frequency)
+      const link = `${APP_URL}/home`
+      const subject = `${sender} added a pledge for ${name}`
+      const inner =
+        `<p>Good news — ${esc(sender)} has pledged ${esc(contrib ?? 'a contribution')} towards ${esc(name)}'s future on Amplifi.</p>` +
+        `<p>Open your home screen to see it on ${esc(name)}'s mission.</p>`
+      const text = `${sender} has pledged ${contrib ?? 'a contribution'} towards ${name}'s future on Amplifi.\n\nSee it on your home screen: ${link}\n\n${DISCLAIMER}`
+      return json({ ok: await sendEmail(d.parent_email, subject, shell(inner, { label: 'Open Amplifi', url: link }), text) })
+    }
+
+    // ── occasion_gift — thank the GIFTER (with pay-in) + tell the PARENT ─────
+    if (kind === 'occasion_gift') {
+      const { data: rows, error } = await db.rpc('get_occasion_gift_notify', { p_gift_id: giftId })
+      if (error) {
+        console.error('get_occasion_gift_notify failed', error)
+        return json({ error: 'lookup failed' }, 500)
+      }
+      const d = rows?.[0]
+      if (!d) return json({ ok: true, skipped: 'gift not found' })
+      const name = d.child_name ?? 'their child'
+      const amt = `£${Math.round(Number(d.amount_gbp)).toLocaleString('en-GB')}`
+      let sent = 0
+
+      // (a) thank the gifter, with pay-in details if the account is open
+      if (d.gifter_email) {
+        const sortDisplay = (d.sort_code ?? '').replace(/(\d{2})(\d{2})(\d{2})/, '$1-$2-$3')
+        const details =
+          d.account_open && d.sort_code
+            ? `<p>Set up a one-off payment in your own banking app using these details. Amplifi never touches the money.</p>` +
+              `<table style="border-collapse:collapse;margin:16px 0;">` +
+              (d.provider_name ? `<tr><td style="padding:4px 12px 4px 0;color:#8a97ad;">Provider</td><td style="font-weight:700;">${esc(d.provider_name)}</td></tr>` : '') +
+              `<tr><td style="padding:4px 12px 4px 0;color:#8a97ad;">Sort code</td><td style="font-weight:700;">${esc(sortDisplay)}</td></tr>` +
+              `<tr><td style="padding:4px 12px 4px 0;color:#8a97ad;">Account number</td><td style="font-weight:700;">${esc(d.account_number ?? '')}</td></tr>` +
+              `<tr><td style="padding:4px 12px 4px 0;color:#8a97ad;">Reference</td><td style="font-weight:700;">${esc(d.payment_reference ?? '')}</td></tr>` +
+              `</table>`
+            : `<p>${esc(name)}'s family will share exactly how to send it — Amplifi never holds or moves the money.</p>`
+        const subject = `Thank you for your gift to ${name}`
+        const inner = `<p>Thank you for gifting ${esc(amt)} towards ${esc(name)}'s future${d.occasion_title ? ` for ${esc(d.occasion_title)}` : ''}. What a thoughtful thing to do.</p>${details}`
+        const text = `Thank you for gifting ${amt} towards ${name}'s future.\n\n${d.account_open && d.sort_code ? `Send it in your banking app:\n${d.provider_name ? `Provider: ${d.provider_name}\n` : ''}Sort code: ${sortDisplay}\nAccount number: ${d.account_number}\nReference: ${d.payment_reference}\n` : `${name}'s family will share how to send it.`}\n${DISCLAIMER}`
+        if (await sendEmail(d.gifter_email, subject, shell(inner), text)) sent++
+      }
+
+      // (b) tell the parent a gift arrived
+      if (d.parent_email) {
+        const link = `${APP_URL}/occasions`
+        const giver = d.gifter_name || 'Someone'
+        const subject = `${giver} gifted ${amt} for ${name}`
+        const inner =
+          `<p>${esc(giver)} has gifted ${esc(amt)} towards ${esc(name)}'s future${d.occasion_title ? ` for ${esc(d.occasion_title)}` : ''}.</p>` +
+          `<p>See all the gifts on your Occasions tab.</p>`
+        const text = `${giver} has gifted ${amt} towards ${name}'s future.\n\nSee it here: ${link}\n\n${DISCLAIMER}`
+        if (await sendEmail(d.parent_email, subject, shell(inner, { label: 'See the gifts', url: link }), text)) sent++
       }
       return json({ ok: true, sent })
     }

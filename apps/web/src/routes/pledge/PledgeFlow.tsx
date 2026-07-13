@@ -46,6 +46,7 @@ export default function PledgeFlow() {
 
   // Invited mode: resolve the fixed child from the token.
   const [invitedChild, setInvitedChild] = useState<string | null>(null)
+  const [invitedAccountOpen, setInvitedAccountOpen] = useState(false)
   const [inviteLoading, setInviteLoading] = useState(invited)
   const [inviteError, setInviteError] = useState(false)
 
@@ -72,7 +73,10 @@ export default function PledgeFlow() {
     if (!token) return
     loadInviteByToken(token).then((s) => {
       if (!s || s.expired || s.direction !== 'invite_to_family') setInviteError(true)
-      else setInvitedChild(s.childName)
+      else {
+        setInvitedChild(s.childName)
+        setInvitedAccountOpen(s.accountOpen)
+      }
       setInviteLoading(false)
     })
   }, [token])
@@ -82,11 +86,11 @@ export default function PledgeFlow() {
   const amountPennies = amountGbp && amountGbp > 0 ? Math.round(amountGbp * 100) : 0
   const contribution = contributionLabel(amountPennies || null, frequency)
 
-  // Relationship-neutral default: no "Grandma" unless they're a grandparent.
+  // Relationship-neutral default: warm, not twee, and easy to make their own.
   const messageDefault =
     relationship === 'grandparent'
-      ? 'Something to build on. With love, Grandma.'
-      : 'Something to build on. With love.'
+      ? 'A little something for your future, with all our love x'
+      : 'A little something for your future — with love x'
 
   // Pre-fill the message once the relationship is known (cold: at mount; invited: after the
   // picker) — it stays editable, and we only auto-fill once so a deliberate clear sticks.
@@ -142,6 +146,8 @@ export default function PledgeFlow() {
     } else {
       dispatch(channel, inviteUrl(newToken))
     }
+    // Warm thank-you to the pledger (best-effort; never blocks the flow).
+    void sendPledgeEmail({ kind: 'pledge_thankyou', token: newToken })
     navigate(`/pledge/status/${newToken}`, { replace: true })
   }
 
@@ -156,6 +162,9 @@ export default function PledgeFlow() {
       setError('Could not add your pledge. The invite may have expired.')
       return
     }
+    // Best-effort emails (never block the flow): thank the pledger + tell the parent.
+    void sendPledgeEmail({ kind: 'pledge_thankyou', token: newToken })
+    void sendPledgeEmail({ kind: 'pledge_landed', token: newToken })
     navigate(`/pledge/status/${newToken}`, { replace: true })
   }
 
@@ -199,10 +208,17 @@ export default function PledgeFlow() {
     (invited ? !!relationship : childName.trim().length > 0) && amountPennies > 0 && !!frequency
   const canSend = pledgerName.trim().length > 0 && isValidEmail(pledgerEmail)
 
+  // Account-aware: if the child's JISA is already linked, the giver can start straight away —
+  // we show the exact pay-in details on the very next screen. Otherwise it's the "we'll tell
+  // you when it opens" holding message.
   const reassurance =
-    frequency === 'one_off'
-      ? "Nothing to set up yet — when the account opens we'll send you the exact pay-in details for your one-off payment. Amplifi never holds or moves your money."
-      : "Nothing to set up yet — when the account opens we'll send you the exact pay-in details for your standing order. Amplifi never holds or moves your money."
+    invited && invitedAccountOpen
+      ? frequency === 'one_off'
+        ? `Good news — ${child}'s account is already open. As soon as you add your pledge we'll show you exactly where to send your one-off payment, so you can start right away. Amplifi never holds or moves your money.`
+        : `Good news — ${child}'s account is already open. As soon as you add your pledge we'll show you the exact standing-order details, so you can start right away. Amplifi never holds or moves your money.`
+      : frequency === 'one_off'
+        ? "Nothing to set up yet — when the account opens we'll send you the exact pay-in details for your one-off payment. Amplifi never holds or moves your money."
+        : "Nothing to set up yet — when the account opens we'll send you the exact pay-in details for your standing order. Amplifi never holds or moves your money."
 
   return (
     <Screen className="pt-6">

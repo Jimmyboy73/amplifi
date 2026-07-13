@@ -2,8 +2,8 @@
 // running totals, and copy a share link to send round. Family gift via the no-login page
 // (Phase 3). Wired to lib/occasions RPCs; no direct table access.
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useChildren } from '../../lib/useChildren'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useActiveChild } from '../../lib/useActiveChild'
 import {
   loadChildOccasions,
   loadOccasionGifts,
@@ -29,14 +29,26 @@ const TYPES: { value: OccasionType; label: string }[] = [
 ]
 
 export default function OccasionsView() {
-  const { children, loading: childrenLoading } = useChildren()
-  const child = children[0] ?? null
+  const { child, loading: childrenLoading } = useActiveChild()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [occasions, setOccasions] = useState<Occasion[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [createType, setCreateType] = useState<OccasionType>('birthday')
   const [copied, setCopied] = useState<string | null>(null)
   const [giftsById, setGiftsById] = useState<Record<string, OccasionGift[]>>({})
   const [openId, setOpenId] = useState<string | null>(null)
+
+  // Arriving from a home Occasions button pre-opens the create modal on that type.
+  useEffect(() => {
+    const create = (location.state as { create?: OccasionType } | null)?.create
+    if (create) {
+      setCreateType(create)
+      setShowCreate(true)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location, navigate])
 
   const refetch = useCallback(async () => {
     if (!child) return
@@ -244,6 +256,7 @@ export default function OccasionsView() {
         <CreateOccasionModal
           childId={child.id}
           childName={child.name}
+          initialType={createType}
           onClose={() => setShowCreate(false)}
           onCreated={() => void refetch()}
         />
@@ -257,16 +270,18 @@ export default function OccasionsView() {
 function CreateOccasionModal({
   childId,
   childName,
+  initialType = 'birthday',
   onClose,
   onCreated,
 }: {
   childId: string
   childName: string
+  initialType?: OccasionType
   onClose: () => void
   onCreated: () => void
 }) {
   const [title, setTitle] = useState('')
-  const [type, setType] = useState<OccasionType>('birthday')
+  const [type, setType] = useState<OccasionType>(initialType)
   const [date, setDate] = useState('')
   const [target, setTarget] = useState('')
   const [busy, setBusy] = useState(false)
@@ -372,6 +387,13 @@ function CreateOccasionModal({
           style={{ background: CORE }}
         >
           {busy ? 'Creating…' : 'Create moment'}
+        </button>
+        <button
+          onClick={onClose}
+          disabled={busy}
+          className="mt-2 w-full py-2 text-sm font-semibold text-slate-500 transition hover:text-midnight"
+        >
+          Cancel
         </button>
       </div>
     </div>
