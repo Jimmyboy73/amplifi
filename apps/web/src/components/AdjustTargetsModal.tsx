@@ -65,16 +65,27 @@ export function AdjustTargetsModal({
   const [occasions, setOccasions] = useState(initial.occasionsYearly)
   const [boosters, setBoosters] = useState(initial.boostersYearly)
   const [saving, setSaving] = useState(false)
+  const [projAge, setProjAge] = useState(25) // the milestone age the headline figure projects to
 
   const goal = initial.householdGoal
-  const projected = projectedFuture({
-    monthlyTotal: core + family,
+  const monthlyTotal = core + family
+  // Headline figure at the chosen milestone age; the mission bar always tracks the £100k-by-25 goal.
+  const projectedAtAge = projectedFuture({
+    monthlyTotal,
     occasionsYear: occasions,
     boostersYear: boosters,
     ageMonths,
+    ageYears: projAge,
   })
-  const onTrack = projected != null && projected >= goal
-  const pct = projected != null ? Math.min(100, Math.round((projected / goal) * 100)) : 0
+  const projected25 = projectedFuture({
+    monthlyTotal,
+    occasionsYear: occasions,
+    boostersYear: boosters,
+    ageMonths,
+    ageYears: 25,
+  })
+  const onTrack = projected25 != null && projected25 >= goal
+  const pct = projected25 != null ? Math.min(100, Math.round((projected25 / goal) * 100)) : 0
 
   const reset = () => {
     const d = scaledTargets(ageMonths)
@@ -120,15 +131,32 @@ export function AdjustTargetsModal({
           are the amounts you&apos;re aiming for.
         </p>
 
-        {/* Live projection */}
+        {/* Live projection — headline figure at a chosen milestone age; bar tracks the mission */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
           <div className="flex items-baseline justify-between">
-            <span className="text-sm font-semibold text-midnight">Projected at 25</span>
+            <span className="text-sm font-semibold text-midnight">Projected at {projAge}</span>
             <span className="text-xl font-extrabold text-midnight">
-              {projected != null ? formatGBP(projected) : '—'}
+              {projectedAtAge != null ? formatGBP(projectedAtAge) : '—'}
             </span>
           </div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+
+          {/* Milestone age selector — see how it keeps growing if contributions continue */}
+          <div className="mt-2.5 flex gap-1.5">
+            {[18, 25, 45, 65].map((a) => (
+              <button
+                key={a}
+                onClick={() => setProjAge(a)}
+                className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition ${
+                  projAge === a ? 'text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+                style={projAge === a ? { background: CORE } : undefined}
+              >
+                Age {a}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{ width: `${pct}%`, background: onTrack ? '#1D9E75' : CORE }}
@@ -136,8 +164,8 @@ export function AdjustTargetsModal({
           </div>
           <p className="mt-1.5 text-xs font-semibold" style={{ color: onTrack ? '#0F6E56' : '#64748b' }}>
             {onTrack
-              ? `On track for the ${formatGBP(goal)} mission ✓`
-              : `${formatGBP(projected ?? 0)} of ${formatGBP(goal)} — keep nudging up`}
+              ? `On track for the ${formatGBP(goal)} mission by 25 ✓`
+              : `${formatGBP(projected25 ?? 0)} of ${formatGBP(goal)} by 25 — keep nudging up`}
           </p>
           <p className="mt-2 text-[11px] leading-snug text-slate-400">
             Illustrative — not a guarantee. Assumes 7% p.a.; capital at risk.

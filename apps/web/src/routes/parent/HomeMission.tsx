@@ -342,7 +342,10 @@ export default function HomeMission() {
             {/* centre */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
               <button
-                onClick={toggleProjection}
+                onClick={() => {
+                  // Tapping only does something pre-DOB (to open the date-of-birth capture).
+                  if (view.projectedFutureValue == null) toggleProjection()
+                }}
                 className="pointer-events-auto flex max-w-[150px] flex-col items-center px-2 py-1"
               >
                 <div
@@ -368,9 +371,8 @@ export default function HomeMission() {
                     <p className="text-2xl font-extrabold leading-none text-midnight">
                       {formatGBP(view.projectedFutureValue)}
                     </p>
-                    <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium leading-tight text-slate-400">
-                      <span>at age 25</span>
-                      <span className="transition-transform duration-300" style={{ transform: showProjection ? 'rotate(180deg)' : 'none' }}>⌄</span>
+                    <p className="mt-1 text-[10px] font-medium leading-tight text-slate-400">
+                      at age 25
                     </p>
                   </>
                 )}
@@ -386,8 +388,8 @@ export default function HomeMission() {
           </p>
         )}
 
-        {/* Tap-the-centre → the existing projection widget (handles DOB capture + breakdown) */}
-        {showProjection && (
+        {/* Pre-DOB only: tap the centre to capture the date of birth (no calculator). */}
+        {showProjection && view.projectedFutureValue == null && (
           <div className="mt-4">
             <ProjectionWidget
               childName={child.name}
