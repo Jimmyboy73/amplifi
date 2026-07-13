@@ -605,7 +605,7 @@ export default function HomeMission() {
               writing a cheque. These are on the way; no target is set until they launch.
             </p>
             <div className="space-y-2">
-              {['Cashback on everyday spending', 'Employer contributions', 'Gift-card boosts', 'Payroll giving'].map((b) => (
+              {['Cashback on everyday spending', 'Gift-card boosts', 'Loyalty rewards', 'Employer contributions'].map((b) => (
                 <div key={b} className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3.5">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-400">✦</span>
                   <span className="flex-1 text-sm font-semibold text-midnight">{b}</span>
