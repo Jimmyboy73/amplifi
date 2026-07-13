@@ -445,8 +445,8 @@ export default function HomeMission() {
               <button
                 key={ring.key}
                 onClick={() => selectRing(ring.key)}
-                className={`flex items-center gap-3 rounded-2xl bg-white px-3.5 py-2.5 text-left shadow-sm ring-1 transition ${isSel ? 'ring-black/10' : 'ring-black/5 hover:ring-black/10'}`}
-                style={{ borderLeft: `3px solid ${ring.color}` }}
+                className="flex items-center gap-3 rounded-2xl bg-white px-3.5 py-3 text-left shadow-sm transition hover:brightness-[1.01]"
+                style={{ border: `1.5px solid ${ring.color}${isSel ? '' : '55'}`, borderLeft: `5px solid ${ring.color}` }}
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-bold leading-tight text-midnight">{ring.label}</span>
@@ -466,8 +466,8 @@ export default function HomeMission() {
           {/* Everyday Boosters — a fourth row in the same family, but coming soon (no target yet) */}
           <button
             onClick={() => selectRing('boosters')}
-            className={`flex w-full items-center gap-3 rounded-2xl bg-white px-3.5 py-2.5 text-left shadow-sm ring-1 transition ${selected === 'boosters' ? 'ring-black/10' : 'ring-black/5 hover:ring-black/10'}`}
-            style={{ borderLeft: '3px solid #94a3b8' }}
+            className="flex w-full items-center gap-3 rounded-2xl bg-white px-3.5 py-3 text-left shadow-sm transition hover:brightness-[1.01]"
+            style={{ border: `1.5px solid #94a3b8${selected === 'boosters' ? '' : '55'}`, borderLeft: '5px solid #94a3b8' }}
           >
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold leading-tight text-midnight">Everyday Boosters</span>
@@ -481,7 +481,7 @@ export default function HomeMission() {
 
         {/* Expanded ring detail */}
         {selected === 'core' && (
-          <RingPanelShell color={CORE} title="Core Support">
+          <RingPanelShell color={CORE} title="Core Support" onClose={() => setSelected(null)}>
             <p className="mb-3 text-sm text-slate-500">
               Your household — your own giving, plus {child.name}&apos;s Child Benefit put to work.
             </p>
@@ -530,7 +530,7 @@ export default function HomeMission() {
         )}
 
         {selected === 'family' && (
-          <RingPanelShell color={FAMILY} title="Family Support">
+          <RingPanelShell color={FAMILY} title="Family Support" onClose={() => setSelected(null)}>
             <p className="mb-3 text-sm text-slate-500">
               The wider circle — grandparents, aunties, uncles and godparents who chip in.
             </p>
@@ -564,7 +564,7 @@ export default function HomeMission() {
         )}
 
         {selected === 'occasions' && (
-          <RingPanelShell color={OCC} title="Occasions">
+          <RingPanelShell color={OCC} title="Occasions" onClose={() => setSelected(null)}>
             <p className="mb-3 text-sm text-slate-500">
               Birthdays, Christmas and milestones — pocket money, exam results, a christening. The
               whole circle can chip in with no account, and it&apos;s the easiest money toward{' '}
@@ -599,7 +599,7 @@ export default function HomeMission() {
         )}
 
         {selected === 'boosters' && (
-          <RingPanelShell color="#94a3b8" title="Everyday Boosters">
+          <RingPanelShell color="#94a3b8" title="Everyday Boosters" onClose={() => setSelected(null)}>
             <p className="mb-4 text-sm text-slate-500">
               Passive ways {child.name}&apos;s future can grow — money that builds without anyone
               writing a cheque. These are on the way; no target is set until they launch.
@@ -618,7 +618,7 @@ export default function HomeMission() {
         )}
 
         {/* Contextual next-step nudge — sits below the rings so the mission stays front-and-centre */}
-        {nudge && !selected && !showProjection && (
+        {nudge && !showProjection && (
           <button
             onClick={nudge.onClick}
             className="mt-5 flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition hover:brightness-[1.03]"
@@ -631,7 +631,7 @@ export default function HomeMission() {
         )}
 
         {/* Pending pledges waiting on the ISA — explains why the Family ring can read £0 */}
-        {pendingMonthly > 0 && !selected && !showProjection && (
+        {pendingMonthly > 0 && !showProjection && (
           <button
             onClick={() => navigate('/link-isa')}
             className="mt-3 flex w-full items-center gap-2.5 rounded-xl bg-amber-50 px-3.5 py-3 text-left ring-1 ring-amber-200 transition hover:brightness-[1.02]"
@@ -790,14 +790,42 @@ function ChildSwitcher({
   )
 }
 
-function RingPanelShell({ color, title, children }: { color: string; title: string; children: ReactNode }) {
+function RingPanelShell({
+  color,
+  title,
+  onClose,
+  children,
+}: {
+  color: string
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
   return (
-    <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5" style={{ borderTop: `3px solid ${color}` }}>
-      <div className="mb-1 flex items-center gap-2">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-        <p className="text-base font-bold text-midnight">{title}</p>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 shadow-xl sm:rounded-3xl"
+        style={{ borderTop: `4px solid ${color}` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+            <p className="text-base font-bold text-midnight">{title}</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-slate-400 transition hover:text-midnight"
+          >
+            ✕
+          </button>
+        </div>
+        {children}
       </div>
-      {children}
     </div>
   )
 }
