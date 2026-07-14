@@ -14,3 +14,11 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>
 )
+
+// PWA: register the minimal service worker so the app is installable (Add to Home Screen /
+// Android "Install app"). Best-effort — a failed registration never affects the app.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
