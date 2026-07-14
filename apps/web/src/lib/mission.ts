@@ -44,12 +44,6 @@ export const DEFAULT_TARGETS: Targets = {
   householdGoal: 100000, // the £100k-by-25 mission (illustrative, not a guarantee)
 }
 
-// Annuity-due future value of a YEARLY contribution at 7% over whole years.
-function fvAnnual(pmtYear: number, years: number): number {
-  if (years <= 0) return 0
-  return pmtYear * ((Math.pow(1 + ANNUAL_RATE, years) - 1) / ANNUAL_RATE) * (1 + ANNUAL_RATE)
-}
-
 /**
  * Normalise a contribution to a recurring MONTHLY figure (£). One-off gifts are not a
  * recurring rate → 0 (they still feed the pot; the ring fill tracks recurring giving).
@@ -152,8 +146,11 @@ export function projectedFuture(params: {
   const { monthlyTotal, occasionsYear = 0, boostersYear = 0, ageMonths, ageYears = PROJECTION_AGE_YEARS } = params
   if (ageMonths == null) return null
   const months = monthsToAge(ageMonths, ageYears)
-  const years = Math.max(0, ageYears - ageMonths / 12)
-  return fv(monthlyTotal, months) + fvAnnual(occasionsYear, years) + fvAnnual(boostersYear, years)
+  // Website-canonical engine: EVERYTHING runs through the same 7%-monthly annuity. Yearly
+  // buckets (Occasions, Boosters) are spread as monthly-equivalent (÷12) so they compound
+  // identically to Core/Family. From birth (n=300) the factor is ≈ £810.1 per £1/month, so
+  // Core £50 + Family £50 + Occasions £250/yr + Boosters £120/yr ≈ £106k — matching the site.
+  return fv(monthlyTotal, months) + fv(occasionsYear / 12, months) + fv(boostersYear / 12, months)
 }
 
 export function ringPct(current: number, target: number): number {
