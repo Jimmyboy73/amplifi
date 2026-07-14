@@ -32,7 +32,7 @@ export function ContributionPanel({
   const { contribution, loading, log, update, stop } = useContribution(connectionId, userId)
   const [editing, setEditing] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
-  const [amount, setAmount] = useState<number | null>(null)
+  const [amount, setAmount] = useState<number | null>(50) // nudge toward the ~£50/mo parent model
   const [freq, setFreq] = useState<Frequency | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')

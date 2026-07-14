@@ -370,7 +370,6 @@ export default function HomeMission() {
                   <>
                     <p className="text-2xl font-extrabold leading-none text-midnight">
                       {formatGBP(view.projectedFutureValue)}
-                      <span className="align-super text-xs font-bold text-slate-400">*</span>
                     </p>
                     <p className="mt-1 text-[10px] font-medium leading-tight text-slate-400">
                       at age 25
@@ -381,6 +380,14 @@ export default function HomeMission() {
             </div>
           </div>
         </div>
+
+        {/* Risk wording sits adjacent to the projected figure (not only in a footer) — the
+            whole-family total is illustrative, never a promise, and never one person's amount. */}
+        {view.projectedFutureValue != null && (
+          <p className="mx-auto mt-3 max-w-xs text-center text-[11px] leading-snug text-slate-400">
+            Whole-family total, illustrative — not a guarantee. Capital at risk. Assumes 7% p.a.
+          </p>
+        )}
 
         {/* Pre-DOB only: tap the centre to capture the date of birth (no calculator). */}
         {showProjection && view.projectedFutureValue == null && (
@@ -699,12 +706,6 @@ export default function HomeMission() {
           )}
         </div>
 
-        {/* Disclaimer footer — the "*" from the projected figure lives here, out of the way. */}
-        {view.projectedFutureValue != null && (
-          <p className="mt-6 px-1 text-center text-[11px] leading-snug text-slate-400">
-            *Illustrative — could grow to around this, not a guarantee. Assumes 7% p.a.; capital at risk.
-          </p>
-        )}
       </div>
 
       {showFeedback && user && (

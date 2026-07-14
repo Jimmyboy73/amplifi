@@ -63,10 +63,15 @@ this is in scope. Do not wire it up, and do not remove it either — just leave 
 - Known snag 2: signup auto-connects a contributor to the referrer's **first** child only. Watch this
   in testing when a referrer has more than one child.
 
-## Projection formula (annuity due)
+## Projection formula & rate
 
-`FV = PMT * ((1 + r)^n - 1) / r * (1 + r)`, r = 0.08/12 for app projections.
-Reference: £50/mo at 8% -> £47,868 at 25 years, £1,338,000 at 65 years. Use these exact figures.
+**Rate is 7% p.a. everywhere** (canonical model — see the Fable alignment brief). `lib/projections.ts`
+`fv` uses an ORDINARY monthly annuity at r = 0.07/12; `lib/mission.ts` `fvAnnual` uses an annuity-DUE
+for yearly buckets (Occasions/Boosters) at 7%. Do not reintroduce 8%.
+Reference (ordinary monthly at 7%): £50/mo -> ~£40,504 at 25 years, ~£791,911 at 65 years.
+Canonical default targets (`DEFAULT_TARGETS`): Core £50/mo + Family £50/mo + Occasions £250/yr ≈ £97.9k
+(the three reliable rings), + Everyday Boosters £120/yr (coming-soon gap-closer) ≈ £106k all four.
+The £100k is always the WHOLE-FAMILY total, never one person's contribution.
 
 ## Stack & commands
 

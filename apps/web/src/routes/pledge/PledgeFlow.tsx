@@ -55,7 +55,7 @@ export default function PledgeFlow() {
   const [relationship, setRelationship] = useState<Relationship | ''>(
     invited ? '' : asRelationship(searchParams.get('rel'))
   )
-  const [preset, setPreset] = useState<number | null>(null)
+  const [preset, setPreset] = useState<number | null>(25) // nudge toward the ~£25/mo family model
   const [otherMode, setOtherMode] = useState(false)
   const [customAmount, setCustomAmount] = useState('')
   const [frequency, setFrequency] = useState<Frequency | null>(null)

@@ -31,14 +31,16 @@ export type Targets = {
   householdGoal: number
 }
 
-// Default targets — Python-verified to reach ~£100k from birth at 7% p.a.
-// (Core £50 + Family £30 monthly, Occasions £400/yr ≈ £102k; the reliable buckets
-// alone reach ~£92k, with Boosters as upside.) The parent can adjust these.
+// Default targets — the canonical £100k-by-25 model at 7% p.a. (Python-verified from birth):
+//   Core £50/mo (~£40.5k) + Family £50/mo, i.e. £25+£25 both sides (~£40.5k)
+//   + Occasions £250/yr (~£16.9k)  =>  the three reliable rings ≈ £97.9k (just under £100k)
+//   + Everyday Boosters £120/yr (~£8.1k, the coming-soon gap-closer)  =>  all four ≈ £106k.
+// The parent can adjust these. Whole-family total only — never one person's contribution.
 export const DEFAULT_TARGETS: Targets = {
   coreMonthly: 50,
-  familyMonthly: 30,
-  occasionsYearly: 400,
-  boostersYearly: 150, // parked UPSIDE — not a ring, tracked as a top-up
+  familyMonthly: 50,
+  occasionsYearly: 250,
+  boostersYearly: 120, // Everyday Boosters — the coming-soon gap-closer ring
   householdGoal: 100000, // the £100k-by-25 mission (illustrative, not a guarantee)
 }
 
